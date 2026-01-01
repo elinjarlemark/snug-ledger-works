@@ -3,7 +3,20 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { PublicLayout } from "@/components/layout/PublicLayout";
+import { EconomyLayout } from "@/components/layout/EconomyLayout";
 import Index from "./pages/Index";
+import PricingPage from "./pages/PricingPage";
+import SupportPage from "./pages/SupportPage";
+import AboutPage from "./pages/AboutPage";
+import LoginPage from "./pages/LoginPage";
+import EconomyIndex from "./pages/economy/EconomyIndex";
+import AccountingPage from "./pages/economy/AccountingPage";
+import BillingPage from "./pages/economy/BillingPage";
+import SalaryPage from "./pages/economy/SalaryPage";
+import DeclarationPage from "./pages/economy/DeclarationPage";
+import AnnualReportsPage from "./pages/economy/AnnualReportsPage";
+import AccountsPage from "./pages/economy/AccountsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -15,8 +28,29 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          {/* Public pages with header/footer */}
+          <Route element={<PublicLayout />}>
+            <Route path="/" element={<Index />} />
+            <Route path="/pricing" element={<PricingPage />} />
+            <Route path="/support" element={<SupportPage />} />
+            <Route path="/about" element={<AboutPage />} />
+          </Route>
+
+          {/* Economy section with sidebar */}
+          <Route path="/economy" element={<EconomyLayout />}>
+            <Route index element={<EconomyIndex />} />
+            <Route path="accounting" element={<AccountingPage />} />
+            <Route path="billing" element={<BillingPage />} />
+            <Route path="salary" element={<SalaryPage />} />
+            <Route path="declaration" element={<DeclarationPage />} />
+            <Route path="annual-reports" element={<AnnualReportsPage />} />
+            <Route path="accounts" element={<AccountsPage />} />
+          </Route>
+
+          {/* Auth pages (standalone) */}
+          <Route path="/login" element={<LoginPage />} />
+
+          {/* Catch-all */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
