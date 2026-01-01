@@ -41,27 +41,39 @@ export default function AccountingPage() {
   const { vouchers } = useAccounting();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
+  const [editingVoucher, setEditingVoucher] = useState<Voucher | null>(null);
 
   const handleVoucherClick = (voucher: Voucher) => {
     setSelectedVoucher(voucher);
     setShowCreateForm(false);
+    setEditingVoucher(null);
   };
 
   const handleCreateClick = () => {
     setShowCreateForm(true);
     setSelectedVoucher(null);
+    setEditingVoucher(null);
   };
 
   const handleFormCancel = () => {
     setShowCreateForm(false);
+    setEditingVoucher(null);
   };
 
   const handleFormSuccess = () => {
     setShowCreateForm(false);
+    setEditingVoucher(null);
   };
 
   const handleDetailsClose = () => {
     setSelectedVoucher(null);
+  };
+
+  const handleEditVoucher = () => {
+    if (selectedVoucher) {
+      setEditingVoucher(selectedVoucher);
+      setSelectedVoucher(null);
+    }
   };
 
   return (
@@ -81,7 +93,7 @@ export default function AccountingPage() {
             </div>
           </div>
           
-          {user && !showCreateForm && !selectedVoucher && (
+          {user && !showCreateForm && !selectedVoucher && !editingVoucher && (
             <Button onClick={handleCreateClick}>
               <Plus className="h-4 w-4 mr-2" />
               Create Voucher
@@ -90,17 +102,25 @@ export default function AccountingPage() {
         </div>
       </div>
 
-      {/* Authenticated: Show voucher form or details */}
-      {user && showCreateForm && (
-        <VoucherForm onCancel={handleFormCancel} onSuccess={handleFormSuccess} />
+      {/* Authenticated: Show voucher form (create or edit) */}
+      {user && (showCreateForm || editingVoucher) && (
+        <VoucherForm 
+          onCancel={handleFormCancel} 
+          onSuccess={handleFormSuccess}
+          editVoucher={editingVoucher || undefined}
+        />
       )}
 
       {user && selectedVoucher && (
-        <VoucherDetails voucher={selectedVoucher} onClose={handleDetailsClose} />
+        <VoucherDetails 
+          voucher={selectedVoucher} 
+          onClose={handleDetailsClose}
+          onEdit={handleEditVoucher}
+        />
       )}
 
       {/* Authenticated: Show vouchers list */}
-      {user && vouchers.length > 0 && !showCreateForm && !selectedVoucher && (
+      {user && vouchers.length > 0 && !showCreateForm && !selectedVoucher && !editingVoucher && (
         <section>
           <h2 className="text-2xl font-semibold text-foreground mb-4">
             Recent Vouchers
@@ -154,7 +174,7 @@ export default function AccountingPage() {
       )}
 
       {/* Introduction */}
-      {!showCreateForm && !selectedVoucher && (
+      {!showCreateForm && !selectedVoucher && !editingVoucher && (
         <>
           <section className="info-section">
             <h2 className="text-xl font-semibold text-foreground mb-4">

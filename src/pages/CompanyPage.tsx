@@ -20,6 +20,8 @@ import { Footer } from "@/components/layout/Footer";
 export default function CompanyPage() {
   const { user, companies, activeCompany, addCompany, updateCompany, deleteCompany, setActiveCompany } = useAuth();
   const navigate = useNavigate();
+  const [isNewCompany, setIsNewCompany] = useState(false);
+  const [originalCompanyId, setOriginalCompanyId] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     companyName: "",
@@ -62,7 +64,9 @@ export default function CompanyPage() {
       ...formData,
       id: activeCompany.id,
     });
-    toast.success("Company updated successfully!");
+    setIsNewCompany(false);
+    setOriginalCompanyId(null);
+    toast.success("Company saved successfully!");
   };
 
   const handleChange = (field: string, value: string) => {
@@ -70,8 +74,9 @@ export default function CompanyPage() {
   };
 
   const handleAddCompany = () => {
+    setOriginalCompanyId(activeCompany?.id || null);
     const newCompany = addCompany({
-      companyName: "New Company",
+      companyName: "",
       organizationNumber: "",
       address: "",
       postalCode: "",
@@ -82,7 +87,19 @@ export default function CompanyPage() {
       fiscalYearEnd: "12-31",
     });
     setActiveCompany(newCompany.id);
-    toast.success("New company created!");
+    setIsNewCompany(true);
+    toast.info("Fill in company details and save");
+  };
+
+  const handleCancelNewCompany = () => {
+    if (isNewCompany && activeCompany) {
+      deleteCompany(activeCompany.id);
+      if (originalCompanyId) {
+        setActiveCompany(originalCompanyId);
+      }
+      setIsNewCompany(false);
+      setOriginalCompanyId(null);
+    }
   };
 
   const handleDeleteCompany = () => {
@@ -279,10 +296,17 @@ export default function CompanyPage() {
                     </div>
                   </div>
 
-                  <Button type="submit" className="w-full">
-                    <Save className="mr-2 h-4 w-4" />
-                    Save Changes
-                  </Button>
+                  <div className="flex gap-3">
+                    {isNewCompany && (
+                      <Button type="button" variant="outline" onClick={handleCancelNewCompany}>
+                        Cancel
+                      </Button>
+                    )}
+                    <Button type="submit" className="flex-1">
+                      <Save className="mr-2 h-4 w-4" />
+                      Save Changes
+                    </Button>
+                  </div>
                 </form>
               </CardContent>
             </Card>

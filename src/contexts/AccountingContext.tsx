@@ -9,12 +9,20 @@ export interface VoucherLine {
   credit: number;
 }
 
+export interface VoucherAttachment {
+  id: string;
+  name: string;
+  type: string;
+  dataUrl: string;
+}
+
 export interface Voucher {
   id: string;
   voucherNumber: number;
   date: string;
   description: string;
   lines: VoucherLine[];
+  attachments?: VoucherAttachment[];
   createdAt: string;
 }
 
@@ -49,7 +57,10 @@ interface AccountingContextType {
   addAccount: (account: BASAccount) => void;
   removeAccount: (accountNumber: string) => void;
   createVoucher: (voucher: Omit<Voucher, "id" | "voucherNumber" | "createdAt">) => Voucher | null;
+  updateVoucher: (voucherId: string, updates: Partial<Pick<Voucher, "date" | "description" | "lines" | "attachments">>) => Voucher | null;
   deleteVoucher: (voucherId: string) => void;
+  getVoucherById: (voucherId: string) => Voucher | undefined;
+  getVoucherByNumber: (voucherNumber: number) => Voucher | undefined;
   getAccountStatement: (accountNumber: string, startDate?: string, endDate?: string) => AccountStatement | null;
   getGeneralLedger: (startDate?: string, endDate?: string) => GeneralLedgerEntry[];
   getIncomeStatement: (startDate?: string, endDate?: string) => { revenues: GeneralLedgerEntry[]; expenses: GeneralLedgerEntry[]; netResult: number };
@@ -148,6 +159,33 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
   const deleteVoucher = (voucherId: string) => {
     const newVouchers = vouchers.filter(v => v.id !== voucherId);
     saveVouchers(newVouchers, nextVoucherNumber);
+  };
+
+  const updateVoucher = (voucherId: string, updates: Partial<Pick<Voucher, "date" | "description" | "lines" | "attachments">>) => {
+    const existingVoucher = vouchers.find(v => v.id === voucherId);
+    if (!existingVoucher) return null;
+
+    if (updates.lines) {
+      const validation = validateVoucher(updates.lines);
+      if (!validation.isValid) return null;
+    }
+
+    const updatedVoucher: Voucher = {
+      ...existingVoucher,
+      ...updates,
+    };
+
+    const newVouchers = vouchers.map(v => v.id === voucherId ? updatedVoucher : v);
+    saveVouchers(newVouchers, nextVoucherNumber);
+    return updatedVoucher;
+  };
+
+  const getVoucherById = (voucherId: string) => {
+    return vouchers.find(v => v.id === voucherId);
+  };
+
+  const getVoucherByNumber = (voucherNumber: number) => {
+    return vouchers.find(v => v.voucherNumber === voucherNumber);
   };
 
   const getAccountStatement = (accountNumber: string, startDate?: string, endDate?: string): AccountStatement | null => {
@@ -269,7 +307,10 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       addAccount,
       removeAccount,
       createVoucher,
+      updateVoucher,
       deleteVoucher,
+      getVoucherById,
+      getVoucherByNumber,
       getAccountStatement,
       getGeneralLedger,
       getIncomeStatement,
