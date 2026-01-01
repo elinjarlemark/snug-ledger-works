@@ -1,19 +1,40 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, Lock, ArrowRight } from "lucide-react";
+import { Mail, Lock, ArrowRight, User } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const { login, signup } = useAuth();
+  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Authentication will be implemented when backend is connected
-    console.log("Form submitted", { email, password, isSignUp });
+    setIsLoading(true);
+    
+    try {
+      if (isSignUp) {
+        await signup(email, password, name);
+        toast.success("Account created successfully!");
+      } else {
+        await login(email, password);
+        toast.success("Welcome back!");
+      }
+      navigate("/economy");
+    } catch (error) {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -41,6 +62,24 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {isSignUp && (
+              <div className="space-y-2">
+                <Label htmlFor="name">Full name</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="Your name"
+                    className="pl-10"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required={isSignUp}
+                  />
+                </div>
+              </div>
+            )}
+            
             <div className="space-y-2">
               <Label htmlFor="email">Email address</Label>
               <div className="relative">
@@ -75,18 +114,18 @@ export default function LoginPage() {
 
             {!isSignUp && (
               <div className="text-right">
-                <Link
-                  to="/forgot-password"
+                <button
+                  type="button"
                   className="text-sm text-secondary hover:underline"
                 >
                   Forgot password?
-                </Link>
+                </button>
               </div>
             )}
 
-            <Button type="submit" className="w-full" size="lg">
-              {isSignUp ? "Create Account" : "Sign In"}
-              <ArrowRight className="ml-2 h-5 w-5" />
+            <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+              {isLoading ? "Please wait..." : isSignUp ? "Create Account" : "Sign In"}
+              {!isLoading && <ArrowRight className="ml-2 h-5 w-5" />}
             </Button>
           </form>
 
