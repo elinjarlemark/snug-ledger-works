@@ -1,15 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { Voucher, useAccounting } from "@/contexts/AccountingContext";
 import { formatAmount } from "@/lib/bas-accounts";
-import { X, RotateCcw, Trash2 } from "lucide-react";
+import { X, RotateCcw, Trash2, Edit, FileText, Image, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 interface VoucherDetailsProps {
   voucher: Voucher;
   onClose: () => void;
+  onEdit?: () => void;
 }
 
-export function VoucherDetails({ voucher, onClose }: VoucherDetailsProps) {
+export function VoucherDetails({ voucher, onClose, onEdit }: VoucherDetailsProps) {
   const { createVoucher, deleteVoucher } = useAccounting();
 
   const handleRevert = () => {
@@ -42,6 +43,17 @@ export function VoucherDetails({ voucher, onClose }: VoucherDetailsProps) {
     onClose();
   };
 
+  const openAttachment = (dataUrl: string) => {
+    const newWindow = window.open();
+    if (newWindow) {
+      if (dataUrl.startsWith("data:application/pdf")) {
+        newWindow.document.write(`<iframe src="${dataUrl}" style="width:100%;height:100%;border:none;"></iframe>`);
+      } else {
+        newWindow.document.write(`<img src="${dataUrl}" style="max-width:100%;height:auto;" />`);
+      }
+    }
+  };
+
   const totalDebit = voucher.lines.reduce((sum, l) => sum + l.debit, 0);
   const totalCredit = voucher.lines.reduce((sum, l) => sum + l.credit, 0);
 
@@ -72,6 +84,32 @@ export function VoucherDetails({ voucher, onClose }: VoucherDetailsProps) {
           <p className="font-medium">{voucher.description}</p>
         </div>
       </div>
+
+      {/* Attachments */}
+      {voucher.attachments && voucher.attachments.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-muted-foreground">Attachments</p>
+          <div className="flex flex-wrap gap-2">
+            {voucher.attachments.map((attachment) => (
+              <Button
+                key={attachment.id}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => openAttachment(attachment.dataUrl)}
+              >
+                {attachment.type.startsWith("image/") ? (
+                  <Image className="h-4 w-4" />
+                ) : (
+                  <FileText className="h-4 w-4" />
+                )}
+                <span className="max-w-32 truncate">{attachment.name}</span>
+                <ExternalLink className="h-3 w-3" />
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Voucher lines */}
       <div className="border border-border rounded-lg overflow-hidden">
@@ -114,6 +152,12 @@ export function VoucherDetails({ voucher, onClose }: VoucherDetailsProps) {
 
       {/* Actions */}
       <div className="flex justify-end gap-3">
+        {onEdit && (
+          <Button variant="outline" onClick={onEdit}>
+            <Edit className="h-4 w-4 mr-2" />
+            Edit Voucher
+          </Button>
+        )}
         <Button variant="outline" onClick={handleRevert}>
           <RotateCcw className="h-4 w-4 mr-2" />
           Revert Voucher

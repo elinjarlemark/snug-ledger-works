@@ -1,34 +1,35 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useAccounting, VoucherLine } from "@/contexts/AccountingContext";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useAccounting, VoucherLine, VoucherAttachment, Voucher } from "@/contexts/AccountingContext";
 import { formatAmount } from "@/lib/bas-accounts";
-import { Plus, Trash2, Check, AlertCircle, X } from "lucide-react";
+import { Plus, Trash2, Check, AlertCircle, X, Upload, FileText, Image, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 interface VoucherFormProps {
   onCancel: () => void;
   onSuccess: () => void;
+  editVoucher?: Voucher;
 }
 
-export function VoucherForm({ onCancel, onSuccess }: VoucherFormProps) {
-  const { accounts, nextVoucherNumber, createVoucher, validateVoucher } = useAccounting();
+export function VoucherForm({ onCancel, onSuccess, editVoucher }: VoucherFormProps) {
+  const { accounts, nextVoucherNumber, createVoucher, updateVoucher, validateVoucher } = useAccounting();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [description, setDescription] = useState("");
-  const [lines, setLines] = useState<VoucherLine[]>([
-    { id: crypto.randomUUID(), accountNumber: "", accountName: "", debit: 0, credit: 0 },
-    { id: crypto.randomUUID(), accountNumber: "", accountName: "", debit: 0, credit: 0 },
-  ]);
+  const [date, setDate] = useState(editVoucher?.date || new Date().toISOString().split("T")[0]);
+  const [description, setDescription] = useState(editVoucher?.description || "");
+  const [lines, setLines] = useState<VoucherLine[]>(
+    editVoucher?.lines || [
+      { id: crypto.randomUUID(), accountNumber: "", accountName: "", debit: 0, credit: 0 },
+      { id: crypto.randomUUID(), accountNumber: "", accountName: "", debit: 0, credit: 0 },
+    ]
+  );
+  const [attachments, setAttachments] = useState<VoucherAttachment[]>(editVoucher?.attachments || []);
+  const [openComboboxes, setOpenComboboxes] = useState<Record<string, boolean>>({});
 
   const validation = validateVoucher(lines);
 
@@ -65,6 +66,40 @@ export function VoucherForm({ onCancel, onSuccess }: VoucherFormProps) {
     }));
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach(file => {
+      const isValid = file.type.startsWith("image/") || file.type === "application/pdf";
+      if (!isValid) {
+        toast.error(`Invalid file type: ${file.name}. Only images and PDFs are allowed.`);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const newAttachment: VoucherAttachment = {
+          id: crypto.randomUUID(),
+          name: file.name,
+          type: file.type,
+          dataUrl: reader.result as string,
+        };
+        setAttachments(prev => [...prev, newAttachment]);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const removeAttachment = (id: string) => {
+    setAttachments(prev => prev.filter(a => a.id !== id));
+  };
+
   const handleSubmit = () => {
     if (!validation.isValid) {
       toast.error("Voucher must be balanced (debit = credit)");
@@ -82,17 +117,33 @@ export function VoucherForm({ onCancel, onSuccess }: VoucherFormProps) {
       return;
     }
 
-    const voucher = createVoucher({
-      date,
-      description: description.trim(),
-      lines: validLines,
-    });
-
-    if (voucher) {
-      toast.success(`Voucher #${voucher.voucherNumber} created successfully`);
-      onSuccess();
+    if (editVoucher) {
+      const updated = updateVoucher(editVoucher.id, {
+        date,
+        description: description.trim(),
+        lines: validLines,
+        attachments,
+      });
+      if (updated) {
+        toast.success(`Voucher #${updated.voucherNumber} updated successfully`);
+        onSuccess();
+      } else {
+        toast.error("Failed to update voucher");
+      }
     } else {
-      toast.error("Failed to create voucher");
+      const voucher = createVoucher({
+        date,
+        description: description.trim(),
+        lines: validLines,
+        attachments,
+      });
+
+      if (voucher) {
+        toast.success(`Voucher #${voucher.voucherNumber} created successfully`);
+        onSuccess();
+      } else {
+        toast.error("Failed to create voucher");
+      }
     }
   };
 
@@ -100,10 +151,14 @@ export function VoucherForm({ onCancel, onSuccess }: VoucherFormProps) {
     <div className="bg-card rounded-xl border border-border p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-foreground">Create Voucher</h2>
-          <p className="text-sm text-muted-foreground">
-            Verifikation #{nextVoucherNumber}
-          </p>
+          <h2 className="text-xl font-semibold text-foreground">
+            {editVoucher ? `Edit Voucher #${editVoucher.voucherNumber}` : "Create Voucher"}
+          </h2>
+          {!editVoucher && (
+            <p className="text-sm text-muted-foreground">
+              Verifikation #{nextVoucherNumber}
+            </p>
+          )}
         </div>
         <Button variant="ghost" size="icon" onClick={onCancel}>
           <X className="h-5 w-5" />
@@ -132,6 +187,56 @@ export function VoucherForm({ onCancel, onSuccess }: VoucherFormProps) {
         </div>
       </div>
 
+      {/* Attachments */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label>Receipts / Attachments</Label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload className="h-4 w-4 mr-1" />
+            Add Receipt
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,.pdf"
+            multiple
+            className="hidden"
+            onChange={handleFileChange}
+          />
+        </div>
+        {attachments.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {attachments.map((attachment) => (
+              <div
+                key={attachment.id}
+                className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2 text-sm"
+              >
+                {attachment.type.startsWith("image/") ? (
+                  <Image className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span className="max-w-32 truncate">{attachment.name}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5"
+                  onClick={() => removeAttachment(attachment.id)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Voucher lines */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -156,22 +261,58 @@ export function VoucherForm({ onCancel, onSuccess }: VoucherFormProps) {
               {lines.map((line) => (
                 <tr key={line.id} className="border-t border-border">
                   <td className="p-2">
-                    <Select
-                      value={line.accountNumber}
-                      onValueChange={(v) => updateLine(line.id, "accountNumber", v)}
+                    <Popover
+                      open={openComboboxes[line.id] || false}
+                      onOpenChange={(open) => setOpenComboboxes(prev => ({ ...prev, [line.id]: open }))}
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select account" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-64">
-                        {accounts.map((account) => (
-                          <SelectItem key={account.number} value={account.number}>
-                            <span className="font-mono">{account.number}</span>
-                            <span className="ml-2 text-muted-foreground">{account.name}</span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={openComboboxes[line.id] || false}
+                          className="w-full justify-between font-normal"
+                        >
+                          {line.accountNumber ? (
+                            <span>
+                              <span className="font-mono">{line.accountNumber}</span>
+                              <span className="ml-2 text-muted-foreground">{line.accountName}</span>
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">Select account...</span>
+                          )}
+                          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[400px] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Search by number or name..." />
+                          <CommandList>
+                            <CommandEmpty>No account found.</CommandEmpty>
+                            <CommandGroup className="max-h-64 overflow-auto">
+                              {accounts.map((account) => (
+                                <CommandItem
+                                  key={account.number}
+                                  value={`${account.number} ${account.name}`}
+                                  onSelect={() => {
+                                    updateLine(line.id, "accountNumber", account.number);
+                                    setOpenComboboxes(prev => ({ ...prev, [line.id]: false }));
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      line.accountNumber === account.number ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  <span className="font-mono">{account.number}</span>
+                                  <span className="ml-2 text-muted-foreground">{account.name}</span>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </td>
                   <td className="p-2">
                     <Input
@@ -257,7 +398,7 @@ export function VoucherForm({ onCancel, onSuccess }: VoucherFormProps) {
           onClick={handleSubmit} 
           disabled={!validation.isValid}
         >
-          Create Voucher
+          {editVoucher ? "Save Changes" : "Create Voucher"}
         </Button>
       </div>
     </div>
