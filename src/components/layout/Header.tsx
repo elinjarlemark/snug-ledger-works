@@ -1,6 +1,15 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { User, LogOut, Building } from "lucide-react";
 
 const navItems = [
   { name: "Economy", href: "/economy" },
@@ -11,6 +20,13 @@ const navItems = [
 
 export function Header() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full h-header border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
@@ -25,6 +41,17 @@ export function Header() {
         </Link>
 
         <nav className="flex items-center gap-8">
+          {user && (
+            <Link
+              to="/profile"
+              className={cn(
+                "nav-link",
+                location.pathname === "/profile" && "active"
+              )}
+            >
+              Profile
+            </Link>
+          )}
           {navItems.map((item) => (
             <Link
               key={item.href}
@@ -37,9 +64,32 @@ export function Header() {
               {item.name}
             </Link>
           ))}
-          <Button variant="default" size="sm" asChild>
-            <Link to="/login">Sign In</Link>
-          </Button>
+          
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <User className="h-4 w-4" />
+                  {user.name}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => navigate("/profile")}>
+                  <Building className="mr-2 h-4 w-4" />
+                  Company Profile
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button variant="default" size="sm" asChild>
+              <Link to="/login">Sign In</Link>
+            </Button>
+          )}
         </nav>
       </div>
     </header>
