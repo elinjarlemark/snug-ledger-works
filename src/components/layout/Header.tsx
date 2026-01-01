@@ -43,13 +43,13 @@ export function Header() {
         <nav className="flex items-center gap-8">
           {user && (
             <Link
-              to="/profile"
+              to="/company"
               className={cn(
                 "nav-link",
-                location.pathname === "/profile" && "active"
+                location.pathname.startsWith("/company") && "active"
               )}
             >
-              Profile
+              Company
             </Link>
           )}
           {navItems.map((item) => (
@@ -74,9 +74,9 @@ export function Header() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => navigate("/profile")}>
+                <DropdownMenuItem onClick={() => navigate("/company")}>
                   <Building className="mr-2 h-4 w-4" />
-                  Company Profile
+                  Company
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>

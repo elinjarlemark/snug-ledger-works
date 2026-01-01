@@ -7,6 +7,7 @@ export interface User {
 }
 
 export interface CompanyProfile {
+  id: string;
   companyName: string;
   organizationNumber: string;
   address: string;
@@ -20,17 +21,21 @@ export interface CompanyProfile {
 
 interface AuthContextType {
   user: User | null;
-  companyProfile: CompanyProfile | null;
+  companies: CompanyProfile[];
+  activeCompany: CompanyProfile | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, name: string) => Promise<void>;
   logout: () => void;
-  updateCompanyProfile: (profile: CompanyProfile) => void;
+  addCompany: (company: Omit<CompanyProfile, "id">) => CompanyProfile;
+  updateCompany: (company: CompanyProfile) => void;
+  deleteCompany: (companyId: string) => void;
+  setActiveCompany: (companyId: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const DEFAULT_COMPANY_PROFILE: CompanyProfile = {
+const DEFAULT_COMPANY_PROFILE: Omit<CompanyProfile, "id"> = {
   companyName: "",
   organizationNumber: "",
   address: "",
@@ -44,20 +49,39 @@ const DEFAULT_COMPANY_PROFILE: CompanyProfile = {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
+  const [companies, setCompanies] = useState<CompanyProfile[]>([]);
+  const [activeCompanyId, setActiveCompanyId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const activeCompany = companies.find(c => c.id === activeCompanyId) || null;
 
   useEffect(() => {
     // Load from localStorage on mount
     const storedUser = localStorage.getItem("accountpro_user");
-    const storedProfile = localStorage.getItem("accountpro_company_profile");
+    const storedCompanies = localStorage.getItem("accountpro_companies");
+    const storedActiveCompanyId = localStorage.getItem("accountpro_active_company");
     
     if (storedUser) {
       setUser(JSON.parse(storedUser));
-      setCompanyProfile(storedProfile ? JSON.parse(storedProfile) : DEFAULT_COMPANY_PROFILE);
+      
+      if (storedCompanies) {
+        const parsed = JSON.parse(storedCompanies);
+        setCompanies(parsed);
+        // Set active company
+        if (storedActiveCompanyId && parsed.some((c: CompanyProfile) => c.id === storedActiveCompanyId)) {
+          setActiveCompanyId(storedActiveCompanyId);
+        } else if (parsed.length > 0) {
+          setActiveCompanyId(parsed[0].id);
+        }
+      }
     }
     setIsLoading(false);
   }, []);
+
+  const saveCompanies = (newCompanies: CompanyProfile[]) => {
+    setCompanies(newCompanies);
+    localStorage.setItem("accountpro_companies", JSON.stringify(newCompanies));
+  };
 
   const login = async (email: string, _password: string) => {
     // Simulated login - in production, this would validate with backend
@@ -70,13 +94,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(newUser);
     localStorage.setItem("accountpro_user", JSON.stringify(newUser));
     
-    // Load or create company profile
-    const storedProfile = localStorage.getItem("accountpro_company_profile");
-    if (storedProfile) {
-      setCompanyProfile(JSON.parse(storedProfile));
+    // Load or create companies
+    const storedCompanies = localStorage.getItem("accountpro_companies");
+    if (storedCompanies) {
+      const parsed = JSON.parse(storedCompanies);
+      setCompanies(parsed);
+      const storedActiveId = localStorage.getItem("accountpro_active_company");
+      if (storedActiveId && parsed.some((c: CompanyProfile) => c.id === storedActiveId)) {
+        setActiveCompanyId(storedActiveId);
+      } else if (parsed.length > 0) {
+        setActiveCompanyId(parsed[0].id);
+      }
     } else {
-      setCompanyProfile(DEFAULT_COMPANY_PROFILE);
-      localStorage.setItem("accountpro_company_profile", JSON.stringify(DEFAULT_COMPANY_PROFILE));
+      // Create a default company
+      const defaultCompany: CompanyProfile = {
+        ...DEFAULT_COMPANY_PROFILE,
+        id: crypto.randomUUID(),
+      };
+      setCompanies([defaultCompany]);
+      setActiveCompanyId(defaultCompany.id);
+      localStorage.setItem("accountpro_companies", JSON.stringify([defaultCompany]));
+      localStorage.setItem("accountpro_active_company", defaultCompany.id);
     }
   };
 
@@ -89,30 +127,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     setUser(newUser);
     localStorage.setItem("accountpro_user", JSON.stringify(newUser));
-    setCompanyProfile(DEFAULT_COMPANY_PROFILE);
-    localStorage.setItem("accountpro_company_profile", JSON.stringify(DEFAULT_COMPANY_PROFILE));
+    
+    // Create a default company
+    const defaultCompany: CompanyProfile = {
+      ...DEFAULT_COMPANY_PROFILE,
+      id: crypto.randomUUID(),
+    };
+    setCompanies([defaultCompany]);
+    setActiveCompanyId(defaultCompany.id);
+    localStorage.setItem("accountpro_companies", JSON.stringify([defaultCompany]));
+    localStorage.setItem("accountpro_active_company", defaultCompany.id);
   };
 
   const logout = () => {
     setUser(null);
-    setCompanyProfile(null);
+    setCompanies([]);
+    setActiveCompanyId(null);
     localStorage.removeItem("accountpro_user");
   };
 
-  const updateCompanyProfile = (profile: CompanyProfile) => {
-    setCompanyProfile(profile);
-    localStorage.setItem("accountpro_company_profile", JSON.stringify(profile));
+  const addCompany = (companyData: Omit<CompanyProfile, "id">) => {
+    const newCompany: CompanyProfile = {
+      ...companyData,
+      id: crypto.randomUUID(),
+    };
+    const newCompanies = [...companies, newCompany];
+    saveCompanies(newCompanies);
+    return newCompany;
+  };
+
+  const updateCompany = (company: CompanyProfile) => {
+    const newCompanies = companies.map(c => c.id === company.id ? company : c);
+    saveCompanies(newCompanies);
+  };
+
+  const deleteCompany = (companyId: string) => {
+    if (companies.length <= 1) return; // Can't delete last company
+    const newCompanies = companies.filter(c => c.id !== companyId);
+    saveCompanies(newCompanies);
+    
+    // If deleted active company, switch to first remaining
+    if (activeCompanyId === companyId && newCompanies.length > 0) {
+      setActiveCompanyId(newCompanies[0].id);
+      localStorage.setItem("accountpro_active_company", newCompanies[0].id);
+    }
+  };
+
+  const setActiveCompany = (companyId: string) => {
+    if (companies.some(c => c.id === companyId)) {
+      setActiveCompanyId(companyId);
+      localStorage.setItem("accountpro_active_company", companyId);
+    }
   };
 
   return (
     <AuthContext.Provider value={{ 
       user, 
-      companyProfile, 
+      companies,
+      activeCompany,
       isLoading, 
       login, 
       signup, 
       logout, 
-      updateCompanyProfile 
+      addCompany,
+      updateCompany,
+      deleteCompany,
+      setActiveCompany,
     }}>
       {children}
     </AuthContext.Provider>
