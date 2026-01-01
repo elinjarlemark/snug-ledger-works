@@ -12,7 +12,7 @@ import PricingPage from "./pages/PricingPage";
 import SupportPage from "./pages/SupportPage";
 import AboutPage from "./pages/AboutPage";
 import LoginPage from "./pages/LoginPage";
-import ProfilePage from "./pages/ProfilePage";
+import CompanyPage from "./pages/CompanyPage";
 import EconomyIndex from "./pages/economy/EconomyIndex";
 import AccountingPage from "./pages/economy/AccountingPage";
 import BillingPage from "./pages/economy/BillingPage";
@@ -52,8 +52,8 @@ const App = () => (
                 <Route path="accounts" element={<AccountsPage />} />
               </Route>
 
-              {/* Profile page */}
-              <Route path="/profile" element={<ProfilePage />} />
+              {/* Company page */}
+              <Route path="/company" element={<CompanyPage />} />
 
               {/* Auth pages (standalone) */}
               <Route path="/login" element={<LoginPage />} />
