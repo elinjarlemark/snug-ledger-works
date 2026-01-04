@@ -11,9 +11,11 @@ import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccounting, GeneralLedgerEntry } from "@/contexts/AccountingContext";
 import { formatAmount, getAccountClassName, getAccountClass } from "@/lib/bas-accounts";
+import { exportIncomeStatementPDF, exportBalanceSheetPDF } from "@/lib/pdf-export";
+import { toast } from "sonner";
 
 export default function AnnualReportsPage() {
-  const { user } = useAuth();
+  const { user, activeCompany } = useAuth();
   const { getIncomeStatement, getBalanceSheet, getGeneralLedger } = useAccounting();
   
   const [startDate, setStartDate] = useState<Date | undefined>(new Date(new Date().getFullYear(), 0, 1));
@@ -39,6 +41,39 @@ export default function AnnualReportsPage() {
 
   const totalRevenue = incomeStatement.revenues.reduce((sum, e) => sum + e.balance, 0);
   const totalExpenses = incomeStatement.expenses.reduce((sum, e) => sum + e.balance, 0);
+
+  const handleExportIncomeStatement = () => {
+    if (!activeCompany || !startDateStr || !endDateStr) {
+      toast.error("Please select a date range");
+      return;
+    }
+    exportIncomeStatementPDF(
+      incomeStatement,
+      {
+        companyName: activeCompany.companyName,
+        organizationNumber: activeCompany.organizationNumber,
+      },
+      startDateStr,
+      endDateStr
+    );
+    toast.success("Income statement exported as PDF");
+  };
+
+  const handleExportBalanceSheet = () => {
+    if (!activeCompany || !endDateStr) {
+      toast.error("Please select an end date");
+      return;
+    }
+    exportBalanceSheetPDF(
+      balanceSheet,
+      {
+        companyName: activeCompany.companyName,
+        organizationNumber: activeCompany.organizationNumber,
+      },
+      endDateStr
+    );
+    toast.success("Balance sheet exported as PDF");
+  };
 
   if (!user) {
     return (
@@ -172,9 +207,9 @@ export default function AnnualReportsPage() {
                     {startDate && endDate ? `${format(startDate, "yyyy-MM-dd")} to ${format(endDate, "yyyy-MM-dd")}` : "All time"}
                   </CardDescription>
                 </div>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={handleExportIncomeStatement}>
                   <Download className="h-4 w-4 mr-2" />
-                  Export
+                  Export PDF
                 </Button>
               </div>
             </CardHeader>
@@ -301,9 +336,9 @@ export default function AnnualReportsPage() {
                   <CardTitle>Balance Sheet (Balansräkning)</CardTitle>
                   <CardDescription>Assets must equal Equity + Liabilities</CardDescription>
                 </div>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={handleExportBalanceSheet}>
                   <Download className="h-4 w-4 mr-2" />
-                  Export
+                  Export PDF
                 </Button>
               </div>
             </CardHeader>
