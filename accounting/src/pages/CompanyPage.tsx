@@ -21,13 +21,15 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { useAuth, CompanyProfile } from "@/contexts/AuthContext";
+import { useAccounting } from "@/contexts/AccountingContexts";
 import { toast } from "sonner";
-import { Building, Save, ArrowLeft, Plus, Trash2, Check, Upload } from "lucide-react";
+import { Building, Save, ArrowLeft, Plus, Trash2, Check, Upload, Download } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 
 export default function CompanyPage() {
   const { user, companies, activeCompany, addCompany, updateCompany, deleteCompany, setActiveCompany, isFirstTimeUser, markCompanySetupComplete } = useAuth();
+  const { importSIE, exportSIE, vouchers } = useAccounting();
   const navigate = useNavigate();
   const location = useLocation();
   const [isNewCompany, setIsNewCompany] = useState(false);
@@ -166,13 +168,57 @@ export default function CompanyPage() {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = ".se,.si,.sie";
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
-        toast.info(`SIE file "${file.name}" selected. Import functionality coming soon.`);
+        try {
+          const content = await file.text();
+          const result = importSIE(content);
+          
+          if (result.success) {
+            if (result.imported > 0) {
+              toast.success(`Imported ${result.imported} voucher(s) from SIE file`);
+            }
+            if (result.skipped > 0) {
+              toast.info(`Skipped ${result.skipped} duplicate voucher(s)`);
+            }
+            if (result.errors.length > 0) {
+              result.errors.forEach(err => toast.warning(err));
+            }
+          } else {
+            toast.error("Failed to import SIE file");
+            result.errors.forEach(err => toast.error(err));
+          }
+        } catch (error) {
+          toast.error("Failed to read SIE file");
+        }
       }
     };
     input.click();
+  };
+
+  const handleSIEExport = () => {
+    if (!activeCompany) {
+      toast.error("No company selected");
+      return;
+    }
+    
+    if (vouchers.length === 0) {
+      toast.error("No vouchers to export");
+      return;
+    }
+
+    const sieContent = exportSIE();
+    const blob = new Blob([sieContent], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${activeCompany.companyName || "company"}_${new Date().toISOString().split('T')[0]}.se`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success("SIE file exported successfully");
   };
 
   const handleCancelNewCompany = () => {
@@ -407,10 +453,16 @@ export default function CompanyPage() {
                       </div>
                     </div>
 
-                    <Button type="button" variant="outline" onClick={handleSIEUpload} className="w-full">
-                      <Upload className="h-4 w-4 mr-2" />
-                      Add SIE File
-                    </Button>
+                    <div className="flex gap-3">
+                      <Button type="button" variant="outline" onClick={handleSIEUpload} className="flex-1">
+                        <Upload className="h-4 w-4 mr-2" />
+                        Import SIE
+                      </Button>
+                      <Button type="button" variant="outline" onClick={handleSIEExport} className="flex-1">
+                        <Download className="h-4 w-4 mr-2" />
+                        Export SIE
+                      </Button>
+                    </div>
 
                     <div className="flex gap-3">
                       {isNewCompany && (
