@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { BASAccount, DEFAULT_BAS_ACCOUNTS, getAccountClass, calculateBalance } from "@/lib/bas-accounts";
 import { useAuth } from "./AuthContext";
+import { parseSIEFile, generateSIEFile, convertSIEVouchersToInternal, convertSIEAccountsToBAS, SIEParseResult } from "@/lib/sie";
 
 export interface VoucherLine {
   id: string;
@@ -68,6 +69,8 @@ interface AccountingContextType {
   getIncomeStatement: (startDate?: string, endDate?: string) => { revenues: GeneralLedgerEntry[]; expenses: GeneralLedgerEntry[]; netResult: number };
   getBalanceSheet: () => { assets: GeneralLedgerEntry[]; equityLiabilities: GeneralLedgerEntry[]; totalAssets: number; totalEquityLiabilities: number; isBalanced: boolean };
   validateVoucher: (lines: VoucherLine[]) => { isValid: boolean; totalDebit: number; totalCredit: number; difference: number };
+  importSIE: (fileContent: string) => { success: boolean; imported: number; skipped: number; errors: string[] };
+  exportSIE: () => string;
 }
 
 const AccountingContext = createContext<AccountingContextType | undefined>(undefined);
@@ -320,6 +323,65 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     return { assets, equityLiabilities, totalAssets, totalEquityLiabilities, isBalanced };
   };
 
+  const importSIE = (fileContent: string): { success: boolean; imported: number; skipped: number; errors: string[] } => {
+    const parseResult = parseSIEFile(fileContent);
+    
+    if (parseResult.errors.length > 0 && parseResult.vouchers.length === 0) {
+      return {
+        success: false,
+        imported: 0,
+        skipped: 0,
+        errors: parseResult.errors,
+      };
+    }
+
+    // Import accounts that don't exist
+    const newAccounts = convertSIEAccountsToBAS(parseResult.accounts);
+    const accountsToAdd = newAccounts.filter(
+      newAcc => !accounts.find(existing => existing.number === newAcc.number)
+    );
+    
+    if (accountsToAdd.length > 0) {
+      const updatedAccounts = [...accounts, ...accountsToAdd].sort((a, b) => 
+        a.number.localeCompare(b.number)
+      );
+      saveAccounts(updatedAccounts);
+    }
+
+    // Convert and import vouchers
+    const { newVouchers, skippedDuplicates, nextVoucherNumber: newNextNumber } = convertSIEVouchersToInternal(
+      parseResult.vouchers,
+      companyId,
+      vouchers,
+      accountsToAdd.length > 0 ? [...accounts, ...accountsToAdd] : accounts
+    );
+
+    if (newVouchers.length > 0) {
+      const updatedVouchers = [...vouchers, ...newVouchers].sort((a, b) =>
+        new Date(a.date).getTime() - new Date(b.date).getTime() || a.voucherNumber - b.voucherNumber
+      );
+      saveVouchers(updatedVouchers, newNextNumber);
+    }
+
+    return {
+      success: true,
+      imported: newVouchers.length,
+      skipped: skippedDuplicates,
+      errors: parseResult.errors,
+    };
+  };
+
+  const exportSIE = (): string => {
+    if (!activeCompany) return "";
+    
+    return generateSIEFile(vouchers, accounts, {
+      companyName: activeCompany.companyName,
+      organizationNumber: activeCompany.organizationNumber,
+      fiscalYearStart: activeCompany.fiscalYearStart,
+      fiscalYearEnd: activeCompany.fiscalYearEnd,
+    });
+  };
+
   return (
     <AccountingContext.Provider value={{
       accounts,
@@ -337,6 +399,8 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       getIncomeStatement,
       getBalanceSheet,
       validateVoucher,
+      importSIE,
+      exportSIE,
     }}>
       {children}
     </AccountingContext.Provider>
