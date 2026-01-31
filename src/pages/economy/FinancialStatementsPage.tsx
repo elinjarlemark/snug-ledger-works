@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BarChart3, TrendingUp, FileText, Download, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,13 +12,24 @@ import { formatAmount, getAccountClassName, getAccountClass } from "@/lib/bas-ac
 import { exportIncomeStatementPDF, exportBalanceSheetPDF } from "@/lib/pdf-export";
 import { toast } from "sonner";
 import { DateInputPicker } from "@/components/ui/date-input-picker";
+import { YearSelector } from "@/components/ui/year-selector";
 
 export default function AnnualReportsPage() {
   const { user, activeCompany } = useAuth();
   const { getIncomeStatement, getBalanceSheet, getGeneralLedger } = useAccounting();
   
-  const [startDate, setStartDate] = useState<Date | undefined>(new Date(new Date().getFullYear(), 0, 1));
-  const [endDate, setEndDate] = useState<Date | undefined>(new Date(new Date().getFullYear(), 11, 31));
+  // Year selector
+  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  
+  const [startDate, setStartDate] = useState<Date | undefined>(new Date(selectedYear, 0, 1));
+  const [endDate, setEndDate] = useState<Date | undefined>(new Date(selectedYear, 11, 31));
+  
+  // Update dates when year changes
+  useEffect(() => {
+    setStartDate(new Date(selectedYear, 0, 1));
+    setEndDate(new Date(selectedYear, 11, 31));
+  }, [selectedYear]);
 
   const startDateStr = startDate ? format(startDate, "yyyy-MM-dd") : undefined;
   const endDateStr = endDate ? format(endDate, "yyyy-MM-dd") : undefined;
@@ -144,12 +155,11 @@ export default function AnnualReportsPage() {
               onDateChange={setEndDate}
               placeholder="YYYY-MM-DD"
             />
-            <Button variant="outline" size="sm" onClick={() => {
-              setStartDate(new Date(new Date().getFullYear(), 0, 1));
-              setEndDate(new Date(new Date().getFullYear(), 11, 31));
-            }}>
-              Current Year
-            </Button>
+            <YearSelector 
+              value={selectedYear} 
+              onChange={setSelectedYear}
+              className="w-[140px]"
+            />
           </div>
         </CardContent>
       </Card>
