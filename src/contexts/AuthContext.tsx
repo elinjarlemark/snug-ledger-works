@@ -50,7 +50,7 @@ const DEFAULT_COMPANY_PROFILE: Omit<CompanyProfile, "id"> = {
 // Predefined company for test user (test@test.com)
 const TEST_USER_COMPANY: Omit<CompanyProfile, "id"> = {
   companyName: "Test AB",
-  organizationNumber: "0123456789",
+  organizationNumber: "012345-6789",
   address: "Test 1",
   postalCode: "12345",
   city: "Test",

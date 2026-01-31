@@ -92,9 +92,10 @@ export default function AccountingPage() {
   const handleFormSuccess = () => {
     setShowCreateForm(false);
     setEditingVoucher(null);
-    // Scroll to top of page after successful save
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    pageTopRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Force scroll to top of page after successful save
+    setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }, 0);
   };
 
   const handleDetailsClose = () => {
