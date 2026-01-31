@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { BookOpen, FileSpreadsheet, ListChecks, Calculator, Lock, Plus, Eye, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -10,6 +10,7 @@ import { formatAmount } from "@/lib/bas-accounts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { YearSelector } from "@/components/ui/year-selector";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 
@@ -47,10 +48,21 @@ export default function AccountingPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
   const [editingVoucher, setEditingVoucher] = useState<Voucher | null>(null);
+  const pageTopRef = useRef<HTMLDivElement>(null);
   
-  // Voucher period filter
-  const [voucherStartDate, setVoucherStartDate] = useState<Date | undefined>(new Date(new Date().getFullYear(), 0, 1));
-  const [voucherEndDate, setVoucherEndDate] = useState<Date | undefined>(new Date(new Date().getFullYear(), 11, 31));
+  // Year selector
+  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  
+  // Voucher period filter - derived from selected year
+  const [voucherStartDate, setVoucherStartDate] = useState<Date | undefined>(new Date(selectedYear, 0, 1));
+  const [voucherEndDate, setVoucherEndDate] = useState<Date | undefined>(new Date(selectedYear, 11, 31));
+  
+  // Update dates when year changes
+  useEffect(() => {
+    setVoucherStartDate(new Date(selectedYear, 0, 1));
+    setVoucherEndDate(new Date(selectedYear, 11, 31));
+  }, [selectedYear]);
 
   // Filter vouchers by date
   const filteredVouchers = vouchers.filter((voucher) => {
@@ -80,6 +92,9 @@ export default function AccountingPage() {
   const handleFormSuccess = () => {
     setShowCreateForm(false);
     setEditingVoucher(null);
+    // Scroll to top of page after successful save
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    pageTopRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const handleDetailsClose = () => {
@@ -94,7 +109,7 @@ export default function AccountingPage() {
   };
 
   return (
-    <div className="space-y-12 animate-fade-in">
+    <div ref={pageTopRef} className="space-y-12 animate-fade-in">
       {/* Header */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -183,12 +198,11 @@ export default function AccountingPage() {
                     />
                   </PopoverContent>
                 </Popover>
-                <Button variant="outline" size="sm" onClick={() => {
-                  setVoucherStartDate(new Date(new Date().getFullYear(), 0, 1));
-                  setVoucherEndDate(new Date(new Date().getFullYear(), 11, 31));
-                }}>
-                  Current Year
-                </Button>
+                <YearSelector 
+                  value={selectedYear} 
+                  onChange={setSelectedYear}
+                  className="w-[140px]"
+                />
                 <Button variant="ghost" size="sm" onClick={() => {
                   setVoucherStartDate(undefined);
                   setVoucherEndDate(undefined);

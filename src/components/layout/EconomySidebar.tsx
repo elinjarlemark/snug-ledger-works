@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
+  LayoutDashboard,
   BookOpen,
   FileText,
   Users,
@@ -18,6 +19,12 @@ interface EconomySidebarProps {
 }
 
 const sidebarItems = [
+  {
+    name: "Economy Overview",
+    href: "/economy",
+    icon: LayoutDashboard,
+    description: "Dashboard & summary",
+  },
   {
     name: "Accounting",
     href: "/economy/accounting",

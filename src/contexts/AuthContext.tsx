@@ -47,6 +47,21 @@ const DEFAULT_COMPANY_PROFILE: Omit<CompanyProfile, "id"> = {
   fiscalYearEnd: "12-31",
 };
 
+// Predefined company for test user (test@test.com)
+const TEST_USER_COMPANY: Omit<CompanyProfile, "id"> = {
+  companyName: "Test AB",
+  organizationNumber: "0123456789",
+  address: "Test 1",
+  postalCode: "12345",
+  city: "Test",
+  country: "Sweden",
+  vatNumber: "",
+  fiscalYearStart: "01-01",
+  fiscalYearEnd: "12-31",
+};
+
+const TEST_USER_EMAIL = "test@test.com";
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [companies, setCompanies] = useState<CompanyProfile[]>([]);
@@ -114,6 +129,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(newUser);
     localStorage.setItem("accountpro_user", JSON.stringify(newUser));
     
+    // Check if this is the test user
+    const isTestUser = email.toLowerCase() === TEST_USER_EMAIL;
+    
     // Load or create companies
     const storedCompanies = localStorage.getItem("accountpro_companies");
     if (storedCompanies) {
@@ -126,9 +144,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setActiveCompanyId(parsed[0].id);
       }
     } else {
-      // Create a default company
+      // Create a default company - use predefined data for test user
       const defaultCompany: CompanyProfile = {
-        ...DEFAULT_COMPANY_PROFILE,
+        ...(isTestUser ? TEST_USER_COMPANY : DEFAULT_COMPANY_PROFILE),
         id: crypto.randomUUID(),
       };
       setCompanies([defaultCompany]);
