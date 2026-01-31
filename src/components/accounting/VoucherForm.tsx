@@ -322,6 +322,11 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher }: VoucherFormPro
                       className="text-right"
                       value={line.debit || ""}
                       onChange={(e) => updateLine(line.id, "debit", parseFloat(e.target.value) || 0)}
+                      onKeyDown={(e) => {
+                        if (!/[\d.\-+eE]/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key) && !e.ctrlKey && !e.metaKey) {
+                          e.preventDefault();
+                        }
+                      }}
                       placeholder="0.00"
                     />
                   </td>
@@ -333,6 +338,11 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher }: VoucherFormPro
                       className="text-right"
                       value={line.credit || ""}
                       onChange={(e) => updateLine(line.id, "credit", parseFloat(e.target.value) || 0)}
+                      onKeyDown={(e) => {
+                        if (!/[\d.\-+eE]/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key) && !e.ctrlKey && !e.metaKey) {
+                          e.preventDefault();
+                        }
+                      }}
                       placeholder="0.00"
                     />
                   </td>
