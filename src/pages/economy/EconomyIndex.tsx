@@ -111,6 +111,11 @@ export default function EconomyIndex() {
 
   const currentMonthResult = monthlyData[monthlyData.length - 1]?.netResult || 0;
   const hasData = monthlyData.some(d => d.netResult !== 0);
+  
+  // Calculate 12-month rolling total
+  const twelveMonthTotal = useMemo(() => {
+    return monthlyData.reduce((sum, month) => sum + month.netResult, 0);
+  }, [monthlyData]);
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -137,7 +142,7 @@ export default function EconomyIndex() {
               </span>
             </div>
           </div>
-          <p className="text-sm text-muted-foreground">Last 12 months income minus expenses</p>
+          <p className="text-sm text-muted-foreground">This month's income minus expenses</p>
         </CardHeader>
         <CardContent>
           {hasData ? (
@@ -192,6 +197,78 @@ export default function EconomyIndex() {
           ) : (
             <div className="h-[200px] flex items-center justify-center text-muted-foreground">
               <p>No voucher data yet. Create vouchers to see your monthly results.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 12-Month Net Result Chart */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg font-semibold">12-Month Net Result</CardTitle>
+            <div className="flex items-center gap-2">
+              {twelveMonthTotal >= 0 ? (
+                <TrendingUp className="h-5 w-5 text-green-500" />
+              ) : (
+                <TrendingDown className="h-5 w-5 text-destructive" />
+              )}
+              <span className={`text-lg font-bold ${twelveMonthTotal >= 0 ? "text-green-500" : "text-destructive"}`}>
+                {twelveMonthTotal >= 0 ? "+" : ""}{twelveMonthTotal.toLocaleString("sv-SE", { minimumFractionDigits: 2 })} SEK
+              </span>
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground">Rolling 12-month total income minus expenses</p>
+        </CardHeader>
+        <CardContent>
+          {hasData ? (
+            <ChartContainer config={chartConfig} className="h-[200px] w-full">
+              <AreaChart data={monthlyData} margin={{ top: 20, right: 20, left: 20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="fillPositive12" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="hsl(142, 76%, 36%)" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="hsl(142, 76%, 36%)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis 
+                  dataKey="month" 
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                />
+                <YAxis 
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                  tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                />
+                <ReferenceLine y={0} stroke="hsl(var(--border))" strokeDasharray="3 3" />
+                <ChartTooltip 
+                  content={
+                    <ChartTooltipContent 
+                      formatter={(value, name) => (
+                        <div className="flex items-center gap-2">
+                          <span className={Number(value) >= 0 ? "text-green-500" : "text-destructive"}>
+                            {Number(value) >= 0 ? "+" : ""}{Number(value).toLocaleString("sv-SE", { minimumFractionDigits: 2 })} SEK
+                          </span>
+                        </div>
+                      )}
+                      labelFormatter={(label, payload) => payload[0]?.payload?.fullMonth || label}
+                    />
+                  }
+                />
+                <Area
+                  type="monotone"
+                  dataKey="netResult"
+                  stroke="hsl(var(--secondary))"
+                  strokeWidth={2}
+                  fill="url(#fillPositive12)"
+                />
+              </AreaChart>
+            </ChartContainer>
+          ) : (
+            <div className="h-[200px] flex items-center justify-center text-muted-foreground">
+              <p>No voucher data yet. Create vouchers to see your 12-month results.</p>
             </div>
           )}
         </CardContent>
