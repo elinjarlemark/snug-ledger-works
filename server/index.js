@@ -7,6 +7,8 @@ import { fileURLToPath } from "url";
 const currentFilePath = fileURLToPath(import.meta.url);
 const currentDir = path.dirname(currentFilePath);
 const configPath = path.resolve(currentDir, "script-actions.json");
+
+const configPath = path.resolve(process.cwd(), "server/script-actions.json");
 const port = process.env.PORT ? Number(process.env.PORT) : 5050;
 
 const sendJson = (res, statusCode, payload) => {
@@ -55,6 +57,11 @@ const runScript = (action, entry) =>
     const command = entry.command;
     const cwd = entry.cwd ?? currentDir;
     const args = (entry.args ?? []).map((arg) => resolveArgPath(arg, cwd));
+const runScript = (action, entry) =>
+  new Promise((resolve) => {
+    const command = entry.command;
+    const args = entry.args ?? [];
+    const cwd = entry.cwd ?? process.cwd();
     const env = { ...process.env, ...(entry.env ?? {}) };
 
     const child = spawn(command, args, { cwd, env });
