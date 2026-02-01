@@ -26,6 +26,25 @@ class ScriptService {
         body: JSON.stringify({ action }),
       });
 
+      const contentType = response.headers.get("content-type") ?? "";
+      if (response.ok && contentType.includes("application/pdf")) {
+        const blob = await response.blob();
+        const fallbackName = `${action}.pdf`;
+        const contentDisposition = response.headers.get("content-disposition") ?? "";
+        const filenameMatch = contentDisposition.match(/filename="([^"]+)"/i);
+        const filename = filenameMatch?.[1] ?? fallbackName;
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.download = filename;
+        link.click();
+        window.URL.revokeObjectURL(downloadUrl);
+        return {
+          success: true,
+          message: "PDF downloaded successfully.",
+        };
+      }
+
       const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {

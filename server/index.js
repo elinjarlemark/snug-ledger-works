@@ -50,6 +50,13 @@ const resolveArgPath = (arg, cwd) => {
   return path.resolve(cwd, arg);
 };
 
+const resolveFilePath = (filePath, cwd) => {
+  if (!filePath) {
+    return null;
+  }
+  return path.isAbsolute(filePath) ? filePath : path.resolve(cwd, filePath);
+};
+
 const runScript = (action, entry) =>
   new Promise((resolve) => {
     const command = entry.command;
@@ -142,6 +149,27 @@ const server = http.createServer(async (req, res) => {
         data: result,
       });
       return;
+    }
+
+    const outputFile = resolveFilePath(entry.outputFile, entry.cwd ?? currentDir);
+    if (outputFile) {
+      try {
+        const fileBuffer = await readFile(outputFile);
+        res.writeHead(200, {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${path.basename(outputFile)}"`,
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(fileBuffer);
+        return;
+      } catch (error) {
+        sendJson(res, 500, {
+          success: false,
+          message: "Script executed but output file could not be read.",
+          data: result,
+        });
+        return;
+      }
     }
 
     sendJson(res, 200, {
