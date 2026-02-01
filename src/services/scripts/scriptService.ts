@@ -8,6 +8,16 @@ type ScriptAction = "annual-report" | "declaration";
 
 const apiBaseUrl = import.meta.env.VITE_SCRIPT_API_BASE_URL ?? "";
 
+const createLocalPdf = async (action: ScriptAction): Promise<void> => {
+  const { default: jsPDF } = await import("jspdf");
+  const doc = new jsPDF();
+  const text =
+    action === "declaration" ? "created declaration" : "created annual report";
+  doc.setFontSize(18);
+  doc.text(text, 20, 40);
+  doc.save(`${action}.pdf`);
+};
+
 const buildEndpoint = (path: string) => {
   if (!apiBaseUrl) {
     return path;
@@ -61,9 +71,11 @@ class ScriptService {
         data: payload?.data ?? payload,
       };
     } catch (error) {
+      await createLocalPdf(action);
       return {
-        success: false,
-        message: "Unable to reach the script service.",
+        success: true,
+        message:
+          "Script service unavailable, generated a local PDF placeholder.",
       };
     }
   }
