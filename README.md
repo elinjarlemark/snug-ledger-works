@@ -36,6 +36,34 @@ npm i
 npm run dev
 ```
 
+## Run with Docker (frontend + script server + database)
+
+If Lovable isn't available, you can run everything locally with Docker Compose.
+
+```sh
+docker compose up --build
+```
+
+This will start:
+- `app` (Vite frontend) on http://localhost:5173
+- `script-server` (script runner) on http://localhost:5050
+- `db` (PostgreSQL) on localhost:5432
+
+To stop everything:
+
+```sh
+docker compose down
+```
+
+### Data storage approach (recommended)
+
+To support accounts, SIE files, and receipts tied to a user, a common pattern is:
+- Store **metadata** in the database (user ID, file type, bookkeeping period, filename, size, checksum, timestamps).
+- Store the **binary files** in object storage (S3/MinIO) or a dedicated file volume.
+- Save the storage path/URL in the DB.
+
+This keeps the database fast and lets you manage large files safely. You can also use a local Docker volume during development.
+
 **Edit a file directly in GitHub**
 
 - Navigate to the desired file(s).
