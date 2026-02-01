@@ -18,7 +18,7 @@ export function YearSelector({ value, onChange, className }: YearSelectorProps) 
       <SelectContent className="bg-popover">
         {years.map((year) => (
           <SelectItem key={year} value={year.toString()}>
-            {year === currentYear ? `${year} (Current)` : year}
+            {year}
           </SelectItem>
         ))}
       </SelectContent>
