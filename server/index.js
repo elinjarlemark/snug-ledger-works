@@ -2,6 +2,11 @@ import http from "http";
 import { spawn } from "child_process";
 import { readFile } from "fs/promises";
 import path from "path";
+import { fileURLToPath } from "url";
+
+const currentFilePath = fileURLToPath(import.meta.url);
+const currentDir = path.dirname(currentFilePath);
+const configPath = path.resolve(currentDir, "script-actions.json");
 
 const configPath = path.resolve(process.cwd(), "server/script-actions.json");
 const port = process.env.PORT ? Number(process.env.PORT) : 5050;
