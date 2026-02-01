@@ -45,6 +45,18 @@ const loadConfig = async () => {
   return JSON.parse(raw);
 };
 
+const resolveArgPath = (arg, cwd) => {
+  if (arg.startsWith("-") || path.isAbsolute(arg)) {
+    return arg;
+  }
+  return path.resolve(cwd, arg);
+};
+
+const runScript = (action, entry) =>
+  new Promise((resolve) => {
+    const command = entry.command;
+    const cwd = entry.cwd ?? currentDir;
+    const args = (entry.args ?? []).map((arg) => resolveArgPath(arg, cwd));
 const runScript = (action, entry) =>
   new Promise((resolve) => {
     const command = entry.command;
