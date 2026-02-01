@@ -12,6 +12,7 @@ import {
   ArrowRight,
   TrendingUp,
   TrendingDown,
+  LogIn,
 } from "lucide-react";
 import {
   ChartContainer,
@@ -20,6 +21,7 @@ import {
 } from "@/components/ui/chart";
 import { Area, AreaChart, XAxis, YAxis, ReferenceLine, ResponsiveContainer } from "recharts";
 import { useAccounting } from "@/contexts/AccountingContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 
 const economyModules = [
@@ -82,6 +84,7 @@ const chartConfig = {
 
 export default function EconomyIndex() {
   const { getIncomeStatement } = useAccounting();
+  const { user } = useAuth();
 
   // Scroll to top on mount
   useEffect(() => {
@@ -116,6 +119,78 @@ export default function EconomyIndex() {
   const twelveMonthTotal = useMemo(() => {
     return monthlyData.reduce((sum, month) => sum + month.netResult, 0);
   }, [monthlyData]);
+
+  // Not logged in - show informational overview
+  if (!user) {
+    return (
+      <div className="space-y-8 animate-fade-in">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold text-foreground">Economy Overview</h1>
+          <p className="text-lg text-muted-foreground">
+            A complete suite of tools for Swedish business accounting. Explore what each module offers below.
+          </p>
+        </div>
+
+        {/* Call to action for login */}
+        <Card className="bg-secondary/5 border-secondary/20">
+          <CardContent className="py-6">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="space-y-1">
+                <h3 className="text-lg font-semibold text-foreground">Ready to get started?</h3>
+                <p className="text-muted-foreground">Log in to access all features and manage your company's finances.</p>
+              </div>
+              <Button asChild>
+                <Link to="/login">
+                  <LogIn className="mr-2 h-4 w-4" />
+                  Log In
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Module overview cards */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {economyModules.map((module, index) => {
+            const Icon = module.icon;
+            return (
+              <div
+                key={module.name}
+                className="feature-card animate-fade-in-up"
+                style={{ animationDelay: `${index * 0.05}s` }}
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="w-12 h-12 rounded-lg bg-secondary/10 flex items-center justify-center">
+                    <Icon className="h-6 w-6 text-secondary" />
+                  </div>
+                </div>
+                
+                <h3 className="text-xl font-semibold text-foreground mb-2">
+                  {module.name}
+                </h3>
+                
+                <p className="text-muted-foreground text-sm mb-4">
+                  {module.description}
+                </p>
+                
+                <ul className="space-y-2">
+                  {module.features.map((feature) => (
+                    <li
+                      key={feature}
+                      className="text-sm text-muted-foreground flex items-center gap-2"
+                    >
+                      <div className="w-1.5 h-1.5 rounded-full bg-secondary" />
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">
