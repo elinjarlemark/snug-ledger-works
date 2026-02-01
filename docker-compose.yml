@@ -1,0 +1,39 @@
+services:
+  app:
+    build: .
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_SCRIPT_API_BASE_URL: "http://localhost:5050"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      - script-server
+      - db
+
+  script-server:
+    build: .
+    command: ["node", "server/index.js"]
+    ports:
+      - "5050:5050"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      PORT: "5050"
+
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: "snug"
+      POSTGRES_PASSWORD: "snug_password"
+      POSTGRES_DB: "snug_ledger"
+    volumes:
+      - snug_db_data:/var/lib/postgresql/data
+
+volumes:
+  snug_db_data:
