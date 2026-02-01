@@ -1,60 +1,60 @@
-// Script execution service
-// In production, this would call backend endpoints to run Python scripts
-// Currently returns "no script connected" since no backend is available
-
 export interface ScriptResult {
   success: boolean;
   message: string;
   data?: unknown;
 }
 
-// Configuration for script paths
-// In production, these would come from environment variables:
-// ANNUAL_REPORT_SCRIPT_PATH and DECLARATION_SCRIPT_PATH
-const scriptConfig = {
-  annualReportScriptPath: "", // Would be: import.meta.env.VITE_ANNUAL_REPORT_SCRIPT_PATH
-  declarationScriptPath: "",  // Would be: import.meta.env.VITE_DECLARATION_SCRIPT_PATH
+type ScriptAction = "annual-report" | "declaration";
+
+const apiBaseUrl = import.meta.env.VITE_SCRIPT_API_BASE_URL ?? "";
+
+const buildEndpoint = (path: string) => {
+  if (!apiBaseUrl) {
+    return path;
+  }
+  return `${apiBaseUrl}${path}`;
 };
 
-function isScriptConfigured(scriptPath: string | undefined): boolean {
-  return Boolean(scriptPath && scriptPath.trim().length > 0);
-}
-
 class ScriptService {
-  async runAnnualReportScript(): Promise<ScriptResult> {
-    if (!isScriptConfigured(scriptConfig.annualReportScriptPath)) {
+  private async runScript(action: ScriptAction): Promise<ScriptResult> {
+    try {
+      const response = await fetch(buildEndpoint("/api/scripts/run"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        return {
+          success: false,
+          message: payload?.message ?? "Script execution failed.",
+          data: payload?.data ?? payload,
+        };
+      }
+
+      return {
+        success: true,
+        message: payload?.message ?? "Script executed successfully.",
+        data: payload?.data ?? payload,
+      };
+    } catch (error) {
       return {
         success: false,
-        message: "no script connected for annual report",
+        message: "Unable to reach the script service.",
       };
     }
-
-    // In production, this would call:
-    // const response = await fetch('/api/run-annual-report', { method: 'POST' });
-    // return response.json();
-
-    return {
-      success: false,
-      message: "no script connected for annual report",
-    };
   }
 
-  async runDeclarationScript(): Promise<ScriptResult> {
-    if (!isScriptConfigured(scriptConfig.declarationScriptPath)) {
-      return {
-        success: false,
-        message: "no script connected for declaration",
-      };
-    }
+  runAnnualReportScript(): Promise<ScriptResult> {
+    return this.runScript("annual-report");
+  }
 
-    // In production, this would call:
-    // const response = await fetch('/api/run-declaration', { method: 'POST' });
-    // return response.json();
-
-    return {
-      success: false,
-      message: "no script connected for declaration",
-    };
+  runDeclarationScript(): Promise<ScriptResult> {
+    return this.runScript("declaration");
   }
 }
 
