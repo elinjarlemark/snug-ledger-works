@@ -66,6 +66,20 @@ bash scripts/test-local.sh
 
 **Important:** Update `scripts/test-local.sh` whenever you change APIs, ports, or behavior so it always works with the latest code.
 
+## One-command local start + test
+
+If you want a single command that starts Docker Compose and then runs the tests:
+
+```sh
+bash scripts/run-local.sh
+```
+
+On Windows PowerShell:
+
+```powershell
+.\scripts\run-local.ps1
+```
+
 ### Data storage approach (recommended)
 
 To support accounts, SIE files, and receipts tied to a user, a common pattern is:
