@@ -2,10 +2,11 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
+import time
+from sqlalchemy.exc import OperationalError
+
 from database import Base, engine, get_db
 from models import User, SIEFile, Receipt
-
-Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
@@ -16,6 +17,20 @@ app.add_middleware(
     allow_methods=["*"] ,
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+def on_startup():
+    max_attempts = 10
+    delay_seconds = 2
+    for attempt in range(1, max_attempts + 1):
+        try:
+            Base.metadata.create_all(bind=engine)
+            return
+        except OperationalError:
+            if attempt == max_attempts:
+                raise
+            time.sleep(delay_seconds)
 
 
 @app.get("/health")
