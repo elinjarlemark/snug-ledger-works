@@ -1,0 +1,8 @@
+fastapi==0.112.2
+uvicorn[standard]==0.30.6
+SQLAlchemy==2.0.34
+psycopg2-binary==2.9.9
+pydantic==2.8.2
+email-validator==2.2.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.1.3
