@@ -66,6 +66,7 @@ def on_startup():
             Base.metadata.create_all(bind=engine)
             db = SessionLocal()
             try:
+                changes = False
                 existing = db.query(User).filter(User.email == "test@test.com").first()
                 if not existing:
                     db.add(
@@ -76,6 +77,7 @@ def on_startup():
                             role="user",
                         )
                     )
+                    changes = True
                 admin = db.query(User).filter(User.email == "admin@snug.local").first()
                 if not admin:
                     db.add(
@@ -86,6 +88,8 @@ def on_startup():
                             role="admin",
                         )
                     )
+                    changes = True
+                if changes:
                     db.commit()
             finally:
                 db.close()
