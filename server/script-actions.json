@@ -1,0 +1,14 @@
+{
+  "declaration": {
+    "command": "python3",
+    "args": ["scripts/declaration.py"],
+    "outputFile": "scripts/declaration.pdf",
+    "description": "Generate a tax declaration"
+  },
+  "annual-report": {
+    "command": "python3",
+    "args": ["scripts/annual_report.py"],
+    "outputFile": "scripts/annual_report.pdf",
+    "description": "Generate an annual report"
+  }
+}
