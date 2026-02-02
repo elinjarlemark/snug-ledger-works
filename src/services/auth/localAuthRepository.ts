@@ -44,19 +44,6 @@ export class LocalAuthRepository implements IAuthRepository {
       };
     }
 
-    // If no database is connected, allow any login for demo purposes
-    // In production, this would return an error
-    if (!authConfig.databaseConnected) {
-      return {
-        success: true,
-        user: {
-          id: crypto.randomUUID(),
-          email,
-          name: email.split("@")[0],
-        },
-      };
-    }
-
     return {
       success: false,
       error: "Invalid email or password",

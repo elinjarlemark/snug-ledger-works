@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Info,
+  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -74,6 +75,17 @@ const sidebarItems = [
 export function EconomySidebar({ collapsed, onToggle }: EconomySidebarProps) {
   const location = useLocation();
   const { user } = useAuth();
+  const navItems = user?.role === "admin"
+    ? [
+        ...sidebarItems,
+        {
+          name: "Admin Panel",
+          href: "/admin",
+          icon: Shield,
+          description: "Manage users",
+        },
+      ]
+    : sidebarItems;
 
   const handleNavClick = (href: string) => {
     // Only scroll main content to top if navigating to a different page
@@ -203,7 +215,7 @@ export function EconomySidebar({ collapsed, onToggle }: EconomySidebarProps) {
       </div>
 
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto scrollbar-hide">
-        {sidebarItems.map((item) => {
+        {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.href;
 
