@@ -12,9 +12,10 @@ echo "Checking Python API health..."
 curl -fsS "${BASE_API_URL}/health" | grep -q '"status"'
 
 echo "Creating test user..."
+TEST_EMAIL="test-$(date +%s)-$RANDOM@example.com"
 USER_ID=$(curl -fsS -X POST "${BASE_API_URL}/users" \
   -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","name":"Test User"}' | sed -n 's/.*"id":[ ]*\([0-9]*\).*/\1/p')
+  -d "{\"email\":\"${TEST_EMAIL}\",\"name\":\"Test User\"}" | sed -n 's/.*"id":[ ]*\([0-9]*\).*/\1/p')
 
 if [[ -z "${USER_ID}" ]]; then
   echo "Failed to create test user."
