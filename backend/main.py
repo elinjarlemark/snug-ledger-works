@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 import time
@@ -14,9 +15,28 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"] ,
+    allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+class UserCreate(BaseModel):
+    email: EmailStr
+    name: str | None = None
+
+
+class SIEFileCreate(BaseModel):
+    user_id: int
+    filename: str
+    storage_path: str
+    period: str | None = None
+
+
+class ReceiptCreate(BaseModel):
+    user_id: int
+    filename: str
+    storage_path: str
+    note: str | None = None
 
 
 @app.on_event("startup")
@@ -48,8 +68,8 @@ def list_users(db: Session = Depends(get_db)):
 
 
 @app.post("/users")
-def create_user(payload: dict, db: Session = Depends(get_db)):
-    user = User(email=payload["email"], name=payload.get("name"))
+def create_user(payload: UserCreate, db: Session = Depends(get_db)):
+    user = User(email=payload.email, name=payload.name)
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -57,12 +77,12 @@ def create_user(payload: dict, db: Session = Depends(get_db)):
 
 
 @app.post("/sie-files")
-def create_sie_file(payload: dict, db: Session = Depends(get_db)):
+def create_sie_file(payload: SIEFileCreate, db: Session = Depends(get_db)):
     sie_file = SIEFile(
-        user_id=payload["user_id"],
-        filename=payload["filename"],
-        storage_path=payload["storage_path"],
-        period=payload.get("period"),
+        user_id=payload.user_id,
+        filename=payload.filename,
+        storage_path=payload.storage_path,
+        period=payload.period,
     )
     db.add(sie_file)
     db.commit()
@@ -71,12 +91,12 @@ def create_sie_file(payload: dict, db: Session = Depends(get_db)):
 
 
 @app.post("/receipts")
-def create_receipt(payload: dict, db: Session = Depends(get_db)):
+def create_receipt(payload: ReceiptCreate, db: Session = Depends(get_db)):
     receipt = Receipt(
-        user_id=payload["user_id"],
-        filename=payload["filename"],
-        storage_path=payload["storage_path"],
-        note=payload.get("note"),
+        user_id=payload.user_id,
+        filename=payload.filename,
+        storage_path=payload.storage_path,
+        note=payload.note,
     )
     db.add(receipt)
     db.commit()

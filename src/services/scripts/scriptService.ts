@@ -55,6 +55,15 @@ class ScriptService {
         };
       }
 
+      if (!response.ok && (!apiBaseUrl || response.status === 404 || response.status === 503)) {
+        await createLocalPdf(action);
+        return {
+          success: true,
+          message:
+            "Script service unavailable, generated a local PDF placeholder.",
+        };
+      }
+
       const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {
