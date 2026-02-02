@@ -84,6 +84,12 @@ Example endpoints:
 - `GET http://localhost:8000/health`
 - `GET http://localhost:8000/users`
 - `POST http://localhost:8000/users` with JSON `{ "email": "test@example.com", "name": "Test" }`
+  - Use `{ "email": "test@example.com", "password": "secret", "name": "Test" }` for signup
+- `POST http://localhost:8000/auth/login` with JSON `{ "email": "test@example.com", "password": "secret" }`
+
+The API seeds these users at startup:
+- Test user: `test@test.com` / `test`
+- Admin user: `admin@snug.local` / `admin`
 
 **Edit a file directly in GitHub**
 

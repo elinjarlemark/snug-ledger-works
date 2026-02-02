@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 import time
 from sqlalchemy.exc import OperationalError
 
-from database import Base, engine, get_db
+from database import Base, engine, get_db, SessionLocal
+from passlib.context import CryptContext
 from models import User, SIEFile, Receipt
 
 app = FastAPI()
@@ -22,7 +23,24 @@ app.add_middleware(
 
 class UserCreate(BaseModel):
     email: EmailStr
+    password: str
     name: str | None = None
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
 
 
 class SIEFileCreate(BaseModel):
@@ -46,6 +64,31 @@ def on_startup():
     for attempt in range(1, max_attempts + 1):
         try:
             Base.metadata.create_all(bind=engine)
+            db = SessionLocal()
+            try:
+                existing = db.query(User).filter(User.email == "test@test.com").first()
+                if not existing:
+                    db.add(
+                        User(
+                            email="test@test.com",
+                            password=hash_password("test"),
+                            name="Test User",
+                            role="user",
+                        )
+                    )
+                admin = db.query(User).filter(User.email == "admin@snug.local").first()
+                if not admin:
+                    db.add(
+                        User(
+                            email="admin@snug.local",
+                            password=hash_password("admin"),
+                            name="Admin User",
+                            role="admin",
+                        )
+                    )
+                    db.commit()
+            finally:
+                db.close()
             return
         except OperationalError:
             if attempt == max_attempts:
@@ -62,18 +105,39 @@ def health_check():
 def list_users(db: Session = Depends(get_db)):
     users = db.query(User).all()
     return [
-        {"id": user.id, "email": user.email, "name": user.name}
+        {"id": user.id, "email": user.email, "name": user.name, "role": user.role}
         for user in users
     ]
 
 
 @app.post("/users")
 def create_user(payload: UserCreate, db: Session = Depends(get_db)):
-    user = User(email=payload.email, name=payload.name)
+    user = User(
+        email=payload.email,
+        password=hash_password(payload.password),
+        name=payload.name,
+        role="user",
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
     return {"id": user.id, "email": user.email, "name": user.name}
+
+
+@app.post("/auth/login")
+def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == payload.email).first()
+    if not user or not verify_password(payload.password, user.password):
+        return {"success": False, "error": "Invalid email or password"}
+    return {
+        "success": True,
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "name": user.name,
+            "role": user.role,
+        },
+    }
 
 
 @app.post("/sie-files")
