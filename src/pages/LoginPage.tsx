@@ -13,6 +13,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isReset, setIsReset] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetPassword, setResetPassword] = useState("");
   
   const { login, signup } = useAuth();
   const navigate = useNavigate();
@@ -22,6 +25,23 @@ export default function LoginPage() {
     setIsLoading(true);
     
     try {
+      if (isReset) {
+        const response = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000"}/auth/reset`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: resetEmail, new_password: resetPassword }),
+          }
+        );
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || payload?.success === false) {
+          throw new Error(payload?.error ?? "Reset failed");
+        }
+        toast.success("Password reset successfully!");
+        setIsReset(false);
+        return;
+      }
       if (isSignUp) {
         await signup(email, password, name);
         toast.success("Account created successfully!");
@@ -64,6 +84,32 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {isReset && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="resetEmail">Email address</Label>
+                  <Input
+                    id="resetEmail"
+                    type="email"
+                    placeholder="name@company.se"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="resetPassword">New password</Label>
+                  <Input
+                    id="resetPassword"
+                    type="password"
+                    placeholder="Enter a new password"
+                    value={resetPassword}
+                    onChange={(e) => setResetPassword(e.target.value)}
+                    required
+                  />
+                </div>
+              </>
+            )}
             {isSignUp && (
               <div className="space-y-2">
                 <Label htmlFor="name">Full name</Label>
@@ -82,43 +128,48 @@ export default function LoginPage() {
               </div>
             )}
             
-            <div className="space-y-2">
-              <Label htmlFor="email">Email address</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="name@company.se"
-                  className="pl-10"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
+            {!isReset && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email address</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="name@company.se"
+                      className="pl-10"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Enter your password"
-                  className="pl-10"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="Enter your password"
+                      className="pl-10"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
-            {!isSignUp && (
+            {!isSignUp && !isReset && (
               <div className="text-right">
                 <button
                   type="button"
                   className="text-sm text-secondary hover:underline"
+                  onClick={() => setIsReset(true)}
                 >
                   Forgot password?
                 </button>
@@ -126,19 +177,35 @@ export default function LoginPage() {
             )}
 
             <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
-              {isLoading ? "Please wait..." : isSignUp ? "Create Account" : "Sign In"}
+              {isLoading
+                ? "Please wait..."
+                : isReset
+                  ? "Reset Password"
+                  : isSignUp
+                    ? "Create Account"
+                    : "Sign In"}
               {!isLoading && <ArrowRight className="ml-2 h-5 w-5" />}
             </Button>
           </form>
 
           <div className="text-center">
             <p className="text-muted-foreground text-sm">
-              {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
+              {isReset
+                ? "Back to sign in?"
+                : isSignUp
+                  ? "Already have an account?"
+                  : "Don't have an account?"}{" "}
               <button
-                onClick={() => setIsSignUp(!isSignUp)}
+                onClick={() => {
+                  if (isReset) {
+                    setIsReset(false);
+                    return;
+                  }
+                  setIsSignUp(!isSignUp);
+                }}
                 className="text-secondary hover:underline font-medium"
               >
-                {isSignUp ? "Sign in" : "Create one"}
+                {isReset ? "Sign in" : isSignUp ? "Sign in" : "Create one"}
               </button>
             </p>
           </div>

@@ -6,7 +6,11 @@ from sqlalchemy.orm import Session
 import time
 from sqlalchemy.exc import OperationalError
 
-from database import Base, engine, get_db, SessionLocal
+from pathlib import Path
+from alembic import command
+from alembic.config import Config
+
+from database import get_db, SessionLocal, DATABASE_URL
 from passlib.context import CryptContext
 from models import User, SIEFile, Receipt
 
@@ -32,6 +36,15 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    new_password: str
+
+
+class RoleUpdateRequest(BaseModel):
+    role: str
+
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
@@ -41,6 +54,10 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
+
+
+def is_password_hashed(password: str) -> bool:
+    return pwd_context.identify(password) is not None
 
 
 class SIEFileCreate(BaseModel):
@@ -63,7 +80,13 @@ def on_startup():
     delay_seconds = 2
     for attempt in range(1, max_attempts + 1):
         try:
-            Base.metadata.create_all(bind=engine)
+            alembic_cfg = Config(str(Path(__file__).with_name("alembic.ini")))
+            alembic_cfg.set_main_option(
+                "script_location",
+                str(Path(__file__).parent / "alembic"),
+            )
+            alembic_cfg.set_main_option("sqlalchemy.url", DATABASE_URL)
+            command.upgrade(alembic_cfg, "head")
             db = SessionLocal()
             try:
                 changes = False
@@ -78,6 +101,9 @@ def on_startup():
                         )
                     )
                     changes = True
+                elif not is_password_hashed(existing.password):
+                    existing.password = hash_password("test")
+                    changes = True
                 admin = db.query(User).filter(User.email == "admin@snug.local").first()
                 if not admin:
                     db.add(
@@ -88,6 +114,9 @@ def on_startup():
                             role="admin",
                         )
                     )
+                    changes = True
+                elif not is_password_hashed(admin.password):
+                    admin.password = hash_password("admin")
                     changes = True
                 if changes:
                     db.commit()
@@ -141,6 +170,29 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             "name": user.name,
             "role": user.role,
         },
+    }
+
+
+@app.post("/auth/reset")
+def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == payload.email).first()
+    if not user:
+        return {"success": False, "error": "User not found"}
+    user.password = hash_password(payload.new_password)
+    db.commit()
+    return {"success": True}
+
+
+@app.patch("/users/{user_id}/role")
+def update_user_role(user_id: int, payload: RoleUpdateRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return {"success": False, "error": "User not found"}
+    user.role = payload.role
+    db.commit()
+    return {
+        "success": True,
+        "user": {"id": user.id, "email": user.email, "name": user.name, "role": user.role},
     }
 
 
