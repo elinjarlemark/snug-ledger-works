@@ -11,7 +11,7 @@ export const authConfig: AuthConfig = {
   
   // Database configuration - set to true when database is connected
   // This would typically come from: import.meta.env.VITE_DATABASE_CONNECTED === 'true'
-  databaseConnected: false,
+  databaseConnected: (import.meta.env.VITE_DATABASE_CONNECTED ?? "true") === "true",
 };
 
 // Helper to check if we should use database auth
