@@ -36,6 +36,68 @@ npm i
 npm run dev
 ```
 
+## Run with Docker (frontend + script server + database)
+
+If Lovable isn't available, you can run everything locally with Docker Compose.
+
+```sh
+docker compose up --build
+```
+
+This will start:
+- `app` (Vite frontend) on http://localhost:5173
+- `script-server` (script runner) on http://localhost:5050
+- `api` (Python backend) on http://localhost:8000
+- `db` (PostgreSQL) on localhost:5432
+
+To stop everything:
+
+```sh
+docker compose down
+```
+
+## Local test script (keep this updated)
+
+Run the local test script after changes to verify the frontend, Python API, and script runner:
+
+```sh
+bash scripts/test-local.sh
+```
+
+**Important:** Update `scripts/test-local.sh` whenever you change APIs, ports, or behavior so it always works with the latest code.
+
+## One-command local start + test
+
+If you want a single command that starts Docker Compose and then runs the tests:
+
+```sh
+bash scripts/run-local.sh
+```
+
+On Windows PowerShell:
+
+```powershell
+.\scripts\run-local.ps1
+```
+
+### Data storage approach (recommended)
+
+To support accounts, SIE files, and receipts tied to a user, a common pattern is:
+- Store **metadata** in the database (user ID, file type, bookkeeping period, filename, size, checksum, timestamps).
+- Store the **binary files** in object storage (S3/MinIO) or a dedicated file volume.
+- Save the storage path/URL in the DB.
+
+This keeps the database fast and lets you manage large files safely. You can also use a local Docker volume during development.
+
+## Python backend (FastAPI) quick start
+
+The Docker setup includes a simple Python API so you can work in Python only.
+
+Example endpoints:
+- `GET http://localhost:8000/health`
+- `GET http://localhost:8000/users`
+- `POST http://localhost:8000/users` with JSON `{ "email": "test@example.com", "name": "Test" }`
+
 **Edit a file directly in GitHub**
 
 - Navigate to the desired file(s).
