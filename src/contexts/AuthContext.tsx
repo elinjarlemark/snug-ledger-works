@@ -131,6 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     // Check if this is the test user
     const isTestUser = email.toLowerCase() === TEST_USER_EMAIL;
+    const isAdminUser = email.toLowerCase() === "admin@snug.local";
     
     // Load or create companies
     const storedCompanies = localStorage.getItem("accountpro_companies");
@@ -149,6 +150,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ...(isTestUser ? TEST_USER_COMPANY : DEFAULT_COMPANY_PROFILE),
         id: crypto.randomUUID(),
       };
+      if (isAdminUser) {
+        localStorage.setItem("accountpro_active_company", defaultCompany.id);
+      }
       setCompanies([defaultCompany]);
       setActiveCompanyId(defaultCompany.id);
       localStorage.setItem("accountpro_companies", JSON.stringify([defaultCompany]));
