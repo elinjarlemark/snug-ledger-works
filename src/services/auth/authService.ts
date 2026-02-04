@@ -3,15 +3,14 @@
 
 import { IAuthRepository, AuthCredentials, SignupData, AuthResult, User } from "./types";
 import { LocalAuthRepository } from "./localAuthRepository";
+import { DatabaseAuthRepository } from "./databaseAuthRepository";
 import { isDatabaseAuthEnabled } from "./config";
 
 // Factory function to get the appropriate repository
 function getAuthRepository(): IAuthRepository {
-  // When database is connected, you would return DatabaseAuthRepository here
-  // Example:
-  // if (isDatabaseAuthEnabled()) {
-  //   return new DatabaseAuthRepository();
-  // }
+  if (isDatabaseAuthEnabled()) {
+    return new DatabaseAuthRepository();
+  }
   
   return new LocalAuthRepository();
 }

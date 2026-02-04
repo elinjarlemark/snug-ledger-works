@@ -22,6 +22,7 @@ import DeclarationPage from "./pages/economy/DeclarationPage";
 import FinancialStatementsPage from "./pages/economy/FinancialStatementsPage";
 import NewAnnualReportsPage from "./pages/economy/NewAnnualReportsPage";
 import AccountsPage from "./pages/economy/AccountsPage";
+import AdminPage from "./pages/AdminPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -58,6 +59,9 @@ const App = () => (
 
               {/* Company page */}
               <Route path="/company" element={<CompanyPage />} />
+
+              {/* Admin page */}
+              <Route path="/admin" element={<AdminPage />} />
 
               {/* Auth pages (standalone) */}
               <Route path="/login" element={<LoginPage />} />
