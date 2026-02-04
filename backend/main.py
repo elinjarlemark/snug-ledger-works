@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Depends
+import os
+from fastapi import FastAPI, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
@@ -39,6 +40,7 @@ class LoginRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     email: EmailStr
     new_password: str
+    reset_token: str
 
 
 class RoleUpdateRequest(BaseModel):
@@ -175,6 +177,9 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 
 @app.post("/auth/reset")
 def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    reset_token = os.getenv("PASSWORD_RESET_TOKEN", "")
+    if not reset_token or payload.reset_token != reset_token:
+        return {"success": False, "error": "Invalid reset token"}
     user = db.query(User).filter(User.email == payload.email).first()
     if not user:
         return {"success": False, "error": "User not found"}
@@ -184,7 +189,16 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
 
 
 @app.patch("/users/{user_id}/role")
-def update_user_role(user_id: int, payload: RoleUpdateRequest, db: Session = Depends(get_db)):
+def update_user_role(
+    user_id: int,
+    payload: RoleUpdateRequest,
+    db: Session = Depends(get_db),
+    admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+):
+    header_token = admin_token or ""
+    configured_token = os.getenv("ADMIN_TOKEN", "")
+    if not configured_token or header_token != configured_token:
+        return {"success": False, "error": "Unauthorized"}
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         return {"success": False, "error": "User not found"}

@@ -16,6 +16,7 @@ export default function LoginPage() {
   const [isReset, setIsReset] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetPassword, setResetPassword] = useState("");
+  const [resetToken, setResetToken] = useState("");
   
   const { login, signup } = useAuth();
   const navigate = useNavigate();
@@ -31,7 +32,11 @@ export default function LoginPage() {
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: resetEmail, new_password: resetPassword }),
+            body: JSON.stringify({
+              email: resetEmail,
+              new_password: resetPassword,
+              reset_token: resetToken,
+            }),
           }
         );
         const payload = await response.json().catch(() => ({}));
@@ -105,6 +110,17 @@ export default function LoginPage() {
                     placeholder="Enter a new password"
                     value={resetPassword}
                     onChange={(e) => setResetPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="resetToken">Reset token</Label>
+                  <Input
+                    id="resetToken"
+                    type="text"
+                    placeholder="Enter reset token"
+                    value={resetToken}
+                    onChange={(e) => setResetToken(e.target.value)}
                     required
                   />
                 </div>

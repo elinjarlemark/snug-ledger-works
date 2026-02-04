@@ -8,6 +8,7 @@ services:
       VITE_SCRIPT_API_BASE_URL: "http://localhost:5050"
       VITE_API_BASE_URL: "http://localhost:8000"
       VITE_DATABASE_CONNECTED: "true"
+      VITE_ADMIN_TOKEN: "change-me-admin-token"
     volumes:
       - .:/app
       - /app/node_modules
@@ -36,6 +37,8 @@ services:
       - "8000:8000"
     environment:
       DATABASE_URL: "postgresql://snug:snug_password@db:5432/snug_ledger"
+      ADMIN_TOKEN: "change-me-admin-token"
+      PASSWORD_RESET_TOKEN: "change-me-reset-token"
     depends_on:
       db:
         condition: service_healthy

@@ -14,6 +14,7 @@ interface AdminUser {
 }
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const adminToken = import.meta.env.VITE_ADMIN_TOKEN ?? "";
 
 export default function AdminPage() {
   const { user } = useAuth();
@@ -49,7 +50,10 @@ export default function AdminPage() {
       setSaving(Number(userId));
       const response = await fetch(`${apiBaseUrl}/users/${userId}/role`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-Token": adminToken,
+        },
         body: JSON.stringify({ role }),
       });
       if (!response.ok) {

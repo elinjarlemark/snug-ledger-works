@@ -95,6 +95,14 @@ The API runs Alembic migrations automatically on startup.
 Admin UI:
 - Visit `http://localhost:5173/admin` after logging in as the admin user.
 
+### Admin and password reset tokens
+
+Set these environment variables (see `docker-compose.yml`) to secure admin actions:
+- `ADMIN_TOKEN` (required for role changes)
+- `PASSWORD_RESET_TOKEN` (required for password reset)
+
+The Admin Panel uses `VITE_ADMIN_TOKEN` from the frontend environment to authorize role changes.
+
 ## Production migrations
 
 Run migrations in production with:
