@@ -83,10 +83,8 @@ def on_startup():
     for attempt in range(1, max_attempts + 1):
         try:
             alembic_cfg = Config(str(Path(__file__).with_name("alembic.ini")))
-            alembic_cfg.set_main_option(
-                "script_location",
-                str(Path(__file__).parent / "alembic"),
-            )
+            migrations_path = Path(__file__).parent / "alembic"
+            alembic_cfg.set_main_option("script_location", str(migrations_path))
             alembic_cfg.set_main_option("sqlalchemy.url", DATABASE_URL)
             command.upgrade(alembic_cfg, "head")
             db = SessionLocal()
