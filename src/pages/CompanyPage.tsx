@@ -29,7 +29,7 @@ import { Footer } from "@/components/layout/Footer";
 
 export default function CompanyPage() {
   const { user, companies, activeCompany, addCompany, updateCompany, deleteCompany, setActiveCompany, isFirstTimeUser, markCompanySetupComplete } = useAuth();
-  const { importSIE, exportSIE } = useAccounting();
+  const { importSIE, exportSIE, vouchers } = useAccounting();
   const navigate = useNavigate();
   const location = useLocation();
   const [isNewCompany, setIsNewCompany] = useState(false);
