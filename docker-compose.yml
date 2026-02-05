@@ -1,0 +1,62 @@
+services:
+  app:
+    build: .
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_SCRIPT_API_BASE_URL: "http://localhost:5050"
+      VITE_API_BASE_URL: "http://localhost:8000"
+      VITE_DATABASE_CONNECTED: "true"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      - script-server
+      - db
+
+  script-server:
+    build: .
+    command: ["node", "server/index.js"]
+    ports:
+      - "5050:5050"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      PORT: "5050"
+    depends_on:
+      - db
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: "postgresql://snug:snug_password@db:5432/snug_ledger"
+      ADMIN_TOKEN: "change-me-admin-token"
+      PASSWORD_RESET_TOKEN: "change-me-reset-token"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: "snug"
+      POSTGRES_PASSWORD: "snug_password"
+      POSTGRES_DB: "snug_ledger"
+    volumes:
+      - snug_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U snug -d snug_ledger"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  snug_db_data:
