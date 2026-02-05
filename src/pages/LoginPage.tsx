@@ -16,7 +16,9 @@ export default function LoginPage() {
   const [isReset, setIsReset] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetPassword, setResetPassword] = useState("");
-  const [resetToken, setResetToken] = useState("");
+  const [resetToken, setResetToken] = useState(
+    import.meta.env.VITE_RESET_TOKEN ?? ""
+  );
   
   const { login, signup } = useAuth();
   const navigate = useNavigate();
@@ -58,7 +60,9 @@ export default function LoginPage() {
         navigate("/economy");
       }
     } catch (error) {
-      toast.error("Something went wrong. Please try again.");
+      const message =
+        error instanceof Error ? error.message : "Something went wrong. Please try again.";
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -123,6 +127,9 @@ export default function LoginPage() {
                     onChange={(e) => setResetToken(e.target.value)}
                     required
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Default for Docker Compose: change-me-reset-token
+                  </p>
                 </div>
               </>
             )}

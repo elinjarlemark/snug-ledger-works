@@ -9,6 +9,7 @@ services:
       VITE_API_BASE_URL: "http://localhost:8000"
       VITE_DATABASE_CONNECTED: "true"
       VITE_ADMIN_TOKEN: "change-me-admin-token"
+      VITE_RESET_TOKEN: "change-me-reset-token"
     volumes:
       - .:/app
       - /app/node_modules
