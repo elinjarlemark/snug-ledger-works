@@ -1,9 +1,10 @@
 // Auth service types - designed for easy database swapping
 
 export interface User {
-  id: string;
+  id: string | number;
   email: string;
   name: string;
+  role?: string;
 }
 
 export interface AuthCredentials {
