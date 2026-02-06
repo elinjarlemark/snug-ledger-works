@@ -14,7 +14,6 @@ interface AdminUser {
 }
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
-const adminToken = import.meta.env.VITE_ADMIN_TOKEN ?? "";
 
 export default function AdminPage() {
   const { user } = useAuth();
@@ -22,6 +21,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<number | null>(null);
+  const [adminToken, setAdminToken] = useState("");
 
   useEffect(() => {
     if (!user || user.role !== "admin") {
@@ -88,6 +88,22 @@ export default function AdminPage() {
           <CardTitle>Accounts</CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="space-y-2 mb-4">
+            <label className="text-sm font-medium text-foreground" htmlFor="adminToken">
+              Admin token
+            </label>
+            <input
+              id="adminToken"
+              type="password"
+              value={adminToken}
+              onChange={(e) => setAdminToken(e.target.value)}
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              placeholder="Enter admin token"
+            />
+            <p className="text-xs text-muted-foreground">
+              This token is required to change user roles.
+            </p>
+          </div>
           {error ? (
             <div className="text-sm text-destructive">{error}</div>
           ) : (

@@ -101,7 +101,7 @@ Set these environment variables (see `docker-compose.yml`) to secure admin actio
 - `ADMIN_TOKEN` (required for role changes)
 - `PASSWORD_RESET_TOKEN` (required for password reset)
 
-The Admin Panel uses `VITE_ADMIN_TOKEN` from the frontend environment to authorize role changes.
+Do not expose tokens in frontend environment variables. Enter them manually in the Admin Panel or reset form.
 
 ## Production migrations
 

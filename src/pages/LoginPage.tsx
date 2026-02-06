@@ -16,9 +16,7 @@ export default function LoginPage() {
   const [isReset, setIsReset] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetPassword, setResetPassword] = useState("");
-  const [resetToken, setResetToken] = useState(
-    import.meta.env.VITE_RESET_TOKEN ?? ""
-  );
+  const [resetToken, setResetToken] = useState("");
   
   const { login, signup } = useAuth();
   const navigate = useNavigate();
@@ -128,7 +126,7 @@ export default function LoginPage() {
                     required
                   />
                   <p className="text-xs text-muted-foreground">
-                    Default for Docker Compose: change-me-reset-token
+                    Ask an admin for the reset token.
                   </p>
                 </div>
               </>
