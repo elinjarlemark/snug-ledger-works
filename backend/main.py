@@ -14,6 +14,7 @@ from alembic.config import Config
 from database import get_db, SessionLocal, DATABASE_URL
 from passlib.context import CryptContext
 from models import User, SIEFile, Receipt, Company
+from models import User, SIEFile, Receipt, Company
 
 app = FastAPI()
 
