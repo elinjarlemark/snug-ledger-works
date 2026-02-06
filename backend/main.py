@@ -13,7 +13,11 @@ from alembic.config import Config
 
 from database import get_db, SessionLocal, DATABASE_URL
 from passlib.context import CryptContext
+<<<<<<< codex/locate-billing-page-in-code
 from models import User, SIEFile, Receipt, Company
+=======
+from models import User, SIEFile, Receipt
+>>>>>>> main
 
 app = FastAPI()
 
@@ -76,6 +80,7 @@ class ReceiptCreate(BaseModel):
     note: str | None = None
 
 
+<<<<<<< codex/locate-billing-page-in-code
 class CompanyCreate(BaseModel):
     user_id: int
     company_name: str
@@ -101,6 +106,8 @@ class CompanyUpdate(BaseModel):
     fiscal_year_end: str | None = None
 
 
+=======
+>>>>>>> main
 @app.on_event("startup")
 def on_startup():
     max_attempts = 10
@@ -259,6 +266,7 @@ def create_receipt(payload: ReceiptCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(receipt)
     return {"id": receipt.id}
+<<<<<<< codex/locate-billing-page-in-code
 
 
 @app.get("/companies")
@@ -328,3 +336,5 @@ def delete_company(company_id: int, db: Session = Depends(get_db)):
     db.delete(company)
     db.commit()
     return {"success": True}
+=======
+>>>>>>> main
