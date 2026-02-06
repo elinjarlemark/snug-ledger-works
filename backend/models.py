@@ -43,3 +43,22 @@ class Receipt(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="receipts")
+
+
+class Company(Base):
+    __tablename__ = "companies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    company_name = Column(String(255), nullable=False)
+    organization_number = Column(String(20), nullable=True)
+    address = Column(String(255), nullable=True)
+    postal_code = Column(String(20), nullable=True)
+    city = Column(String(255), nullable=True)
+    country = Column(String(255), nullable=True)
+    vat_number = Column(String(50), nullable=True)
+    fiscal_year_start = Column(String(10), nullable=True)
+    fiscal_year_end = Column(String(10), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User")

@@ -13,7 +13,11 @@ from alembic.config import Config
 
 from database import get_db, SessionLocal, DATABASE_URL
 from passlib.context import CryptContext
+<<<<<<< codex/locate-billing-page-in-code
+from models import User, SIEFile, Receipt, Company
+=======
 from models import User, SIEFile, Receipt
+>>>>>>> main
 
 app = FastAPI()
 
@@ -76,6 +80,34 @@ class ReceiptCreate(BaseModel):
     note: str | None = None
 
 
+<<<<<<< codex/locate-billing-page-in-code
+class CompanyCreate(BaseModel):
+    user_id: int
+    company_name: str
+    organization_number: str | None = None
+    address: str | None = None
+    postal_code: str | None = None
+    city: str | None = None
+    country: str | None = None
+    vat_number: str | None = None
+    fiscal_year_start: str | None = None
+    fiscal_year_end: str | None = None
+
+
+class CompanyUpdate(BaseModel):
+    company_name: str
+    organization_number: str | None = None
+    address: str | None = None
+    postal_code: str | None = None
+    city: str | None = None
+    country: str | None = None
+    vat_number: str | None = None
+    fiscal_year_start: str | None = None
+    fiscal_year_end: str | None = None
+
+
+=======
+>>>>>>> main
 @app.on_event("startup")
 def on_startup():
     max_attempts = 10
@@ -234,3 +266,75 @@ def create_receipt(payload: ReceiptCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(receipt)
     return {"id": receipt.id}
+<<<<<<< codex/locate-billing-page-in-code
+
+
+@app.get("/companies")
+def list_companies(user_id: int, db: Session = Depends(get_db)):
+    companies = db.query(Company).filter(Company.user_id == user_id).all()
+    return [
+        {
+            "id": company.id,
+            "user_id": company.user_id,
+            "companyName": company.company_name,
+            "organizationNumber": company.organization_number,
+            "address": company.address,
+            "postalCode": company.postal_code,
+            "city": company.city,
+            "country": company.country,
+            "vatNumber": company.vat_number,
+            "fiscalYearStart": company.fiscal_year_start,
+            "fiscalYearEnd": company.fiscal_year_end,
+        }
+        for company in companies
+    ]
+
+
+@app.post("/companies")
+def create_company(payload: CompanyCreate, db: Session = Depends(get_db)):
+    company = Company(
+        user_id=payload.user_id,
+        company_name=payload.company_name,
+        organization_number=payload.organization_number,
+        address=payload.address,
+        postal_code=payload.postal_code,
+        city=payload.city,
+        country=payload.country,
+        vat_number=payload.vat_number,
+        fiscal_year_start=payload.fiscal_year_start,
+        fiscal_year_end=payload.fiscal_year_end,
+    )
+    db.add(company)
+    db.commit()
+    db.refresh(company)
+    return {"id": company.id}
+
+
+@app.put("/companies/{company_id}")
+def update_company(company_id: int, payload: CompanyUpdate, db: Session = Depends(get_db)):
+    company = db.query(Company).filter(Company.id == company_id).first()
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    company.company_name = payload.company_name
+    company.organization_number = payload.organization_number
+    company.address = payload.address
+    company.postal_code = payload.postal_code
+    company.city = payload.city
+    company.country = payload.country
+    company.vat_number = payload.vat_number
+    company.fiscal_year_start = payload.fiscal_year_start
+    company.fiscal_year_end = payload.fiscal_year_end
+    db.commit()
+    return {"id": company.id}
+
+
+@app.delete("/companies/{company_id}")
+def delete_company(company_id: int, db: Session = Depends(get_db)):
+    company = db.query(Company).filter(Company.id == company_id).first()
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    db.delete(company)
+    db.commit()
+    return {"success": True}
+=======
+>>>>>>> main
