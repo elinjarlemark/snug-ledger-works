@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI, Depends, Header
+from fastapi import FastAPI, Depends, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
@@ -177,10 +177,10 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
     reset_token = os.getenv("PASSWORD_RESET_TOKEN", "")
     if not reset_token or payload.reset_token != reset_token:
-        return {"success": False, "error": "Invalid reset token"}
+        raise HTTPException(status_code=401, detail="Invalid reset token")
     user = db.query(User).filter(User.email == payload.email).first()
     if not user:
-        return {"success": False, "error": "User not found"}
+        raise HTTPException(status_code=404, detail="User not found")
     user.password = hash_password(payload.new_password)
     db.commit()
     return {"success": True}
@@ -196,10 +196,10 @@ def update_user_role(
     header_token = admin_token or ""
     configured_token = os.getenv("ADMIN_TOKEN", "")
     if not configured_token or header_token != configured_token:
-        return {"success": False, "error": "Unauthorized"}
+        raise HTTPException(status_code=401, detail="Unauthorized")
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        return {"success": False, "error": "User not found"}
+        raise HTTPException(status_code=404, detail="User not found")
     user.role = payload.role
     db.commit()
     return {
