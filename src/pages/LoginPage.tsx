@@ -16,7 +16,6 @@ export default function LoginPage() {
   const [isReset, setIsReset] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetPassword, setResetPassword] = useState("");
-  const [resetToken, setResetToken] = useState("");
   
   const { login, signup } = useAuth();
   const navigate = useNavigate();
@@ -35,7 +34,6 @@ export default function LoginPage() {
             body: JSON.stringify({
               email: resetEmail,
               new_password: resetPassword,
-              reset_token: resetToken,
             }),
           }
         );
@@ -114,20 +112,6 @@ export default function LoginPage() {
                     onChange={(e) => setResetPassword(e.target.value)}
                     required
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="resetToken">Reset token</Label>
-                  <Input
-                    id="resetToken"
-                    type="text"
-                    placeholder="Enter reset token"
-                    value={resetToken}
-                    onChange={(e) => setResetToken(e.target.value)}
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Ask an admin for the reset token.
-                  </p>
                 </div>
               </>
             )}

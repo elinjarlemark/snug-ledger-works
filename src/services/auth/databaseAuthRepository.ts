@@ -51,6 +51,6 @@ export class DatabaseAuthRepository implements IAuthRepository {
     if (!response.ok) {
       return null;
     }
-    return payload.find((user: User) => user.id === id) ?? null;
+    return payload.find((user: User) => String(user.id) === String(id)) ?? null;
   }
 }

@@ -106,7 +106,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const storedFirstTime = localStorage.getItem("accountpro_first_time");
     
     if (storedUser) {
-      setUser(JSON.parse(storedUser));
+      const parsedUser = JSON.parse(storedUser);
+      setUser(parsedUser);
       
       if (storedCompanies) {
         const parsed = JSON.parse(storedCompanies);
@@ -121,6 +122,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (storedFirstTime === "true") {
         setIsFirstTimeUser(true);
+      }
+
+      if (authService.isDatabaseConnected()) {
+        fetch(`${API_BASE_URL}/companies?user_id=${parsedUser.id}`)
+          .then((response) => response.json())
+          .then((payload) => {
+            const apiCompanies = Array.isArray(payload) ? payload.map(mapCompanyFromApi) : [];
+            if (apiCompanies.length > 0) {
+              setCompanies(apiCompanies);
+              localStorage.setItem("accountpro_companies", JSON.stringify(apiCompanies));
+              const storedActiveId = localStorage.getItem("accountpro_active_company");
+              if (storedActiveId && apiCompanies.some((c) => c.id === storedActiveId)) {
+                setActiveCompanyId(storedActiveId);
+              } else {
+                setActiveCompanyId(apiCompanies[0].id);
+                localStorage.setItem("accountpro_active_company", apiCompanies[0].id);
+              }
+            }
+          })
+          .catch(() => undefined);
       }
     }
     setIsLoading(false);
