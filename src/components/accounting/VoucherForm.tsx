@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +19,9 @@ interface VoucherFormProps {
 export function VoucherForm({ onCancel, onSuccess, editVoucher }: VoucherFormProps) {
   const { accounts, nextVoucherNumber, createVoucher, updateVoucher, validateVoucher } = useAccounting();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const debitInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
+  const creditInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
+  const accountButtonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   
   const [date, setDate] = useState(editVoucher?.date || new Date().toISOString().split("T")[0]);
   const [description, setDescription] = useState(editVoucher?.description || "");
@@ -30,6 +33,22 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher }: VoucherFormPro
   );
   const [attachments, setAttachments] = useState<VoucherAttachment[]>(editVoucher?.attachments || []);
   const [openComboboxes, setOpenComboboxes] = useState<Record<string, boolean>>({});
+  const [pendingFocusLineId, setPendingFocusLineId] = useState<string | null>(null);
+
+  // Focus debit input after account selection
+  useEffect(() => {
+    if (pendingFocusLineId) {
+      const debitInput = debitInputRefs.current.get(pendingFocusLineId);
+      if (debitInput) {
+        // Small delay to ensure the popover is fully closed
+        setTimeout(() => {
+          debitInput.focus();
+          debitInput.select();
+        }, 50);
+      }
+      setPendingFocusLineId(null);
+    }
+  }, [pendingFocusLineId]);
 
   const validation = validateVoucher(lines);
 
@@ -258,7 +277,7 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher }: VoucherFormPro
               </tr>
             </thead>
             <tbody>
-              {lines.map((line) => (
+              {lines.map((line, lineIndex) => (
                 <tr key={line.id} className="border-t border-border">
                   <td className="p-2">
                     <Popover
@@ -267,6 +286,9 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher }: VoucherFormPro
                     >
                       <PopoverTrigger asChild>
                         <Button
+                          ref={(el) => {
+                            if (el) accountButtonRefs.current.set(line.id, el);
+                          }}
                           variant="outline"
                           role="combobox"
                           aria-expanded={openComboboxes[line.id] || false}
@@ -296,6 +318,8 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher }: VoucherFormPro
                                   onSelect={() => {
                                     updateLine(line.id, "accountNumber", account.number);
                                     setOpenComboboxes(prev => ({ ...prev, [line.id]: false }));
+                                    // Focus debit input after account selection
+                                    setPendingFocusLineId(line.id);
                                   }}
                                 >
                                   <Check
@@ -316,6 +340,9 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher }: VoucherFormPro
                   </td>
                   <td className="p-2">
                     <Input
+                      ref={(el) => {
+                        if (el) debitInputRefs.current.set(line.id, el);
+                      }}
                       type="number"
                       min="0"
                       step="0.01"
@@ -326,12 +353,24 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher }: VoucherFormPro
                         if (!/[\d.\-+eE]/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key) && !e.ctrlKey && !e.metaKey) {
                           e.preventDefault();
                         }
+                        // Tab from debit to credit
+                        if (e.key === 'Tab' && !e.shiftKey) {
+                          e.preventDefault();
+                          const creditInput = creditInputRefs.current.get(line.id);
+                          if (creditInput) {
+                            creditInput.focus();
+                            creditInput.select();
+                          }
+                        }
                       }}
                       placeholder="0.00"
                     />
                   </td>
                   <td className="p-2">
                     <Input
+                      ref={(el) => {
+                        if (el) creditInputRefs.current.set(line.id, el);
+                      }}
                       type="number"
                       min="0"
                       step="0.01"
@@ -341,6 +380,19 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher }: VoucherFormPro
                       onKeyDown={(e) => {
                         if (!/[\d.\-+eE]/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key) && !e.ctrlKey && !e.metaKey) {
                           e.preventDefault();
+                        }
+                        // Tab from credit to next row's account button
+                        if (e.key === 'Tab' && !e.shiftKey) {
+                          const nextLineIndex = lineIndex + 1;
+                          if (nextLineIndex < lines.length) {
+                            e.preventDefault();
+                            const nextLine = lines[nextLineIndex];
+                            const nextAccountButton = accountButtonRefs.current.get(nextLine.id);
+                            if (nextAccountButton) {
+                              nextAccountButton.focus();
+                            }
+                          }
+                          // If last row, let default tab behavior continue to Add Line button
                         }
                       }}
                       placeholder="0.00"
@@ -354,6 +406,7 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher }: VoucherFormPro
                       onClick={() => removeLine(line.id)}
                       disabled={lines.length <= 2}
                       className="h-8 w-8"
+                      tabIndex={-1}
                     >
                       <Trash2 className="h-4 w-4 text-muted-foreground" />
                     </Button>
