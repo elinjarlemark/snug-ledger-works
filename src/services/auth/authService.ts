@@ -24,6 +24,7 @@ class AuthService {
 
   async login(email: string, password: string): Promise<AuthResult> {
     if (
+      !isDatabaseAuthEnabled() &&
       isTestAccountEnabled() &&
       email === authConfig.testAccountEmail &&
       password === authConfig.testAccountPassword
