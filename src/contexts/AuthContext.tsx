@@ -312,6 +312,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       id: crypto.randomUUID(),
     };
     if (authService.isDatabaseConnected() && user) {
+      const previousActiveCompanyId = activeCompanyId;
+      const optimisticCompanies = [...companies, newCompany];
+      setCompanies(optimisticCompanies);
+      setActiveCompanyId(newCompany.id);
       fetch(`${API_BASE_URL}/companies`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -327,13 +331,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           fiscal_year_start: newCompany.fiscalYearStart,
           fiscal_year_end: newCompany.fiscalYearEnd,
         }),
-      }).then(async (response) => {
-        const created = await response.json().catch(() => ({}));
-        const createdCompany = { ...newCompany, id: String(created.id ?? newCompany.id) };
-        const newCompanies = [...companies, createdCompany];
-        setCompanies(newCompanies);
-        setActiveCompanyId(createdCompany.id);
-      });
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            throw new Error("Failed to create company");
+          }
+          const created = await response.json().catch(() => ({}));
+          const createdCompany = { ...newCompany, id: String(created.id ?? newCompany.id) };
+          setCompanies((prevCompanies) =>
+            prevCompanies.map((company) =>
+              company.id === newCompany.id ? createdCompany : company
+            )
+          );
+          setActiveCompanyId(createdCompany.id);
+        })
+        .catch(() => {
+          setCompanies((prevCompanies) => prevCompanies.filter((company) => company.id !== newCompany.id));
+          if (previousActiveCompanyId && companies.some((company) => company.id === previousActiveCompanyId)) {
+            setActiveCompanyId(previousActiveCompanyId);
+            return;
+          }
+          setActiveCompanyId(companies.length > 0 ? companies[0].id : null);
+        });
       return newCompany;
     }
 
