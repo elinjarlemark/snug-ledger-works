@@ -49,6 +49,20 @@ This will start:
 - `script-server` (script runner) on http://localhost:5050
 - `api` (Python backend) on http://localhost:8000
 - `db` (PostgreSQL) on localhost:5432
+- `pgadmin` (PostgreSQL GUI) on http://localhost:5051
+
+### pgAdmin login and DB connection
+
+Use these default credentials to sign in to pgAdmin:
+- Email: `admin@snug.local`
+- Password: `admin`
+
+Then add a new server in pgAdmin with:
+- Host: `db`
+- Port: `5432`
+- Username: `snug`
+- Password: `snug_password`
+- Database: `snug_ledger`
 
 To stop everything:
 
