@@ -60,6 +60,7 @@ services:
 
   pgadmin:
     image: dpage/pgadmin4:8
+    restart: unless-stopped
     ports:
       - "5051:80"
     environment:
@@ -68,6 +69,15 @@ services:
       PGADMIN_CONFIG_SERVER_MODE: "False"
     volumes:
       - snug_pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      db:
+        condition: service_healthy
+
+  adminer:
+    image: adminer:4
+    restart: unless-stopped
+    ports:
+      - "5052:8080"
     depends_on:
       db:
         condition: service_healthy
