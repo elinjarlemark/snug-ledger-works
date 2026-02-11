@@ -55,7 +55,7 @@ This will start:
 ### pgAdmin login and DB connection
 
 Use these default credentials to sign in to pgAdmin:
-- Email: `admin@snug.local`
+- Email: `admin@example.com`
 - Password: `admin`
 
 Then add a new server in pgAdmin with:
@@ -73,6 +73,14 @@ Run these commands in order:
 docker compose up -d db pgadmin adminer
 docker compose ps
 docker compose logs --tail=100 pgadmin
+```
+
+Om du tidigare startat pgAdmin med fel e-post, återställ pgAdmin-data och starta om:
+
+```sh
+docker compose down
+docker volume rm snug-ledger-works_snug_pgadmin_data
+docker compose up -d db pgadmin adminer
 ```
 
 What to check:
