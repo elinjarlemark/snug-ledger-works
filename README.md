@@ -49,6 +49,42 @@ This will start:
 - `script-server` (script runner) on http://localhost:5050
 - `api` (Python backend) on http://localhost:8000
 - `db` (PostgreSQL) on localhost:5432
+- `pgadmin` (PostgreSQL GUI) on http://localhost:5051
+- `adminer` (fallback DB GUI) on http://localhost:5052
+
+### pgAdmin login and DB connection
+
+Use these default credentials to sign in to pgAdmin:
+- Email: `admin@snug.local`
+- Password: `admin`
+
+Then add a new server in pgAdmin with:
+- Host: `db`
+- Port: `5432`
+- Username: `snug`
+- Password: `snug_password`
+- Database: `snug_ledger`
+
+### If http://localhost:5051 says "connection refused"
+
+Run these commands in order:
+
+```sh
+docker compose up -d db pgadmin adminer
+docker compose ps
+docker compose logs --tail=100 pgadmin
+```
+
+What to check:
+- If `pgadmin` is **Up**, open http://localhost:5051 again.
+- If `pgadmin` is not up, use fallback GUI **Adminer** at http://localhost:5052.
+
+Adminer login values:
+- System: `PostgreSQL`
+- Server: `db`
+- Username: `snug`
+- Password: `snug_password`
+- Database: `snug_ledger`
 
 To stop everything:
 

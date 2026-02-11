@@ -312,6 +312,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       id: crypto.randomUUID(),
     };
     if (authService.isDatabaseConnected() && user) {
+      const optimisticCompanies = [...companies, newCompany];
+      setCompanies(optimisticCompanies);
+      setActiveCompanyId(newCompany.id);
       fetch(`${API_BASE_URL}/companies`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -330,8 +333,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }).then(async (response) => {
         const created = await response.json().catch(() => ({}));
         const createdCompany = { ...newCompany, id: String(created.id ?? newCompany.id) };
-        const newCompanies = [...companies, createdCompany];
-        setCompanies(newCompanies);
+        setCompanies((prevCompanies) =>
+          prevCompanies.map((company) =>
+            company.id === newCompany.id ? createdCompany : company
+          )
+        );
         setActiveCompanyId(createdCompany.id);
       });
       return newCompany;
