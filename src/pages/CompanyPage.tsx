@@ -22,10 +22,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAuth, CompanyProfile } from "@/contexts/AuthContext";
 import { useAccounting } from "@/contexts/AccountingContexts";
+import { authService } from "@/services/auth";
 import { toast } from "sonner";
 import { Building, Save, ArrowLeft, Plus, Trash2, Check, Upload, Download } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 export default function CompanyPage() {
   const { user, companies, activeCompany, addCompany, updateCompany, deleteCompany, setActiveCompany, isFirstTimeUser, markCompanySetupComplete } = useAuth();
@@ -176,6 +179,18 @@ export default function CompanyPage() {
           const result = importSIE(content);
           
           if (result.success) {
+            if (authService.isDatabaseConnected() && user) {
+              fetch(`${API_BASE_URL}/sie-files`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  user_id: Number(user.id),
+                  filename: file.name,
+                  storage_path: `browser-upload:${file.name}`,
+                  period: new Date().getFullYear().toString(),
+                }),
+              }).catch(() => undefined);
+            }
             if (result.imported > 0) {
               toast.success(`Imported ${result.imported} voucher(s) from SIE file`);
             }

@@ -313,9 +313,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     if (authService.isDatabaseConnected() && user) {
       const previousActiveCompanyId = activeCompanyId;
-      const optimisticCompanies = [...companies, newCompany];
-      setCompanies(optimisticCompanies);
+      setCompanies((prevCompanies) => [...prevCompanies, newCompany]);
       setActiveCompanyId(newCompany.id);
+
       fetch(`${API_BASE_URL}/companies`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -338,20 +338,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           const created = await response.json().catch(() => ({}));
           const createdCompany = { ...newCompany, id: String(created.id ?? newCompany.id) };
-          setCompanies((prevCompanies) =>
-            prevCompanies.map((company) =>
-              company.id === newCompany.id ? createdCompany : company
-            )
-          );
+
+          setCompanies((prevCompanies) => {
+            const index = prevCompanies.findIndex((company) => company.id === newCompany.id);
+            if (index === -1) {
+              return [...prevCompanies, createdCompany];
+            }
+            const nextCompanies = [...prevCompanies];
+            nextCompanies[index] = createdCompany;
+            return nextCompanies;
+          });
           setActiveCompanyId(createdCompany.id);
         })
         .catch(() => {
-          setCompanies((prevCompanies) => prevCompanies.filter((company) => company.id !== newCompany.id));
-          if (previousActiveCompanyId && companies.some((company) => company.id === previousActiveCompanyId)) {
-            setActiveCompanyId(previousActiveCompanyId);
-            return;
-          }
-          setActiveCompanyId(companies.length > 0 ? companies[0].id : null);
+          setCompanies((prevCompanies) => {
+            const filteredCompanies = prevCompanies.filter((company) => company.id !== newCompany.id);
+            const canRestorePrevious =
+              previousActiveCompanyId !== null &&
+              filteredCompanies.some((company) => company.id === previousActiveCompanyId);
+
+            if (canRestorePrevious) {
+              setActiveCompanyId(previousActiveCompanyId);
+            } else {
+              setActiveCompanyId(filteredCompanies.length > 0 ? filteredCompanies[0].id : null);
+            }
+            return filteredCompanies;
+          });
         });
       return newCompany;
     }
