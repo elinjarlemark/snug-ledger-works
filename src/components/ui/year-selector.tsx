@@ -3,8 +3,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAccounting } from "@/contexts/AccountingContext";
 
 interface YearSelectorProps {
-  value: number;
-  onChange: (year: number) => void;
+  value?: number;
+  onChange: (year: number | undefined) => void;
   className?: string;
 }
 
@@ -22,7 +22,10 @@ export function YearSelector({ value, onChange, className }: YearSelectorProps) 
   }, [vouchers, currentYear]);
 
   return (
-    <Select value={value.toString()} onValueChange={(val) => onChange(parseInt(val))}>
+    <Select
+      value={value?.toString() || ""}
+      onValueChange={(val) => onChange(val ? parseInt(val) : undefined)}
+    >
       <SelectTrigger className={className}>
         <SelectValue placeholder="Select year" />
       </SelectTrigger>

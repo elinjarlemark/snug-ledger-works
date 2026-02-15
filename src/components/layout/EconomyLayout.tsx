@@ -37,7 +37,7 @@ export function EconomyLayout() {
           )}
         >
           <div className="container py-8">
-            <Outlet />
+            <Outlet context={{ sidebarCollapsed, setSidebarCollapsed }} />
           </div>
         </main>
       </div>
