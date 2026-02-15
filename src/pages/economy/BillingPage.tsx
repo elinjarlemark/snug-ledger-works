@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { FileText, Users, Package, Plus, Trash2, Edit, Receipt } from "lucide-react";
+import { CreateInvoiceDialog } from "@/components/billing/CreateInvoiceDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -369,6 +370,7 @@ export default function BillingPage() {
   
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
   const [productDialogOpen, setProductDialogOpen] = useState(false);
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>();
   const [editingProduct, setEditingProduct] = useState<Product | undefined>();
 
@@ -652,21 +654,13 @@ export default function BillingPage() {
         <TabsContent value="invoices" className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold">Invoices</h2>
-            <Button disabled={customers.length === 0 || products.length === 0}>
+            <Button onClick={() => setInvoiceDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Create Invoice
             </Button>
           </div>
 
-          {(customers.length === 0 || products.length === 0) && (
-            <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                Add at least one customer and one product before creating invoices.
-              </CardContent>
-            </Card>
-          )}
-
-          {invoices.length === 0 && customers.length > 0 && products.length > 0 ? (
+          {invoices.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
                 No invoices yet. Create your first invoice to get started.
@@ -713,6 +707,8 @@ export default function BillingPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      <CreateInvoiceDialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen} />
     </div>
   );
 }
