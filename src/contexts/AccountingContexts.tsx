@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { BASAccount, DEFAULT_BAS_ACCOUNTS, getAccountClass, calculateBalance } from "@/lib/bas-accounts";
+import { BASAccount, DEFAULT_BAS_ACCOUNTS, getAccountClass, calculateBalance, getLatestBASAccounts } from "@/lib/bas-accounts";
 import { useAuth } from "./AuthContext";
 import { parseSIEFile, generateSIEFile, convertSIEVouchersToInternal, convertSIEAccountsToBAS, SIEParseResult } from "@/lib/sie";
 
@@ -77,6 +77,7 @@ const AccountingContext = createContext<AccountingContextType | undefined>(undef
 
 export function AccountingProvider({ children }: { children: ReactNode }) {
   const { activeCompany } = useAuth();
+  const accountingStandard = activeCompany?.accountingStandard ?? "";
   const [accounts, setAccounts] = useState<BASAccount[]>([]);
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [nextVoucherNumber, setNextVoucherNumber] = useState(1);
@@ -85,23 +86,19 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
 
   // Load data when company changes
   useEffect(() => {
+    const latestAccounts = getLatestBASAccounts(accountingStandard);
+
     if (!companyId) {
-      setAccounts(DEFAULT_BAS_ACCOUNTS);
+      setAccounts(latestAccounts);
       setVouchers([]);
       setNextVoucherNumber(1);
       return;
     }
 
-    const storedAccounts = localStorage.getItem(`accountpro_accounts_${companyId}`);
     const storedVouchers = localStorage.getItem(`accountpro_vouchers_${companyId}`);
     const storedNextNumber = localStorage.getItem(`accountpro_next_voucher_${companyId}`);
 
-    if (storedAccounts) {
-      setAccounts(JSON.parse(storedAccounts));
-    } else {
-      setAccounts(DEFAULT_BAS_ACCOUNTS);
-      localStorage.setItem(`accountpro_accounts_${companyId}`, JSON.stringify(DEFAULT_BAS_ACCOUNTS));
-    }
+    setAccounts(latestAccounts);
 
     if (storedVouchers) {
       setVouchers(JSON.parse(storedVouchers));
@@ -114,7 +111,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     } else {
       setNextVoucherNumber(1);
     }
-  }, [companyId]);
+  }, [companyId, accountingStandard]);
 
   const saveAccounts = (newAccounts: BASAccount[]) => {
     setAccounts(newAccounts);

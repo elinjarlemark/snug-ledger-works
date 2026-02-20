@@ -86,6 +86,7 @@ class CompanyCreate(BaseModel):
     vat_number: str | None = None
     fiscal_year_start: str | None = None
     fiscal_year_end: str | None = None
+    accounting_standard: str | None = None
 
 
 class CompanyUpdate(BaseModel):
@@ -98,6 +99,53 @@ class CompanyUpdate(BaseModel):
     vat_number: str | None = None
     fiscal_year_start: str | None = None
     fiscal_year_end: str | None = None
+    accounting_standard: str | None = None
+
+
+class CustomerCreate(BaseModel):
+    user_id: int
+    company_id: int | None = None
+    type: str
+    name: str
+    organization_number: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    address: str
+    postal_code: str
+    city: str
+    country: str
+
+
+class CustomerUpdate(BaseModel):
+    type: str
+    name: str
+    organization_number: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    address: str
+    postal_code: str
+    city: str
+    country: str
+
+
+class ProductCreate(BaseModel):
+    user_id: int
+    company_id: int | None = None
+    name: str
+    description: str | None = None
+    price: float
+    includes_vat: bool
+    vat_rate: float
+    unit: str | None = None
+
+
+class ProductUpdate(BaseModel):
+    name: str
+    description: str | None = None
+    price: float
+    includes_vat: bool
+    vat_rate: float
+    unit: str | None = None
 
 
 class CustomerCreate(BaseModel):
@@ -460,6 +508,7 @@ def list_companies(user_id: int, db: Session = Depends(get_db)):
             "vatNumber": company.vat_number,
             "fiscalYearStart": company.fiscal_year_start,
             "fiscalYearEnd": company.fiscal_year_end,
+            "accountingStandard": company.accounting_standard,
         }
         for company in companies
     ]
@@ -478,6 +527,7 @@ def create_company(payload: CompanyCreate, db: Session = Depends(get_db)):
         vat_number=payload.vat_number,
         fiscal_year_start=payload.fiscal_year_start,
         fiscal_year_end=payload.fiscal_year_end,
+        accounting_standard=payload.accounting_standard,
     )
     db.add(company)
     db.commit()
@@ -499,6 +549,7 @@ def update_company(company_id: int, payload: CompanyUpdate, db: Session = Depend
     company.vat_number = payload.vat_number
     company.fiscal_year_start = payload.fiscal_year_start
     company.fiscal_year_end = payload.fiscal_year_end
+    company.accounting_standard = payload.accounting_standard
     db.commit()
     return {"id": company.id}
 

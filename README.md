@@ -110,6 +110,37 @@ bash scripts/test-local.sh
 
 **Important:** Update `scripts/test-local.sh` whenever you change APIs, ports, or behavior so it always works with the latest code.
 
+## BAS-kontoplan CSV (årsstyrda konton)
+
+Appen läser BAS-konton från CSV-filer i den här mappen:
+
+`src/data/bas/`
+
+Namnge filer exakt så här:
+
+- `BAS_kontoplan_2025.csv`
+- `BAS_kontoplan_2026.csv`
+- osv.
+
+Format (komma-separerad med citat):
+
+```csv
+1019,"Ackumulerade avskrivningar på balanserade utgifter","x"
+1020,"Koncessioner m.m.",""
+```
+
+Kolumner:
+- Kolumn 1: kontonummer
+- Kolumn 2: kontonamn
+- Kolumn 3: `"x"` betyder **endast K3**, `""` betyder synlig för både K2 och K3
+
+Regler i appen:
+
+- På kontosidorna används alltid **senaste tillgängliga år** (t.ex. 2026).
+- I verifikationsformuläret används kontoplanen för **det år som datumfältet har** (t.ex. datum `2025-01-01` => `BAS_kontoplan_2025.csv`).
+- Om exakt år saknas används närmaste tidigare år, annars senaste tillgängliga år.
+- K3-markerade konton (kolumn 3 = `x`) visas bara när företaget har valt **K3**.
+
 
 ### Data storage approach (recommended)
 

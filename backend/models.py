@@ -59,6 +59,7 @@ class Company(Base):
     vat_number = Column(String(50), nullable=True)
     fiscal_year_start = Column(String(10), nullable=True)
     fiscal_year_end = Column(String(10), nullable=True)
+    accounting_standard = Column(String(2), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User")

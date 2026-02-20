@@ -88,7 +88,7 @@ export default function CompanyPage() {
     vatNumber: "",
     fiscalYearStart: "01-01",
     fiscalYearEnd: "12-31",
-    accountingStandard: "" as "" | "K2" | "K3",
+    accountingStandard: "" as "K2" | "K3" | "",
   });
 
   useEffect(() => {
@@ -103,7 +103,7 @@ export default function CompanyPage() {
         vatNumber: activeCompany.vatNumber,
         fiscalYearStart: activeCompany.fiscalYearStart,
         fiscalYearEnd: activeCompany.fiscalYearEnd,
-        accountingStandard: activeCompany.accountingStandard || "",
+        accountingStandard: activeCompany.accountingStandard,
       });
     }
   }, [activeCompany]);
@@ -149,7 +149,12 @@ export default function CompanyPage() {
       toast.error("Country is required");
       return;
     }
-    
+
+    if (!formData.accountingStandard) {
+      toast.error("Accounting standard (K2/K3) is required");
+      return;
+    }
+
     updateCompany({
       ...formData,
       id: activeCompany.id,
@@ -195,6 +200,7 @@ export default function CompanyPage() {
       vatNumber: "",
       fiscalYearStart: "01-01",
       fiscalYearEnd: "12-31",
+      accountingStandard: "",
     });
     setActiveCompany(newCompany.id);
     setIsNewCompany(true);
@@ -508,6 +514,23 @@ export default function CompanyPage() {
                         onChange={(e) => handleChange("vatNumber", e.target.value)}
                         placeholder="SE123456789001"
                       />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="accountingStandard">Accounting Standard (K2/K3) *</Label>
+                      <Select
+                        value={formData.accountingStandard || "none"}
+                        onValueChange={(value) => handleChange("accountingStandard", value === "none" ? "" : value)}
+                      >
+                        <SelectTrigger id="accountingStandard">
+                          <SelectValue placeholder="Choose K2 or K3" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Choose K2 or K3</SelectItem>
+                          <SelectItem value="K2">K2</SelectItem>
+                          <SelectItem value="K3">K3</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-4">
