@@ -5,9 +5,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { useAccounting, Voucher } from "@/contexts/AccountingContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { formatAmount, getAccountClassName } from "@/lib/bas-accounts";
 import { VoucherDetailsDialog } from "./VoucherDetailsDialog";
+import { Download } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface AccountStatementDialogProps {
   open: boolean;
@@ -21,6 +26,7 @@ export function AccountStatementDialog({
   accountNumber 
 }: AccountStatementDialogProps) {
   const { getAccountStatement, accounts, getVoucherByNumber } = useAccounting();
+  const { activeCompany } = useAuth();
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
   
   const statement = getAccountStatement(accountNumber);
@@ -35,18 +41,85 @@ export function AccountStatementDialog({
     }
   };
 
+  const handleExportPDF = () => {
+    if (!statement || statement.entries.length === 0) return;
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Header
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("Account Statement", pageWidth / 2, 20, { align: "center" });
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    if (activeCompany) {
+      doc.text(activeCompany.companyName, pageWidth / 2, 30, { align: "center" });
+      doc.text(`Org.nr: ${activeCompany.organizationNumber}`, pageWidth / 2, 37, { align: "center" });
+    }
+
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${account.number} - ${account.name}`, 14, 50);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(getAccountClassName(account.class), 14, 57);
+
+    autoTable(doc, {
+      startY: 63,
+      head: [["Date", "Voucher", "Description", "Debit", "Credit", "Balance"]],
+      body: [
+        ...statement.entries.map(entry => [
+          entry.date,
+          `#${entry.voucherNumber}`,
+          entry.description,
+          entry.debit > 0 ? formatAmount(entry.debit) : "",
+          entry.credit > 0 ? formatAmount(entry.credit) : "",
+          formatAmount(entry.balance),
+        ]),
+        ["", "", "Total", formatAmount(statement.totalDebit), formatAmount(statement.totalCredit), formatAmount(statement.finalBalance)],
+      ],
+      theme: "striped",
+      headStyles: { fillColor: [59, 130, 246] },
+      styles: { fontSize: 9 },
+      columnStyles: {
+        0: { cellWidth: 25 },
+        3: { halign: "right" },
+        4: { halign: "right" },
+        5: { halign: "right", fontStyle: "bold" },
+      },
+    });
+
+    const footerY = doc.internal.pageSize.getHeight() - 15;
+    doc.setFontSize(8);
+    doc.text(`Generated: ${new Date().toISOString().split("T")[0]}`, 14, footerY);
+
+    doc.save(`account-statement-${account.number}.pdf`);
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-3">
-              <span className="font-mono text-secondary">{account.number}</span>
-              <span>{account.name}</span>
-            </DialogTitle>
-            <p className="text-sm text-muted-foreground">
-              {getAccountClassName(account.class)}
-            </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="flex items-center gap-3">
+                  <span className="font-mono text-secondary">{account.number}</span>
+                  <span>{account.name}</span>
+                </DialogTitle>
+                <p className="text-sm text-muted-foreground">
+                  {getAccountClassName(account.class)}
+                </p>
+              </div>
+              {statement.entries.length > 0 && (
+                <Button variant="outline" size="sm" onClick={handleExportPDF}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Export PDF
+                </Button>
+              )}
+            </div>
           </DialogHeader>
 
           <div className="space-y-4">

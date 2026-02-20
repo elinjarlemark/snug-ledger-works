@@ -1,16 +1,17 @@
 import { Button } from "@/components/ui/button";
 import { Voucher, useAccounting } from "@/contexts/AccountingContext";
 import { formatAmount } from "@/lib/bas-accounts";
-import { X, RotateCcw, Trash2, Edit, FileText, Image, ExternalLink } from "lucide-react";
+import { X, RotateCcw, Trash2, Edit, FileText, Image, ExternalLink, Copy } from "lucide-react";
 import { toast } from "sonner";
 
 interface VoucherDetailsProps {
   voucher: Voucher;
   onClose: () => void;
   onEdit?: () => void;
+  onDuplicate?: (voucher: Voucher) => void;
 }
 
-export function VoucherDetails({ voucher, onClose, onEdit }: VoucherDetailsProps) {
+export function VoucherDetails({ voucher, onClose, onEdit, onDuplicate }: VoucherDetailsProps) {
   const { createVoucher, deleteVoucher } = useAccounting();
 
   const handleRevert = () => {
@@ -152,6 +153,12 @@ export function VoucherDetails({ voucher, onClose, onEdit }: VoucherDetailsProps
 
       {/* Actions */}
       <div className="flex justify-end gap-3">
+        {onDuplicate && (
+          <Button variant="outline" onClick={() => onDuplicate(voucher)}>
+            <Copy className="h-4 w-4 mr-2" />
+            Duplicate
+          </Button>
+        )}
         {onEdit && (
           <Button variant="outline" onClick={onEdit}>
             <Edit className="h-4 w-4 mr-2" />
