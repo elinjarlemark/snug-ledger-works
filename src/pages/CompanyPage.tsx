@@ -40,7 +40,8 @@ export default function CompanyPage() {
   const [isNewCompany, setIsNewCompany] = useState(false);
   const [originalCompanyId, setOriginalCompanyId] = useState<string | null>(null);
   const [showCompanyRequiredAlert, setShowCompanyRequiredAlert] = useState(false);
-  const [showAccountingStandardLockedAlert, setShowAccountingStandardLockedAlert] = useState(false);
+  const [showAccountingStandardConfirmAlert, setShowAccountingStandardConfirmAlert] = useState(false);
+  const [pendingAccountingStandard, setPendingAccountingStandard] = useState<"K2" | "K3" | "" | null>(null);
   
   // Check if we were redirected because company is required
   useEffect(() => {
@@ -139,13 +140,15 @@ export default function CompanyPage() {
   };
 
   const handleChange = (field: string, value: string) => {
-    if (field === "accountingStandard" && isExistingCompany && activeCompany && !!activeCompany.accountingStandard) {
+    if (field === "accountingStandard") {
       const nextStandard = value as "K2" | "K3" | "";
-      if (nextStandard && nextStandard !== activeCompany.accountingStandard) {
-        setShowAccountingStandardLockedAlert(true);
+      if (nextStandard && formData.accountingStandard && formData.accountingStandard !== nextStandard) {
+        setPendingAccountingStandard(nextStandard);
+        setShowAccountingStandardConfirmAlert(true);
         return;
       }
     }
+
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -303,17 +306,33 @@ export default function CompanyPage() {
       </AlertDialog>
 
 
-      <AlertDialog open={showAccountingStandardLockedAlert} onOpenChange={setShowAccountingStandardLockedAlert}>
+      <AlertDialog open={showAccountingStandardConfirmAlert} onOpenChange={setShowAccountingStandardConfirmAlert}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Accounting standard is locked</AlertDialogTitle>
+            <AlertDialogTitle>Change accounting standard?</AlertDialogTitle>
             <AlertDialogDescription>
-              You cannot change accounting standard (K2/K3) after the company is created.
+              Are you sure you want to change accounting standard (K2/K3)?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setShowAccountingStandardLockedAlert(false)}>
-              OK
+            <AlertDialogCancel
+              onClick={() => {
+                setPendingAccountingStandard(null);
+                setShowAccountingStandardConfirmAlert(false);
+              }}
+            >
+              No
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingAccountingStandard) {
+                  setFormData((prev) => ({ ...prev, accountingStandard: pendingAccountingStandard }));
+                }
+                setPendingAccountingStandard(null);
+                setShowAccountingStandardConfirmAlert(false);
+              }}
+            >
+              Yes
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -506,11 +525,6 @@ export default function CompanyPage() {
                           <SelectItem value="K3">K3</SelectItem>
                         </SelectContent>
                       </Select>
-                      {isExistingCompany && activeCompany?.accountingStandard && (
-                        <p className="text-xs text-muted-foreground">
-                          Accounting standard cannot be changed after creation.
-                        </p>
-                      )}
                       {!canDeleteActiveCompany && (
                         <p className="text-xs text-muted-foreground">
                           Save at least two companies before deleting one.
@@ -537,34 +551,6 @@ export default function CompanyPage() {
                           placeholder="12-31"
                         />
                       </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Accounting Standard</Label>
-                      <Select 
-                        value={formData.accountingStandard || ""} 
-                        onValueChange={(v) => {
-                          const newVal = v as "K2" | "K3";
-                          // If already has a standard set and trying to change it, confirm
-                          if (formData.accountingStandard && formData.accountingStandard !== newVal) {
-                            setPendingAccountingStandard(newVal);
-                            setShowK2K3ConfirmAlert(true);
-                          } else {
-                            setFormData(prev => ({ ...prev, accountingStandard: newVal }));
-                          }
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select K2 or K3..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="K2">K2</SelectItem>
-                          <SelectItem value="K3">K3</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground">
-                        K2 is for smaller companies, K3 is for larger companies
-                      </p>
                     </div>
 
                     <div className="flex gap-3">
