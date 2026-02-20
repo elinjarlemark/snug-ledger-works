@@ -87,6 +87,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
   // Load data when company changes
   useEffect(() => {
     const latestAccounts = getLatestBASAccounts(accountingStandard);
+    const latestK3Accounts = getLatestBASAccounts("K3");
 
     if (!companyId) {
       setAccounts(latestAccounts);
@@ -95,11 +96,17 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const storedAccounts = localStorage.getItem(`accountpro_accounts_${companyId}`);
     const storedVouchers = localStorage.getItem(`accountpro_vouchers_${companyId}`);
     const storedNextNumber = localStorage.getItem(`accountpro_next_voucher_${companyId}`);
 
     if (storedAccounts) {
-      setAccounts(JSON.parse(storedAccounts));
+      const parsedAccounts = JSON.parse(storedAccounts) as BASAccount[];
+      const basAccountNumbers = new Set(latestK3Accounts.map((account) => account.number));
+      const customAccounts = parsedAccounts.filter((account) => !basAccountNumbers.has(account.number));
+      const mergedAccounts = [...latestAccounts, ...customAccounts].sort((a, b) => a.number.localeCompare(b.number));
+      setAccounts(mergedAccounts);
+      localStorage.setItem(`accountpro_accounts_${companyId}`, JSON.stringify(mergedAccounts));
     } else {
       setAccounts(latestAccounts);
       localStorage.setItem(`accountpro_accounts_${companyId}`, JSON.stringify(latestAccounts));
