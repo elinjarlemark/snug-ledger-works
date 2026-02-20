@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import { Header } from "./Header";
 import { EconomySidebar } from "./EconomySidebar";
 import { cn } from "@/lib/utils";
@@ -9,17 +9,16 @@ export function EconomyLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { user, hasValidCompany, isLoading } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
   useEffect(() => {
-    // Only redirect logged-in users without valid company when trying to access sub-pages
-    if (!isLoading && user && !hasValidCompany && location.pathname !== "/economy") {
+    // Redirect logged-in users without valid company from ALL economy routes
+    if (!isLoading && user && !hasValidCompany) {
       navigate("/company", { replace: true, state: { showCompanyRequiredAlert: true } });
     }
-  }, [user, hasValidCompany, isLoading, navigate, location.pathname]);
+  }, [user, hasValidCompany, isLoading, navigate]);
 
-  // Show nothing while checking or redirecting (only for logged-in users on sub-pages)
-  if (!isLoading && user && !hasValidCompany && location.pathname !== "/economy") {
+  // Show nothing while checking or redirecting
+  if (!isLoading && user && !hasValidCompany) {
     return null;
   }
 
@@ -38,7 +37,7 @@ export function EconomyLayout() {
           )}
         >
           <div className="container py-8">
-            <Outlet />
+            <Outlet context={{ sidebarCollapsed, setSidebarCollapsed }} />
           </div>
         </main>
       </div>

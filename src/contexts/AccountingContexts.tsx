@@ -95,7 +95,6 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const storedAccounts = localStorage.getItem(`accountpro_accounts_${companyId}`);
     const storedVouchers = localStorage.getItem(`accountpro_vouchers_${companyId}`);
     const storedNextNumber = localStorage.getItem(`accountpro_next_voucher_${companyId}`);
 

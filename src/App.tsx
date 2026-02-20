@@ -24,6 +24,7 @@ import NewAnnualReportsPage from "./pages/economy/NewAnnualReportsPage";
 import AccountsPage from "./pages/economy/AccountsPage";
 import AdminPage from "./pages/AdminPage";
 import NotFound from "./pages/NotFound";
+import { ScrollToTop } from "@/components/ScrollToTop";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <ScrollToTop />
             <Routes>
               {/* Public pages with header/footer */}
               <Route element={<PublicLayout />}>
