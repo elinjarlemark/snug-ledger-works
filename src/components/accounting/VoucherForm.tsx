@@ -27,12 +27,8 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
   const creditInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
   const accountButtonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   
-  const sourceVoucher = editVoucher || duplicateFrom;
-  
-  const [date, setDate] = useState(sourceVoucher?.date || new Date().toISOString().split("T")[0]);
-  const [description, setDescription] = useState(
-    duplicateFrom ? `${duplicateFrom.description} duplicate` : (sourceVoucher?.description || "")
-  );
+  const [date, setDate] = useState(editVoucher?.date || "");
+  const [description, setDescription] = useState(editVoucher?.description || "");
   const [lines, setLines] = useState<VoucherLine[]>(
     sourceVoucher?.lines.map(l => ({ ...l, id: crypto.randomUUID() })) || [
       { id: crypto.randomUUID(), accountNumber: "", accountName: "", debit: 0, credit: 0 },
@@ -54,6 +50,17 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
     }
     setDateAccounts(accounts);
   }, [date, accounts, activeCompany?.accountingStandard]);
+
+  useEffect(() => {
+    const validAccountNumbers = new Set(dateAccounts.map((account) => account.number));
+    setLines((prevLines) =>
+      prevLines.map((line) =>
+        line.accountNumber && !validAccountNumbers.has(line.accountNumber)
+          ? { ...line, accountNumber: "", accountName: "" }
+          : line
+      )
+    );
+  }, [dateAccounts]);
 
   // Focus debit input after account selection
   useEffect(() => {

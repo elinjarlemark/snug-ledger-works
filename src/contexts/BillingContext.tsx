@@ -213,7 +213,10 @@ export function BillingProvider({ children }: { children: ReactNode }) {
           city: customer.city,
           country: customer.country,
         }),
-      }).then(() => {
+      }).then((response) => {
+        if (!response.ok) {
+          return;
+        }
         setCustomers((prev) => prev.map((c) => (c.id === customer.id ? customer : c)));
       });
       return;
@@ -224,7 +227,10 @@ export function BillingProvider({ children }: { children: ReactNode }) {
 
   const deleteCustomer = (customerId: string) => {
     if (authService.isDatabaseConnected() && hasNumericCompanyId) {
-      fetch(`${API_BASE_URL}/customers/${customerId}`, { method: "DELETE" }).then(() => {
+      fetch(`${API_BASE_URL}/customers/${customerId}`, { method: "DELETE" }).then((response) => {
+        if (!response.ok) {
+          return;
+        }
         setCustomers((prev) => prev.filter((c) => c.id !== customerId));
       });
       return;
@@ -285,7 +291,10 @@ export function BillingProvider({ children }: { children: ReactNode }) {
           vat_rate: product.vatRate,
           unit: product.unit,
         }),
-      }).then(() => {
+      }).then((response) => {
+        if (!response.ok) {
+          return;
+        }
         setProducts((prev) => prev.map((p) => (p.id === product.id ? product : p)));
       });
       return;
@@ -296,7 +305,10 @@ export function BillingProvider({ children }: { children: ReactNode }) {
 
   const deleteProduct = (productId: string) => {
     if (authService.isDatabaseConnected() && hasNumericCompanyId) {
-      fetch(`${API_BASE_URL}/products/${productId}`, { method: "DELETE" }).then(() => {
+      fetch(`${API_BASE_URL}/products/${productId}`, { method: "DELETE" }).then((response) => {
+        if (!response.ok) {
+          return;
+        }
         setProducts((prev) => prev.filter((p) => p.id !== productId));
       });
       return;

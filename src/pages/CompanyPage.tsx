@@ -40,35 +40,7 @@ export default function CompanyPage() {
   const [isNewCompany, setIsNewCompany] = useState(false);
   const [originalCompanyId, setOriginalCompanyId] = useState<string | null>(null);
   const [showCompanyRequiredAlert, setShowCompanyRequiredAlert] = useState(false);
-  const [showK2K3ConfirmAlert, setShowK2K3ConfirmAlert] = useState(false);
-  const [pendingAccountingStandard, setPendingAccountingStandard] = useState<"K2" | "K3" | null>(null);
-  
-  // Ref to track unsaved state for cleanup on unmount
-  const unsavedRef = useRef<{ isNew: boolean; companyId: string; originalId: string | null }>({
-    isNew: false, companyId: "", originalId: null,
-  });
-
-  // Keep ref in sync
-  useEffect(() => {
-    unsavedRef.current = {
-      isNew: isNewCompany,
-      companyId: activeCompany?.id || "",
-      originalId: originalCompanyId,
-    };
-  }, [isNewCompany, activeCompany?.id, originalCompanyId]);
-
-  // Cleanup unsaved company when navigating away
-  useEffect(() => {
-    return () => {
-      const { isNew, companyId, originalId } = unsavedRef.current;
-      if (isNew && companyId) {
-        deleteCompany(companyId);
-        if (originalId) {
-          setActiveCompany(originalId);
-        }
-      }
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [showAccountingStandardLockedAlert, setShowAccountingStandardLockedAlert] = useState(false);
   
   // Check if we were redirected because company is required
   useEffect(() => {
@@ -167,6 +139,13 @@ export default function CompanyPage() {
   };
 
   const handleChange = (field: string, value: string) => {
+    if (field === "accountingStandard" && isExistingCompany && activeCompany) {
+      const nextStandard = value as "K2" | "K3" | "";
+      if (nextStandard && nextStandard !== activeCompany.accountingStandard) {
+        setShowAccountingStandardLockedAlert(true);
+        return;
+      }
+    }
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -317,31 +296,22 @@ export default function CompanyPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={showK2K3ConfirmAlert} onOpenChange={setShowK2K3ConfirmAlert}>
+
+      <AlertDialog open={showAccountingStandardLockedAlert} onOpenChange={setShowAccountingStandardLockedAlert}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Change Accounting Standard?</AlertDialogTitle>
+            <AlertDialogTitle>Accounting standard is locked</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to change the accounting standard to {pendingAccountingStandard}? This may affect how financial statements are prepared.
+              You cannot change accounting standard (K2/K3) after the company is created.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => { setShowK2K3ConfirmAlert(false); setPendingAccountingStandard(null); }}>
-              No
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={() => {
-              if (pendingAccountingStandard) {
-                setFormData(prev => ({ ...prev, accountingStandard: pendingAccountingStandard }));
-              }
-              setShowK2K3ConfirmAlert(false);
-              setPendingAccountingStandard(null);
-            }}>
-              Yes
+            <AlertDialogAction onClick={() => setShowAccountingStandardLockedAlert(false)}>
+              OK
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
       <div className="min-h-screen flex flex-col">
         <Header />
         <main className="flex-1 container py-8">
@@ -531,6 +501,11 @@ export default function CompanyPage() {
                           <SelectItem value="K3">K3</SelectItem>
                         </SelectContent>
                       </Select>
+                      {isExistingCompany && (
+                        <p className="text-xs text-muted-foreground">
+                          Accounting standard cannot be changed after creation.
+                        </p>
+                      )}
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-4">

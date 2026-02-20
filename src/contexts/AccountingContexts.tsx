@@ -98,7 +98,12 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     const storedVouchers = localStorage.getItem(`accountpro_vouchers_${companyId}`);
     const storedNextNumber = localStorage.getItem(`accountpro_next_voucher_${companyId}`);
 
-    setAccounts(latestAccounts);
+    if (storedAccounts) {
+      setAccounts(JSON.parse(storedAccounts));
+    } else {
+      setAccounts(latestAccounts);
+      localStorage.setItem(`accountpro_accounts_${companyId}`, JSON.stringify(latestAccounts));
+    }
 
     if (storedVouchers) {
       setVouchers(JSON.parse(storedVouchers));
