@@ -139,7 +139,7 @@ export default function CompanyPage() {
   };
 
   const handleChange = (field: string, value: string) => {
-    if (field === "accountingStandard" && isExistingCompany && activeCompany) {
+    if (field === "accountingStandard" && isExistingCompany && activeCompany && !!activeCompany.accountingStandard) {
       const nextStandard = value as "K2" | "K3" | "";
       if (nextStandard && nextStandard !== activeCompany.accountingStandard) {
         setShowAccountingStandardLockedAlert(true);
@@ -270,13 +270,19 @@ export default function CompanyPage() {
 
   const handleDeleteCompany = () => {
     if (!activeCompany) return;
-    
+    if (!canDeleteActiveCompany) {
+      toast.error("You must have at least two saved companies before deleting one");
+      return;
+    }
+
     deleteCompany(activeCompany.id);
     toast.success("Company deleted");
   };
 
   // Check if this is an existing saved company (has org number saved)
   const isExistingCompany = activeCompany && activeCompany.organizationNumber.replace(/-/g, "").length === 10;
+  const savedCompaniesCount = companies.filter((company) => company.organizationNumber.replace(/-/g, "").length === 10).length;
+  const canDeleteActiveCompany = !!activeCompany && !!isExistingCompany && savedCompaniesCount >= 2;
 
   return (
     <>
@@ -392,8 +398,7 @@ export default function CompanyPage() {
                     size="sm" 
                     className="text-destructive hover:text-destructive"
                     onClick={handleDeleteCompany}
-                    disabled={companies.length <= 1}
-                    title={companies.length <= 1 ? "Cannot delete the only company" : "Delete company"}
+                    disabled={!canDeleteActiveCompany}
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
                     Delete
@@ -501,9 +506,14 @@ export default function CompanyPage() {
                           <SelectItem value="K3">K3</SelectItem>
                         </SelectContent>
                       </Select>
-                      {isExistingCompany && (
+                      {isExistingCompany && activeCompany?.accountingStandard && (
                         <p className="text-xs text-muted-foreground">
                           Accounting standard cannot be changed after creation.
+                        </p>
+                      )}
+                      {!canDeleteActiveCompany && (
+                        <p className="text-xs text-muted-foreground">
+                          Save at least two companies before deleting one.
                         </p>
                       )}
                     </div>
