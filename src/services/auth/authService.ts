@@ -4,7 +4,7 @@
 import { IAuthRepository, AuthCredentials, SignupData, AuthResult, User } from "./types";
 import { LocalAuthRepository } from "./localAuthRepository";
 import { DatabaseAuthRepository } from "./databaseAuthRepository";
-import { isDatabaseAuthEnabled } from "./config";
+import { authConfig, isDatabaseAuthEnabled, isTestAccountEnabled } from "./config";
 
 // Factory function to get the appropriate repository
 function getAuthRepository(): IAuthRepository {
@@ -23,6 +23,21 @@ class AuthService {
   }
 
   async login(email: string, password: string): Promise<AuthResult> {
+    if (
+      !isDatabaseAuthEnabled() &&
+      isTestAccountEnabled() &&
+      email === authConfig.testAccountEmail &&
+      password === authConfig.testAccountPassword
+    ) {
+      return {
+        success: true,
+        user: {
+          id: "test-user-id",
+          email: authConfig.testAccountEmail,
+          name: "Test User",
+        },
+      };
+    }
     const credentials: AuthCredentials = { email, password };
     return this.repository.authenticate(credentials);
   }
