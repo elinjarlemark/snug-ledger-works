@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { Customer, Product, Invoice, InvoiceLine, calculateInvoiceLine } from "@/lib/billing/types";
+import { Customer, Product, Invoice } from "@/lib/billing/types";
 import { useAuth } from "./AuthContext";
+import { authService } from "@/services/auth";
 
 interface BillingContextType {
   customers: Customer[];
@@ -22,18 +23,49 @@ interface BillingContextType {
 }
 
 const BillingContext = createContext<BillingContextType | undefined>(undefined);
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+
+const mapCustomerFromApi = (customer: any): Customer => ({
+  id: String(customer.id),
+  companyId: String(customer.company_id ?? ""),
+  type: customer.type,
+  name: customer.name,
+  organizationNumber: customer.organization_number ?? undefined,
+  email: customer.email ?? undefined,
+  phone: customer.phone ?? undefined,
+  address: customer.address,
+  postalCode: customer.postal_code,
+  city: customer.city,
+  country: customer.country,
+  createdAt: customer.created_at ?? new Date().toISOString(),
+});
+
+const mapProductFromApi = (product: any): Product => ({
+  id: String(product.id),
+  companyId: String(product.company_id ?? ""),
+  name: product.name,
+  description: product.description ?? undefined,
+  price: Number(product.price ?? 0),
+  includesVat: Boolean(product.includes_vat),
+  vatRate: Number(product.vat_rate ?? 25),
+  unit: product.unit ?? undefined,
+  createdAt: product.created_at ?? new Date().toISOString(),
+});
 
 export function BillingProvider({ children }: { children: ReactNode }) {
-  const { activeCompany } = useAuth();
+  const { activeCompany, user } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState(1);
 
   const companyId = activeCompany?.id || "";
+  const parsedCompanyId = Number(companyId);
+  const hasNumericCompanyId = Number.isFinite(parsedCompanyId);
 
-  // Load data when company changes
   useEffect(() => {
+    let isCurrentEffect = true;
+
     if (!companyId) {
       setCustomers([]);
       setProducts([]);
@@ -42,10 +74,54 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const storedCustomers = localStorage.getItem(`billing_customers_${companyId}`);
-    const storedProducts = localStorage.getItem(`billing_products_${companyId}`);
     const storedInvoices = localStorage.getItem(`billing_invoices_${companyId}`);
     const storedNextNumber = localStorage.getItem(`billing_next_invoice_${companyId}`);
+
+    if (storedInvoices) setInvoices(JSON.parse(storedInvoices));
+    else setInvoices([]);
+
+    if (storedNextNumber) setNextInvoiceNumber(parseInt(storedNextNumber));
+    else setNextInvoiceNumber(1);
+
+    if (authService.isDatabaseConnected() && user && hasNumericCompanyId) {
+      fetch(`${API_BASE_URL}/customers?user_id=${user.id}&company_id=${parsedCompanyId}`)
+        .then((response) => response.json())
+        .then((payload) => {
+          if (!isCurrentEffect) {
+            return;
+          }
+          const apiCustomers = Array.isArray(payload) ? payload.map(mapCustomerFromApi) : [];
+          setCustomers(apiCustomers);
+        })
+        .catch(() => {
+          if (isCurrentEffect) {
+            setCustomers([]);
+          }
+        });
+
+      fetch(`${API_BASE_URL}/products?user_id=${user.id}&company_id=${parsedCompanyId}`)
+        .then((response) => response.json())
+        .then((payload) => {
+          if (!isCurrentEffect) {
+            return;
+          }
+          const apiProducts = Array.isArray(payload) ? payload.map(mapProductFromApi) : [];
+          setProducts(apiProducts);
+        })
+        .catch(() => {
+          if (isCurrentEffect) {
+            setProducts([]);
+          }
+        });
+
+      return () => {
+        isCurrentEffect = false;
+      };
+
+    }
+
+    const storedCustomers = localStorage.getItem(`billing_customers_${companyId}`);
+    const storedProducts = localStorage.getItem(`billing_products_${companyId}`);
 
     if (storedCustomers) setCustomers(JSON.parse(storedCustomers));
     else setCustomers([]);
@@ -53,12 +129,10 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     if (storedProducts) setProducts(JSON.parse(storedProducts));
     else setProducts([]);
 
-    if (storedInvoices) setInvoices(JSON.parse(storedInvoices));
-    else setInvoices([]);
-
-    if (storedNextNumber) setNextInvoiceNumber(parseInt(storedNextNumber));
-    else setNextInvoiceNumber(1);
-  }, [companyId]);
+    return () => {
+      isCurrentEffect = false;
+    };
+  }, [companyId, user]);
 
   const saveCustomers = (newCustomers: Customer[]) => {
     setCustomers(newCustomers);
@@ -90,15 +164,78 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       companyId,
       createdAt: new Date().toISOString(),
     };
+
+    if (authService.isDatabaseConnected() && user && hasNumericCompanyId) {
+      fetch(`${API_BASE_URL}/customers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.id,
+          company_id: parsedCompanyId,
+          type: newCustomer.type,
+          name: newCustomer.name,
+          organization_number: newCustomer.organizationNumber,
+          email: newCustomer.email,
+          phone: newCustomer.phone,
+          address: newCustomer.address,
+          postal_code: newCustomer.postalCode,
+          city: newCustomer.city,
+          country: newCustomer.country,
+        }),
+      }).then(async (response) => {
+        if (!response.ok) {
+          return;
+        }
+        const payload = await response.json().catch(() => ({}));
+        const createdCustomer = { ...newCustomer, id: String(payload.id ?? newCustomer.id) };
+        setCustomers((prev) => [...prev, createdCustomer]);
+      });
+      return newCustomer;
+    }
+
     saveCustomers([...customers, newCustomer]);
     return newCustomer;
   };
 
   const updateCustomer = (customer: Customer) => {
+    if (authService.isDatabaseConnected() && hasNumericCompanyId) {
+      fetch(`${API_BASE_URL}/customers/${customer.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: customer.type,
+          name: customer.name,
+          organization_number: customer.organizationNumber,
+          email: customer.email,
+          phone: customer.phone,
+          address: customer.address,
+          postal_code: customer.postalCode,
+          city: customer.city,
+          country: customer.country,
+        }),
+      }).then((response) => {
+        if (!response.ok) {
+          return;
+        }
+        setCustomers((prev) => prev.map((c) => (c.id === customer.id ? customer : c)));
+      });
+      return;
+    }
+
     saveCustomers(customers.map(c => c.id === customer.id ? customer : c));
   };
 
   const deleteCustomer = (customerId: string) => {
+    if (authService.isDatabaseConnected() && hasNumericCompanyId) {
+      fetch(`${API_BASE_URL}/customers/${customerId}`, { method: "DELETE" }).then((response) => {
+        if (!response.ok) {
+          return;
+        }
+        setCustomers((prev) => prev.filter((c) => c.id !== customerId));
+      });
+      return;
+    }
+
     saveCustomers(customers.filter(c => c.id !== customerId));
   };
 
@@ -111,15 +248,72 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       companyId,
       createdAt: new Date().toISOString(),
     };
+
+    if (authService.isDatabaseConnected() && user && hasNumericCompanyId) {
+      fetch(`${API_BASE_URL}/products`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.id,
+          company_id: parsedCompanyId,
+          name: newProduct.name,
+          description: newProduct.description,
+          price: newProduct.price,
+          includes_vat: newProduct.includesVat,
+          vat_rate: newProduct.vatRate,
+          unit: newProduct.unit,
+        }),
+      }).then(async (response) => {
+        if (!response.ok) {
+          return;
+        }
+        const payload = await response.json().catch(() => ({}));
+        const createdProduct = { ...newProduct, id: String(payload.id ?? newProduct.id) };
+        setProducts((prev) => [...prev, createdProduct]);
+      });
+      return newProduct;
+    }
+
     saveProducts([...products, newProduct]);
     return newProduct;
   };
 
   const updateProduct = (product: Product) => {
+    if (authService.isDatabaseConnected() && hasNumericCompanyId) {
+      fetch(`${API_BASE_URL}/products/${product.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: product.name,
+          description: product.description,
+          price: product.price,
+          includes_vat: product.includesVat,
+          vat_rate: product.vatRate,
+          unit: product.unit,
+        }),
+      }).then((response) => {
+        if (!response.ok) {
+          return;
+        }
+        setProducts((prev) => prev.map((p) => (p.id === product.id ? product : p)));
+      });
+      return;
+    }
+
     saveProducts(products.map(p => p.id === product.id ? product : p));
   };
 
   const deleteProduct = (productId: string) => {
+    if (authService.isDatabaseConnected() && hasNumericCompanyId) {
+      fetch(`${API_BASE_URL}/products/${productId}`, { method: "DELETE" }).then((response) => {
+        if (!response.ok) {
+          return;
+        }
+        setProducts((prev) => prev.filter((p) => p.id !== productId));
+      });
+      return;
+    }
+
     saveProducts(products.filter(p => p.id !== productId));
   };
 

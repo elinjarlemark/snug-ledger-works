@@ -22,10 +22,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAuth, CompanyProfile } from "@/contexts/AuthContext";
 import { useAccounting } from "@/contexts/AccountingContexts";
+import { authService } from "@/services/auth";
 import { toast } from "sonner";
 import { Building, Save, ArrowLeft, Plus, Trash2, Check, Upload, Download } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 export default function CompanyPage() {
   const { user, companies, activeCompany, addCompany, updateCompany, deleteCompany, setActiveCompany, isFirstTimeUser, markCompanySetupComplete } = useAuth();
@@ -35,6 +38,7 @@ export default function CompanyPage() {
   const [isNewCompany, setIsNewCompany] = useState(false);
   const [originalCompanyId, setOriginalCompanyId] = useState<string | null>(null);
   const [showCompanyRequiredAlert, setShowCompanyRequiredAlert] = useState(false);
+  const [showAccountingStandardLockedAlert, setShowAccountingStandardLockedAlert] = useState(false);
   
   // Check if we were redirected because company is required
   useEffect(() => {
@@ -55,6 +59,7 @@ export default function CompanyPage() {
     vatNumber: "",
     fiscalYearStart: "01-01",
     fiscalYearEnd: "12-31",
+    accountingStandard: "" as "K2" | "K3" | "",
   });
 
   useEffect(() => {
@@ -69,6 +74,7 @@ export default function CompanyPage() {
         vatNumber: activeCompany.vatNumber,
         fiscalYearStart: activeCompany.fiscalYearStart,
         fiscalYearEnd: activeCompany.fiscalYearEnd,
+        accountingStandard: activeCompany.accountingStandard,
       });
     }
   }, [activeCompany]);
@@ -114,7 +120,12 @@ export default function CompanyPage() {
       toast.error("Country is required");
       return;
     }
-    
+
+    if (!formData.accountingStandard) {
+      toast.error("Accounting standard (K2/K3) is required");
+      return;
+    }
+
     updateCompany({
       ...formData,
       id: activeCompany.id,
@@ -126,6 +137,13 @@ export default function CompanyPage() {
   };
 
   const handleChange = (field: string, value: string) => {
+    if (field === "accountingStandard" && isExistingCompany && activeCompany && !!activeCompany.accountingStandard) {
+      const nextStandard = value as "K2" | "K3" | "";
+      if (nextStandard && nextStandard !== activeCompany.accountingStandard) {
+        setShowAccountingStandardLockedAlert(true);
+        return;
+      }
+    }
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -157,6 +175,7 @@ export default function CompanyPage() {
       vatNumber: "",
       fiscalYearStart: "01-01",
       fiscalYearEnd: "12-31",
+      accountingStandard: "",
     });
     setActiveCompany(newCompany.id);
     setIsNewCompany(true);
@@ -176,6 +195,18 @@ export default function CompanyPage() {
           const result = importSIE(content);
           
           if (result.success) {
+            if (authService.isDatabaseConnected() && user) {
+              fetch(`${API_BASE_URL}/sie-files`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  user_id: Number(user.id),
+                  filename: file.name,
+                  storage_path: `browser-upload:${file.name}`,
+                  period: new Date().getFullYear().toString(),
+                }),
+              }).catch(() => undefined);
+            }
             if (result.imported > 0) {
               toast.success(`Imported ${result.imported} voucher(s) from SIE file`);
             }
@@ -234,13 +265,19 @@ export default function CompanyPage() {
 
   const handleDeleteCompany = () => {
     if (!activeCompany) return;
-    
+    if (!canDeleteActiveCompany) {
+      toast.error("You must have at least two saved companies before deleting one");
+      return;
+    }
+
     deleteCompany(activeCompany.id);
     toast.success("Company deleted");
   };
 
   // Check if this is an existing saved company (has org number saved)
   const isExistingCompany = activeCompany && activeCompany.organizationNumber.replace(/-/g, "").length === 10;
+  const savedCompaniesCount = companies.filter((company) => company.organizationNumber.replace(/-/g, "").length === 10).length;
+  const canDeleteActiveCompany = !!activeCompany && !!isExistingCompany && savedCompaniesCount >= 2;
 
   return (
     <>
@@ -260,6 +297,22 @@ export default function CompanyPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+
+      <AlertDialog open={showAccountingStandardLockedAlert} onOpenChange={setShowAccountingStandardLockedAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Accounting standard is locked</AlertDialogTitle>
+            <AlertDialogDescription>
+              You cannot change accounting standard (K2/K3) after the company is created.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowAccountingStandardLockedAlert(false)}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <div className="min-h-screen flex flex-col">
         <Header />
         <main className="flex-1 container py-8">
@@ -340,6 +393,7 @@ export default function CompanyPage() {
                     size="sm" 
                     className="text-destructive hover:text-destructive"
                     onClick={handleDeleteCompany}
+                    disabled={!canDeleteActiveCompany}
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
                     Delete
@@ -430,6 +484,33 @@ export default function CompanyPage() {
                         onChange={(e) => handleChange("vatNumber", e.target.value)}
                         placeholder="SE123456789001"
                       />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="accountingStandard">Accounting Standard (K2/K3) *</Label>
+                      <Select
+                        value={formData.accountingStandard || "none"}
+                        onValueChange={(value) => handleChange("accountingStandard", value === "none" ? "" : value)}
+                      >
+                        <SelectTrigger id="accountingStandard">
+                          <SelectValue placeholder="Choose K2 or K3" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Choose K2 or K3</SelectItem>
+                          <SelectItem value="K2">K2</SelectItem>
+                          <SelectItem value="K3">K3</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {isExistingCompany && activeCompany?.accountingStandard && (
+                        <p className="text-xs text-muted-foreground">
+                          Accounting standard cannot be changed after creation.
+                        </p>
+                      )}
+                      {!canDeleteActiveCompany && (
+                        <p className="text-xs text-muted-foreground">
+                          Save at least two companies before deleting one.
+                        </p>
+                      )}
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-4">
