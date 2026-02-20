@@ -49,6 +49,50 @@ This will start:
 - `script-server` (script runner) on http://localhost:5050
 - `api` (Python backend) on http://localhost:8000
 - `db` (PostgreSQL) on localhost:5432
+- `pgadmin` (PostgreSQL GUI) on http://localhost:5051
+- `adminer` (fallback DB GUI) on http://localhost:5052
+
+### pgAdmin login and DB connection
+
+Use these default credentials to sign in to pgAdmin:
+- Email: `admin@example.com`
+- Password: `admin`
+
+Then add a new server in pgAdmin with:
+- Host: `db`
+- Port: `5432`
+- Username: `snug`
+- Password: `snug_password`
+- Database: `snug_ledger`
+
+### If http://localhost:5051 says "connection refused"
+
+Run these commands in order:
+
+```sh
+docker compose up -d db pgadmin adminer
+docker compose ps
+docker compose logs --tail=100 pgadmin
+```
+
+Om du tidigare startat pgAdmin med fel e-post, återställ pgAdmin-data och starta om:
+
+```sh
+docker compose down
+docker volume rm snug-ledger-works_snug_pgadmin_data
+docker compose up -d db pgadmin adminer
+```
+
+What to check:
+- If `pgadmin` is **Up**, open http://localhost:5051 again.
+- If `pgadmin` is not up, use fallback GUI **Adminer** at http://localhost:5052.
+
+Adminer login values:
+- System: `PostgreSQL`
+- Server: `db`
+- Username: `snug`
+- Password: `snug_password`
+- Database: `snug_ledger`
 
 To stop everything:
 
@@ -65,6 +109,37 @@ bash scripts/test-local.sh
 ```
 
 **Important:** Update `scripts/test-local.sh` whenever you change APIs, ports, or behavior so it always works with the latest code.
+
+## BAS-kontoplan CSV (årsstyrda konton)
+
+Appen läser BAS-konton från CSV-filer i den här mappen:
+
+`src/data/bas/`
+
+Namnge filer exakt så här:
+
+- `BAS_kontoplan_2025.csv`
+- `BAS_kontoplan_2026.csv`
+- osv.
+
+Format (komma-separerad med citat):
+
+```csv
+1019,"Ackumulerade avskrivningar på balanserade utgifter","x"
+1020,"Koncessioner m.m.",""
+```
+
+Kolumner:
+- Kolumn 1: kontonummer
+- Kolumn 2: kontonamn
+- Kolumn 3: `"x"` betyder **endast K3**, `""` betyder synlig för både K2 och K3
+
+Regler i appen:
+
+- På kontosidorna används alltid **senaste tillgängliga år** (t.ex. 2026).
+- I verifikationsformuläret används kontoplanen för **det år som datumfältet har** (t.ex. datum `2025-01-01` => `BAS_kontoplan_2025.csv`).
+- Om exakt år saknas används närmaste tidigare år, annars senaste tillgängliga år.
+- K3-markerade konton (kolumn 3 = `x`) visas bara när företaget har valt **K3**.
 
 
 ### Data storage approach (recommended)
