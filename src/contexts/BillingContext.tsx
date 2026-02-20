@@ -60,6 +60,8 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState(1);
 
   const companyId = activeCompany?.id || "";
+  const parsedCompanyId = Number(companyId);
+  const hasNumericCompanyId = Number.isFinite(parsedCompanyId);
 
   useEffect(() => {
     if (!companyId) {
@@ -70,8 +72,17 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (authService.isDatabaseConnected() && user) {
-      fetch(`${API_BASE_URL}/customers?user_id=${user.id}&company_id=${companyId}`)
+    const storedInvoices = localStorage.getItem(`billing_invoices_${companyId}`);
+    const storedNextNumber = localStorage.getItem(`billing_next_invoice_${companyId}`);
+
+    if (storedInvoices) setInvoices(JSON.parse(storedInvoices));
+    else setInvoices([]);
+
+    if (storedNextNumber) setNextInvoiceNumber(parseInt(storedNextNumber));
+    else setNextInvoiceNumber(1);
+
+    if (authService.isDatabaseConnected() && user && hasNumericCompanyId) {
+      fetch(`${API_BASE_URL}/customers?user_id=${user.id}&company_id=${parsedCompanyId}`)
         .then((response) => response.json())
         .then((payload) => {
           const apiCustomers = Array.isArray(payload) ? payload.map(mapCustomerFromApi) : [];
@@ -79,23 +90,18 @@ export function BillingProvider({ children }: { children: ReactNode }) {
         })
         .catch(() => setCustomers([]));
 
-      fetch(`${API_BASE_URL}/products?user_id=${user.id}&company_id=${companyId}`)
+      fetch(`${API_BASE_URL}/products?user_id=${user.id}&company_id=${parsedCompanyId}`)
         .then((response) => response.json())
         .then((payload) => {
           const apiProducts = Array.isArray(payload) ? payload.map(mapProductFromApi) : [];
           setProducts(apiProducts);
         })
         .catch(() => setProducts([]));
-
-      setInvoices([]);
-      setNextInvoiceNumber(1);
       return;
     }
 
     const storedCustomers = localStorage.getItem(`billing_customers_${companyId}`);
     const storedProducts = localStorage.getItem(`billing_products_${companyId}`);
-    const storedInvoices = localStorage.getItem(`billing_invoices_${companyId}`);
-    const storedNextNumber = localStorage.getItem(`billing_next_invoice_${companyId}`);
 
     if (storedCustomers) setCustomers(JSON.parse(storedCustomers));
     else setCustomers([]);
@@ -103,11 +109,6 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     if (storedProducts) setProducts(JSON.parse(storedProducts));
     else setProducts([]);
 
-    if (storedInvoices) setInvoices(JSON.parse(storedInvoices));
-    else setInvoices([]);
-
-    if (storedNextNumber) setNextInvoiceNumber(parseInt(storedNextNumber));
-    else setNextInvoiceNumber(1);
   }, [companyId, user]);
 
   const saveCustomers = (newCustomers: Customer[]) => {
@@ -141,13 +142,13 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       createdAt: new Date().toISOString(),
     };
 
-    if (authService.isDatabaseConnected() && user) {
+    if (authService.isDatabaseConnected() && user && hasNumericCompanyId) {
       fetch(`${API_BASE_URL}/customers`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: user.id,
-          company_id: Number(companyId),
+          company_id: parsedCompanyId,
           type: newCustomer.type,
           name: newCustomer.name,
           organization_number: newCustomer.organizationNumber,
@@ -219,13 +220,13 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       createdAt: new Date().toISOString(),
     };
 
-    if (authService.isDatabaseConnected() && user) {
+    if (authService.isDatabaseConnected() && user && hasNumericCompanyId) {
       fetch(`${API_BASE_URL}/products`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: user.id,
-          company_id: Number(companyId),
+          company_id: parsedCompanyId,
           name: newProduct.name,
           description: newProduct.description,
           price: newProduct.price,
