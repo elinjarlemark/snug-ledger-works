@@ -13,8 +13,7 @@ from alembic.config import Config
 
 from database import get_db, SessionLocal, DATABASE_URL
 from passlib.context import CryptContext
-from models import User, SIEFile, Receipt, Company
-from models import User, SIEFile, Receipt, Company
+from models import User, SIEFile, Receipt, Company, Customer, Product
 
 app = FastAPI()
 
@@ -99,6 +98,52 @@ class CompanyUpdate(BaseModel):
     vat_number: str | None = None
     fiscal_year_start: str | None = None
     fiscal_year_end: str | None = None
+
+
+class CustomerCreate(BaseModel):
+    user_id: int
+    company_id: int | None = None
+    type: str
+    name: str
+    organization_number: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    address: str
+    postal_code: str
+    city: str
+    country: str
+
+
+class CustomerUpdate(BaseModel):
+    type: str
+    name: str
+    organization_number: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    address: str
+    postal_code: str
+    city: str
+    country: str
+
+
+class ProductCreate(BaseModel):
+    user_id: int
+    company_id: int | None = None
+    name: str
+    description: str | None = None
+    price: float
+    includes_vat: bool
+    vat_rate: float
+    unit: str | None = None
+
+
+class ProductUpdate(BaseModel):
+    name: str
+    description: str | None = None
+    price: float
+    includes_vat: bool
+    vat_rate: float
+    unit: str | None = None
 
 
 @app.on_event("startup")
@@ -256,6 +301,147 @@ def create_receipt(payload: ReceiptCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(receipt)
     return {"id": receipt.id}
+
+
+@app.get("/customers")
+def list_customers(user_id: int, company_id: int | None = None, db: Session = Depends(get_db)):
+    query = db.query(Customer).filter(Customer.user_id == user_id)
+    if company_id is not None:
+        query = query.filter(Customer.company_id == company_id)
+    customers = query.order_by(Customer.created_at.asc()).all()
+    return [
+        {
+            "id": customer.id,
+            "user_id": customer.user_id,
+            "company_id": customer.company_id,
+            "type": customer.type,
+            "name": customer.name,
+            "organization_number": customer.organization_number,
+            "email": customer.email,
+            "phone": customer.phone,
+            "address": customer.address,
+            "postal_code": customer.postal_code,
+            "city": customer.city,
+            "country": customer.country,
+            "created_at": customer.created_at.isoformat() if customer.created_at else None,
+        }
+        for customer in customers
+    ]
+
+
+@app.post("/customers")
+def create_customer(payload: CustomerCreate, db: Session = Depends(get_db)):
+    customer = Customer(
+        user_id=payload.user_id,
+        company_id=payload.company_id,
+        type=payload.type,
+        name=payload.name,
+        organization_number=payload.organization_number,
+        email=payload.email,
+        phone=payload.phone,
+        address=payload.address,
+        postal_code=payload.postal_code,
+        city=payload.city,
+        country=payload.country,
+    )
+    db.add(customer)
+    db.commit()
+    db.refresh(customer)
+    return {"id": customer.id}
+
+
+@app.put("/customers/{customer_id}")
+def update_customer(customer_id: int, payload: CustomerUpdate, db: Session = Depends(get_db)):
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    customer.type = payload.type
+    customer.name = payload.name
+    customer.organization_number = payload.organization_number
+    customer.email = payload.email
+    customer.phone = payload.phone
+    customer.address = payload.address
+    customer.postal_code = payload.postal_code
+    customer.city = payload.city
+    customer.country = payload.country
+    db.commit()
+    return {"id": customer.id}
+
+
+@app.delete("/customers/{customer_id}")
+def delete_customer(customer_id: int, db: Session = Depends(get_db)):
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    db.delete(customer)
+    db.commit()
+    return {"success": True}
+
+
+@app.get("/products")
+def list_products(user_id: int, company_id: int | None = None, db: Session = Depends(get_db)):
+    query = db.query(Product).filter(Product.user_id == user_id)
+    if company_id is not None:
+        query = query.filter(Product.company_id == company_id)
+    products = query.order_by(Product.created_at.asc()).all()
+    return [
+        {
+            "id": product.id,
+            "user_id": product.user_id,
+            "company_id": product.company_id,
+            "name": product.name,
+            "description": product.description,
+            "price": product.price,
+            "includes_vat": product.includes_vat,
+            "vat_rate": product.vat_rate,
+            "unit": product.unit,
+            "created_at": product.created_at.isoformat() if product.created_at else None,
+        }
+        for product in products
+    ]
+
+
+@app.post("/products")
+def create_product(payload: ProductCreate, db: Session = Depends(get_db)):
+    product = Product(
+        user_id=payload.user_id,
+        company_id=payload.company_id,
+        name=payload.name,
+        description=payload.description,
+        price=payload.price,
+        includes_vat=payload.includes_vat,
+        vat_rate=payload.vat_rate,
+        unit=payload.unit,
+    )
+    db.add(product)
+    db.commit()
+    db.refresh(product)
+    return {"id": product.id}
+
+
+@app.put("/products/{product_id}")
+def update_product(product_id: int, payload: ProductUpdate, db: Session = Depends(get_db)):
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    product.name = payload.name
+    product.description = payload.description
+    product.price = payload.price
+    product.includes_vat = payload.includes_vat
+    product.vat_rate = payload.vat_rate
+    product.unit = payload.unit
+    db.commit()
+    return {"id": product.id}
+
+
+@app.delete("/products/{product_id}")
+def delete_product(product_id: int, db: Session = Depends(get_db)):
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    db.delete(product)
+    db.commit()
+    return {"success": True}
 
 
 @app.get("/companies")
