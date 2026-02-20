@@ -115,7 +115,7 @@ export default function AccountingPage() {
       </div>
 
       {/* Main Panel */}
-      {user && vouchers.length > 0 && <AccountingPanel />}
+      {user && <AccountingPanel />}
 
       {/* Introduction */}
       <>

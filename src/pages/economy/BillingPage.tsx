@@ -184,7 +184,7 @@ function ProductForm({
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="price">Price *</Label>
-          <Input id="price" type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0.00" required />
+          <Input id="price" type="number" min="0" step="1" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0.00" required />
         </div>
         <div className="space-y-2">
           <Label htmlFor="unit">Unit</Label>

@@ -3,7 +3,14 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, Lock, ArrowRight, User } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Mail, Lock, ArrowRight, User, Building } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -17,8 +24,29 @@ export default function LoginPage() {
   const [resetEmail, setResetEmail] = useState("");
   const [resetPassword, setResetPassword] = useState("");
   
-  const { login, signup } = useAuth();
+  // Step 2: Company creation after signup
+  const [showCompanyForm, setShowCompanyForm] = useState(false);
+  const [companyName, setCompanyName] = useState("");
+  const [orgNumber, setOrgNumber] = useState("");
+  const [companyAddress, setCompanyAddress] = useState("");
+  const [companyPostalCode, setCompanyPostalCode] = useState("");
+  const [companyCity, setCompanyCity] = useState("");
+  const [companyCountry, setCompanyCountry] = useState("Sweden");
+  const [companyVatNumber, setCompanyVatNumber] = useState("");
+  const [accountingStandard, setAccountingStandard] = useState<"" | "K2" | "K3">("");
+  
+  const { login, signup, updateCompany, activeCompany, markCompanySetupComplete } = useAuth();
   const navigate = useNavigate();
+
+  const handleOrgNumberChange = (value: string) => {
+    const digitsOnly = value.replace(/\D/g, "");
+    const limited = digitsOnly.slice(0, 10);
+    let formatted = limited;
+    if (limited.length > 6) {
+      formatted = `${limited.slice(0, 6)}-${limited.slice(6)}`;
+    }
+    setOrgNumber(formatted);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,9 +75,8 @@ export default function LoginPage() {
       }
       if (isSignUp) {
         await signup(email, password, name);
-        toast.success("Account created successfully!");
-        // Redirect to company page for first-time setup
-        navigate("/company");
+        toast.success("Account created! Now set up your company.");
+        setShowCompanyForm(true);
       } else {
         await login(email, password);
         toast.success("Welcome back!");
@@ -63,6 +90,117 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   };
+
+  const handleCreateCompany = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!companyName.trim()) { toast.error("Company name is required"); return; }
+    const orgDigits = orgNumber.replace(/-/g, "");
+    if (orgDigits.length !== 10 || !/^\d{10}$/.test(orgDigits)) {
+      toast.error("Organization number must be exactly 10 digits"); return;
+    }
+    if (!companyAddress.trim()) { toast.error("Address is required"); return; }
+    if (!companyPostalCode.trim()) { toast.error("Postal code is required"); return; }
+    if (!companyCity.trim()) { toast.error("City is required"); return; }
+    
+    if (activeCompany) {
+      updateCompany({
+        ...activeCompany,
+        companyName: companyName.trim(),
+        organizationNumber: orgNumber,
+        address: companyAddress.trim(),
+        postalCode: companyPostalCode.trim(),
+        city: companyCity.trim(),
+        country: companyCountry.trim(),
+        vatNumber: companyVatNumber.trim(),
+        accountingStandard: accountingStandard || undefined,
+      });
+    }
+    
+    markCompanySetupComplete();
+    toast.success("Company created successfully!");
+    navigate("/economy");
+  };
+
+  // Step 2: Company creation form
+  if (showCompanyForm) {
+    return (
+      <div className="min-h-screen flex">
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="w-full max-w-md space-y-8">
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-secondary/10 mb-4">
+                <Building className="h-6 w-6 text-secondary" />
+              </div>
+              <h1 className="text-2xl font-bold text-foreground mb-2">Create Your Company</h1>
+              <p className="text-muted-foreground">
+                Set up your company to start using the accounting tools
+              </p>
+            </div>
+
+            <form onSubmit={handleCreateCompany} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="companyName">Company Name *</Label>
+                <Input id="companyName" value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Your Company AB" required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="orgNumber">Organization Number *</Label>
+                <Input id="orgNumber" value={orgNumber} onChange={e => handleOrgNumberChange(e.target.value)} placeholder="XXXXXX-XXXX" maxLength={11} required />
+                <p className="text-xs text-muted-foreground">{orgNumber.replace(/-/g, "").length}/10 digits</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="companyAddress">Address *</Label>
+                <Input id="companyAddress" value={companyAddress} onChange={e => setCompanyAddress(e.target.value)} placeholder="Storgatan 1" required />
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="companyPostalCode">Postal Code *</Label>
+                  <Input id="companyPostalCode" value={companyPostalCode} onChange={e => setCompanyPostalCode(e.target.value)} placeholder="123 45" required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="companyCity">City *</Label>
+                  <Input id="companyCity" value={companyCity} onChange={e => setCompanyCity(e.target.value)} placeholder="Stockholm" required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="companyCountry">Country</Label>
+                  <Input id="companyCountry" value={companyCountry} onChange={e => setCompanyCountry(e.target.value)} placeholder="Sweden" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="companyVatNumber">VAT Number</Label>
+                <Input id="companyVatNumber" value={companyVatNumber} onChange={e => setCompanyVatNumber(e.target.value)} placeholder="SE123456789001" />
+              </div>
+              <div className="space-y-2">
+                <Label>Accounting Standard</Label>
+                <Select value={accountingStandard} onValueChange={v => setAccountingStandard(v as "K2" | "K3")}>
+                  <SelectTrigger><SelectValue placeholder="Select K2 or K3..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="K2">K2</SelectItem>
+                    <SelectItem value="K3">K3</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">K2 is for smaller companies, K3 is for larger companies</p>
+              </div>
+              <Button type="submit" className="w-full" size="lg">
+                Create Company
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </form>
+          </div>
+        </div>
+
+        {/* Right side - Branding */}
+        <div className="hidden lg:flex flex-1 bg-gradient-hero items-center justify-center p-12">
+          <div className="max-w-md text-primary-foreground">
+            <h2 className="text-3xl font-bold mb-6">Almost There!</h2>
+            <p className="text-lg opacity-90">
+              Set up your company details to start managing your accounting, invoices, and financial reports.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex">
@@ -93,25 +231,11 @@ export default function LoginPage() {
               <>
                 <div className="space-y-2">
                   <Label htmlFor="resetEmail">Email address</Label>
-                  <Input
-                    id="resetEmail"
-                    type="email"
-                    placeholder="name@company.se"
-                    value={resetEmail}
-                    onChange={(e) => setResetEmail(e.target.value)}
-                    required
-                  />
+                  <Input id="resetEmail" type="email" placeholder="name@company.se" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="resetPassword">New password</Label>
-                  <Input
-                    id="resetPassword"
-                    type="password"
-                    placeholder="Enter a new password"
-                    value={resetPassword}
-                    onChange={(e) => setResetPassword(e.target.value)}
-                    required
-                  />
+                  <Input id="resetPassword" type="password" placeholder="Enter a new password" value={resetPassword} onChange={(e) => setResetPassword(e.target.value)} required />
                 </div>
               </>
             )}
@@ -120,15 +244,7 @@ export default function LoginPage() {
                 <Label htmlFor="name">Full name</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder="Your name"
-                    className="pl-10"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required={isSignUp}
-                  />
+                  <Input id="name" type="text" placeholder="Your name" className="pl-10" value={name} onChange={(e) => setName(e.target.value)} required={isSignUp} />
                 </div>
               </div>
             )}
@@ -139,15 +255,7 @@ export default function LoginPage() {
                   <Label htmlFor="email">Email address</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="name@company.se"
-                      className="pl-10"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                    />
+                    <Input id="email" type="email" placeholder="name@company.se" className="pl-10" value={email} onChange={(e) => setEmail(e.target.value)} required />
                   </div>
                 </div>
 
@@ -155,15 +263,7 @@ export default function LoginPage() {
                   <Label htmlFor="password">Password</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input
-                      id="password"
-                      type="password"
-                      placeholder="Enter your password"
-                      className="pl-10"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                    />
+                    <Input id="password" type="password" placeholder="Enter your password" className="pl-10" value={password} onChange={(e) => setPassword(e.target.value)} required />
                   </div>
                 </div>
               </>
@@ -171,11 +271,7 @@ export default function LoginPage() {
 
             {!isSignUp && !isReset && (
               <div className="text-right">
-                <button
-                  type="button"
-                  className="text-sm text-secondary hover:underline"
-                  onClick={() => setIsReset(true)}
-                >
+                <button type="button" className="text-sm text-secondary hover:underline" onClick={() => setIsReset(true)}>
                   Forgot password?
                 </button>
               </div>
@@ -202,10 +298,7 @@ export default function LoginPage() {
                   : "Don't have an account?"}{" "}
               <button
                 onClick={() => {
-                  if (isReset) {
-                    setIsReset(false);
-                    return;
-                  }
+                  if (isReset) { setIsReset(false); return; }
                   setIsSignUp(!isSignUp);
                 }}
                 className="text-secondary hover:underline font-medium"

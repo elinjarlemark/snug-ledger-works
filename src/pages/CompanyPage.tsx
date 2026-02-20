@@ -13,18 +13,19 @@ import {
 } from "@/components/ui/select";
 import {
   AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { useAuth, CompanyProfile } from "@/contexts/AuthContext";
 import { useAccounting } from "@/contexts/AccountingContexts";
 import { authService } from "@/services/auth";
 import { toast } from "sonner";
-import { Building, Save, ArrowLeft, Plus, Trash2, Check, Upload, Download } from "lucide-react";
+import { Building, Save, ArrowLeft, Plus, Trash2, Check, Upload, Download, AlertTriangle } from "lucide-react";
 
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -39,6 +40,8 @@ export default function CompanyPage() {
   const [isNewCompany, setIsNewCompany] = useState(false);
   const [originalCompanyId, setOriginalCompanyId] = useState<string | null>(null);
   const [showCompanyRequiredAlert, setShowCompanyRequiredAlert] = useState(false);
+  const [showK2K3ConfirmAlert, setShowK2K3ConfirmAlert] = useState(false);
+  const [pendingAccountingStandard, setPendingAccountingStandard] = useState<"K2" | "K3" | null>(null);
   
   // Ref to track unsaved state for cleanup on unmount
   const unsavedRef = useRef<{ isNew: boolean; companyId: string; originalId: string | null }>({
@@ -85,6 +88,7 @@ export default function CompanyPage() {
     vatNumber: "",
     fiscalYearStart: "01-01",
     fiscalYearEnd: "12-31",
+    accountingStandard: "" as "" | "K2" | "K3",
   });
 
   useEffect(() => {
@@ -99,6 +103,7 @@ export default function CompanyPage() {
         vatNumber: activeCompany.vatNumber,
         fiscalYearStart: activeCompany.fiscalYearStart,
         fiscalYearEnd: activeCompany.fiscalYearEnd,
+        accountingStandard: activeCompany.accountingStandard || "",
       });
     }
   }, [activeCompany]);
@@ -148,6 +153,7 @@ export default function CompanyPage() {
     updateCompany({
       ...formData,
       id: activeCompany.id,
+      accountingStandard: formData.accountingStandard || undefined,
     });
     setIsNewCompany(false);
     setOriginalCompanyId(null);
@@ -305,6 +311,31 @@ export default function CompanyPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={showK2K3ConfirmAlert} onOpenChange={setShowK2K3ConfirmAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Change Accounting Standard?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to change the accounting standard to {pendingAccountingStandard}? This may affect how financial statements are prepared.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setShowK2K3ConfirmAlert(false); setPendingAccountingStandard(null); }}>
+              No
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (pendingAccountingStandard) {
+                setFormData(prev => ({ ...prev, accountingStandard: pendingAccountingStandard }));
+              }
+              setShowK2K3ConfirmAlert(false);
+              setPendingAccountingStandard(null);
+            }}>
+              Yes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="min-h-screen flex flex-col">
         <Header />
         <main className="flex-1 container py-8">
@@ -385,6 +416,8 @@ export default function CompanyPage() {
                     size="sm" 
                     className="text-destructive hover:text-destructive"
                     onClick={handleDeleteCompany}
+                    disabled={companies.length <= 1}
+                    title={companies.length <= 1 ? "Cannot delete the only company" : "Delete company"}
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
                     Delete
@@ -496,6 +529,34 @@ export default function CompanyPage() {
                           placeholder="12-31"
                         />
                       </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Accounting Standard</Label>
+                      <Select 
+                        value={formData.accountingStandard || ""} 
+                        onValueChange={(v) => {
+                          const newVal = v as "K2" | "K3";
+                          // If already has a standard set and trying to change it, confirm
+                          if (formData.accountingStandard && formData.accountingStandard !== newVal) {
+                            setPendingAccountingStandard(newVal);
+                            setShowK2K3ConfirmAlert(true);
+                          } else {
+                            setFormData(prev => ({ ...prev, accountingStandard: newVal }));
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select K2 or K3..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="K2">K2</SelectItem>
+                          <SelectItem value="K3">K3</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        K2 is for smaller companies, K3 is for larger companies
+                      </p>
                     </div>
 
                     <div className="flex gap-3">
