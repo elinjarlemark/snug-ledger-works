@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -59,6 +59,40 @@ class Company(Base):
     vat_number = Column(String(50), nullable=True)
     fiscal_year_start = Column(String(10), nullable=True)
     fiscal_year_end = Column(String(10), nullable=True)
+    accounting_standard = Column(String(2), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User")
+
+
+class Customer(Base):
+    __tablename__ = "customers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
+    type = Column(String(20), nullable=False)
+    name = Column(String(255), nullable=False)
+    organization_number = Column(String(20), nullable=True)
+    email = Column(String(255), nullable=True)
+    phone = Column(String(50), nullable=True)
+    address = Column(String(255), nullable=False)
+    postal_code = Column(String(20), nullable=False)
+    city = Column(String(255), nullable=False)
+    country = Column(String(255), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Product(Base):
+    __tablename__ = "products"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    price = Column(Float, nullable=False)
+    includes_vat = Column(Boolean, nullable=False, default=False)
+    vat_rate = Column(Float, nullable=False, default=25)
+    unit = Column(String(20), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)

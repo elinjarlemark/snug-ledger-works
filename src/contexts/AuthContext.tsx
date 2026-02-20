@@ -14,6 +14,7 @@ export interface CompanyProfile {
   vatNumber: string;
   fiscalYearStart: string;
   fiscalYearEnd: string;
+  accountingStandard: "K2" | "K3" | "";
 }
 
 export interface AuthContextType {
@@ -45,6 +46,7 @@ const DEFAULT_COMPANY_PROFILE: Omit<CompanyProfile, "id"> = {
   vatNumber: "",
   fiscalYearStart: "01-01",
   fiscalYearEnd: "12-31",
+  accountingStandard: "",
 };
 
 // Predefined company for test user (test@test.com)
@@ -58,6 +60,7 @@ const TEST_USER_COMPANY: Omit<CompanyProfile, "id"> = {
   vatNumber: "",
   fiscalYearStart: "01-01",
   fiscalYearEnd: "12-31",
+  accountingStandard: "K2",
 };
 
 const TEST_USER_EMAIL = "test@test.com";
@@ -74,6 +77,7 @@ const mapCompanyFromApi = (company: any): CompanyProfile => ({
   vatNumber: company.vatNumber ?? "",
   fiscalYearStart: company.fiscalYearStart ?? "01-01",
   fiscalYearEnd: company.fiscalYearEnd ?? "12-31",
+  accountingStandard: company.accountingStandard === "K3" ? "K3" : company.accountingStandard === "K2" ? "K2" : "",
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -95,7 +99,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     activeCompany.city.trim() &&
     activeCompany.country.trim() &&
     activeCompany.fiscalYearStart.trim() &&
-    activeCompany.fiscalYearEnd.trim()
+    activeCompany.fiscalYearEnd.trim() &&
+    !!activeCompany.accountingStandard
   );
 
   useEffect(() => {
@@ -271,6 +276,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           vat_number: defaultCompany.vatNumber,
           fiscal_year_start: defaultCompany.fiscalYearStart,
           fiscal_year_end: defaultCompany.fiscalYearEnd,
+          accounting_standard: defaultCompany.accountingStandard || null,
         }),
       });
       const created = await createResponse.json().catch(() => ({}));
@@ -312,6 +318,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       id: crypto.randomUUID(),
     };
     if (authService.isDatabaseConnected() && user) {
+      const previousActiveCompanyId = activeCompanyId;
+      setCompanies((prevCompanies) => [...prevCompanies, newCompany]);
+      setActiveCompanyId(newCompany.id);
+
       fetch(`${API_BASE_URL}/companies`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -326,14 +336,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           vat_number: newCompany.vatNumber,
           fiscal_year_start: newCompany.fiscalYearStart,
           fiscal_year_end: newCompany.fiscalYearEnd,
+          accounting_standard: newCompany.accountingStandard || null,
         }),
-      }).then(async (response) => {
-        const created = await response.json().catch(() => ({}));
-        const createdCompany = { ...newCompany, id: String(created.id ?? newCompany.id) };
-        const newCompanies = [...companies, createdCompany];
-        setCompanies(newCompanies);
-        setActiveCompanyId(createdCompany.id);
-      });
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            throw new Error("Failed to create company");
+          }
+          const created = await response.json().catch(() => ({}));
+          const createdCompany = { ...newCompany, id: String(created.id ?? newCompany.id) };
+
+          setCompanies((prevCompanies) => {
+            const index = prevCompanies.findIndex((company) => company.id === newCompany.id);
+            if (index === -1) {
+              return [...prevCompanies, createdCompany];
+            }
+            const nextCompanies = [...prevCompanies];
+            nextCompanies[index] = createdCompany;
+            return nextCompanies;
+          });
+          setActiveCompanyId(createdCompany.id);
+        })
+        .catch(() => {
+          setCompanies((prevCompanies) => {
+            const filteredCompanies = prevCompanies.filter((company) => company.id !== newCompany.id);
+            const canRestorePrevious =
+              previousActiveCompanyId !== null &&
+              filteredCompanies.some((company) => company.id === previousActiveCompanyId);
+
+            if (canRestorePrevious) {
+              setActiveCompanyId(previousActiveCompanyId);
+            } else {
+              setActiveCompanyId(filteredCompanies.length > 0 ? filteredCompanies[0].id : null);
+            }
+            return filteredCompanies;
+          });
+        });
       return newCompany;
     }
 
@@ -359,6 +397,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           vat_number: company.vatNumber,
           fiscal_year_start: company.fiscalYearStart,
           fiscal_year_end: company.fiscalYearEnd,
+          accounting_standard: company.accountingStandard || null,
         }),
       });
       const newCompanies = companies.map(c => c.id === company.id ? company : c);

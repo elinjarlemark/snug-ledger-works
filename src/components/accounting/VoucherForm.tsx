@@ -5,7 +5,9 @@ import { Label } from "@/components/ui/label";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAccounting, VoucherLine, VoucherAttachment, Voucher } from "@/contexts/AccountingContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { formatAmount } from "@/lib/bas-accounts";
+import { getBASAccountsForDate } from "@/lib/bas-accounts";
 import { Plus, Trash2, Check, AlertCircle, X, Upload, FileText, Image, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -18,6 +20,7 @@ interface VoucherFormProps {
 
 export function VoucherForm({ onCancel, onSuccess, editVoucher }: VoucherFormProps) {
   const { accounts, nextVoucherNumber, createVoucher, updateVoucher, validateVoucher } = useAccounting();
+  const { activeCompany } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const debitInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
   const creditInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
@@ -34,6 +37,16 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher }: VoucherFormPro
   const [attachments, setAttachments] = useState<VoucherAttachment[]>(editVoucher?.attachments || []);
   const [openComboboxes, setOpenComboboxes] = useState<Record<string, boolean>>({});
   const [pendingFocusLineId, setPendingFocusLineId] = useState<string | null>(null);
+  const [dateAccounts, setDateAccounts] = useState(accounts);
+
+  useEffect(() => {
+    const yearAccounts = getBASAccountsForDate(date, activeCompany?.accountingStandard ?? "");
+    if (yearAccounts.length > 0) {
+      setDateAccounts(yearAccounts);
+      return;
+    }
+    setDateAccounts(accounts);
+  }, [date, accounts, activeCompany?.accountingStandard]);
 
   // Focus debit input after account selection
   useEffect(() => {
@@ -69,7 +82,7 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher }: VoucherFormPro
       if (l.id !== id) return l;
       
       if (field === "accountNumber") {
-        const account = accounts.find(a => a.number === value);
+        const account = dateAccounts.find(a => a.number === value);
         return { ...l, accountNumber: value as string, accountName: account?.name || "" };
       }
       
@@ -311,7 +324,7 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher }: VoucherFormPro
                           <CommandList>
                             <CommandEmpty>No account found.</CommandEmpty>
                             <CommandGroup className="max-h-64 overflow-auto">
-                              {accounts.map((account) => (
+                                  {dateAccounts.map((account) => (
                                 <CommandItem
                                   key={account.number}
                                   value={`${account.number} ${account.name}`}
