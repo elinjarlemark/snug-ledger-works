@@ -113,14 +113,14 @@ export function BillingProvider({ children }: { children: ReactNode }) {
 
   const saveCustomers = (newCustomers: Customer[]) => {
     setCustomers(newCustomers);
-    if (companyId) {
+    if (!authService.isDatabaseConnected() && companyId) {
       localStorage.setItem(`billing_customers_${companyId}`, JSON.stringify(newCustomers));
     }
   };
 
   const saveProducts = (newProducts: Product[]) => {
     setProducts(newProducts);
-    if (companyId) {
+    if (!authService.isDatabaseConnected() && companyId) {
       localStorage.setItem(`billing_products_${companyId}`, JSON.stringify(newProducts));
     }
   };
@@ -128,7 +128,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   const saveInvoices = (newInvoices: Invoice[], newNextNumber: number) => {
     setInvoices(newInvoices);
     setNextInvoiceNumber(newNextNumber);
-    if (companyId) {
+    if (!authService.isDatabaseConnected() && companyId) {
       localStorage.setItem(`billing_invoices_${companyId}`, JSON.stringify(newInvoices));
       localStorage.setItem(`billing_next_invoice_${companyId}`, newNextNumber.toString());
     }

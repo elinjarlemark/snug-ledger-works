@@ -14,24 +14,31 @@ interface VoucherFormProps {
   onCancel: () => void;
   onSuccess: () => void;
   editVoucher?: Voucher;
+  duplicateFrom?: Voucher;
 }
 
-export function VoucherForm({ onCancel, onSuccess, editVoucher }: VoucherFormProps) {
+export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }: VoucherFormProps) {
   const { accounts, nextVoucherNumber, createVoucher, updateVoucher, validateVoucher } = useAccounting();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const debitInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
   const creditInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
   const accountButtonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   
-  const [date, setDate] = useState(editVoucher?.date || new Date().toISOString().split("T")[0]);
-  const [description, setDescription] = useState(editVoucher?.description || "");
+  const sourceVoucher = editVoucher || duplicateFrom;
+  
+  const [date, setDate] = useState(sourceVoucher?.date || new Date().toISOString().split("T")[0]);
+  const [description, setDescription] = useState(
+    duplicateFrom ? `${duplicateFrom.description} duplicate` : (sourceVoucher?.description || "")
+  );
   const [lines, setLines] = useState<VoucherLine[]>(
-    editVoucher?.lines || [
+    sourceVoucher?.lines.map(l => ({ ...l, id: crypto.randomUUID() })) || [
       { id: crypto.randomUUID(), accountNumber: "", accountName: "", debit: 0, credit: 0 },
       { id: crypto.randomUUID(), accountNumber: "", accountName: "", debit: 0, credit: 0 },
     ]
   );
-  const [attachments, setAttachments] = useState<VoucherAttachment[]>(editVoucher?.attachments || []);
+  const [attachments, setAttachments] = useState<VoucherAttachment[]>(
+    sourceVoucher?.attachments?.map(a => ({ ...a, id: crypto.randomUUID() })) || []
+  );
   const [openComboboxes, setOpenComboboxes] = useState<Record<string, boolean>>({});
   const [pendingFocusLineId, setPendingFocusLineId] = useState<string | null>(null);
 
@@ -171,7 +178,11 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher }: VoucherFormPro
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-foreground">
-            {editVoucher ? `Edit Voucher #${editVoucher.voucherNumber}` : "Create Voucher"}
+            {editVoucher
+              ? `Edit Voucher #${editVoucher.voucherNumber}`
+              : duplicateFrom
+              ? `Duplicate Voucher #${duplicateFrom.voucherNumber}`
+              : "Create Voucher"}
           </h2>
           {!editVoucher && (
             <p className="text-sm text-muted-foreground">
