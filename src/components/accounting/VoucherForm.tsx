@@ -356,7 +356,7 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
                       }}
                       type="number"
                       min="0"
-                      step="0.01"
+                      step="1"
                       className="text-right"
                       value={line.debit || ""}
                       onChange={(e) => updateLine(line.id, "debit", parseFloat(e.target.value) || 0)}
@@ -384,7 +384,7 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
                       }}
                       type="number"
                       min="0"
-                      step="0.01"
+                      step="1"
                       className="text-right"
                       value={line.credit || ""}
                       onChange={(e) => updateLine(line.id, "credit", parseFloat(e.target.value) || 0)}

@@ -43,7 +43,7 @@ interface CreateInvoiceDialogProps {
 }
 
 export function CreateInvoiceDialog({ open, onOpenChange, inline }: CreateInvoiceDialogProps) {
-  const { customers, products, addCustomer, addProduct, createInvoice } = useBilling();
+  const { customers, products, addCustomer, addProduct, updateProduct, createInvoice } = useBilling();
   
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
   const [inlineCustomer, setInlineCustomer] = useState<Omit<Customer, "id" | "companyId" | "createdAt"> | null>(null);
@@ -63,6 +63,7 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline }: CreateInvoic
     quantity: number;
     unitPrice: number;
     vatRate: number;
+    sourceProductId?: string; // track which product this came from
   }>>([{ productName: "", description: "", quantity: 1, unitPrice: 0, vatRate: 25 }]);
 
   // Customer form state
@@ -169,14 +170,69 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline }: CreateInvoic
     setPendingProductData(null);
   };
 
-  const handleAddExistingProduct = (productId: string) => {
+  const handleAddExistingProduct = (productId: string, lineIndex?: number) => {
     const product = products.find(p => p.id === productId);
     if (!product) return;
     const calc = calculateProductPrice(product.price, product.includesVat, product.vatRate);
-    setLines(prev => [...prev.filter(l => l.productName), {
+    const newLine = {
       productName: product.name, description: product.description || "",
       quantity: 1, unitPrice: calc.priceExclVat, vatRate: product.vatRate,
-    }]);
+      sourceProductId: product.id,
+    };
+    if (lineIndex !== undefined) {
+      setLines(prev => prev.map((l, i) => i === lineIndex ? newLine : l));
+    } else {
+      setLines(prev => [...prev.filter(l => l.productName), newLine]);
+    }
+  };
+
+  const handleAddProductFromLine = (index: number) => {
+    const line = lines[index];
+    if (!line.productName.trim() || line.unitPrice <= 0) return;
+    const newProduct = addProduct({
+      name: line.productName.trim(),
+      description: line.description.trim() || undefined,
+      price: line.unitPrice,
+      includesVat: false,
+      vatRate: line.vatRate,
+      unit: "st",
+    });
+    updateLine(index, "sourceProductId", newProduct.id);
+    toast.success(`Product "${line.productName}" added`);
+  };
+
+  const handleUpdateProductFromLine = (index: number) => {
+    const line = lines[index];
+    if (!line.sourceProductId) return;
+    const existingProduct = products.find(p => p.id === line.sourceProductId);
+    if (!existingProduct) return;
+    updateProduct({
+      ...existingProduct,
+      name: line.productName.trim(),
+      description: line.description.trim() || undefined,
+      price: line.unitPrice,
+      vatRate: line.vatRate,
+    });
+    toast.success(`Product "${line.productName}" updated`);
+  };
+
+  const isLineFromExistingProduct = (index: number) => {
+    const line = lines[index];
+    return !!line.sourceProductId && products.some(p => p.id === line.sourceProductId);
+  };
+
+  const hasLinePriceChanged = (index: number) => {
+    const line = lines[index];
+    if (!line.sourceProductId) return false;
+    const product = products.find(p => p.id === line.sourceProductId);
+    if (!product) return false;
+    const calc = calculateProductPrice(product.price, product.includesVat, product.vatRate);
+    return calc.priceExclVat !== line.unitPrice || product.vatRate !== line.vatRate;
+  };
+
+  const canAddAsProduct = (index: number) => {
+    const line = lines[index];
+    return line.productName.trim() !== "" && line.unitPrice > 0 && !isLineFromExistingProduct(index);
   };
 
   const updateLine = (index: number, field: string, value: any) => {
@@ -279,57 +335,84 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline }: CreateInvoic
 
       {/* Line Items */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <Label className="text-base font-semibold">Line Items</Label>
-          <div className="flex gap-2">
-            {products.length > 0 && (
-              <Select onValueChange={handleAddExistingProduct}>
-                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Add product..." /></SelectTrigger>
-                <SelectContent>
-                  {products.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            )}
-            <Button type="button" variant="outline" size="sm" onClick={() => setShowNewProductForm(true)}>
-              <Package className="h-4 w-4 mr-2" />New Product
-            </Button>
-          </div>
-        </div>
+        <Label className="text-base font-semibold">Line Items</Label>
 
         {lines.map((line, index) => (
-          <div key={index} className="grid grid-cols-12 gap-2 items-end border rounded-lg p-3 bg-muted/20">
-            <div className="col-span-3 space-y-1">
-              <Label className="text-xs">Name</Label>
-              <Input value={line.productName} onChange={e => updateLine(index, "productName", e.target.value)} placeholder="Item name" />
+          <div key={index} className="border rounded-lg p-3 bg-muted/20 space-y-2">
+            <div className="grid grid-cols-12 gap-2 items-end">
+              <div className="col-span-3 space-y-1">
+                <Label className="text-xs">Name</Label>
+                {products.length > 0 ? (
+                  <Select 
+                    value={line.sourceProductId || "__custom__"} 
+                    onValueChange={(v) => {
+                      if (v === "__custom__") {
+                        updateLine(index, "productName", "");
+                        updateLine(index, "sourceProductId", undefined);
+                      } else {
+                        handleAddExistingProduct(v, index);
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select product...">
+                        {line.productName || "Select product..."}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__custom__">Custom item...</SelectItem>
+                      {products.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input value={line.productName} onChange={e => updateLine(index, "productName", e.target.value)} placeholder="Item name" />
+                )}
+                {(line.sourceProductId === undefined || !products.some(p => p.id === line.sourceProductId)) && products.length > 0 && (
+                  <Input value={line.productName} onChange={e => updateLine(index, "productName", e.target.value)} placeholder="Enter item name" className="mt-1" />
+                )}
+              </div>
+              <div className="col-span-3 space-y-1">
+                <Label className="text-xs">Description</Label>
+                <Input value={line.description} onChange={e => updateLine(index, "description", e.target.value)} placeholder="Optional" />
+              </div>
+              <div className="col-span-1 space-y-1">
+                <Label className="text-xs">Qty</Label>
+                <Input type="number" min="1" value={line.quantity} onChange={e => updateLine(index, "quantity", parseInt(e.target.value) || 1)} />
+              </div>
+              <div className="col-span-2 space-y-1">
+                <Label className="text-xs">Price (excl VAT)</Label>
+                <Input type="number" min="0" step="1" value={line.unitPrice} onChange={e => updateLine(index, "unitPrice", parseFloat(e.target.value) || 0)} />
+              </div>
+              <div className="col-span-2 space-y-1">
+                <Label className="text-xs">VAT %</Label>
+                <Select value={line.vatRate.toString()} onValueChange={v => updateLine(index, "vatRate", parseFloat(v))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">0%</SelectItem>
+                    <SelectItem value="6">6%</SelectItem>
+                    <SelectItem value="12">12%</SelectItem>
+                    <SelectItem value="25">25%</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="col-span-1 flex gap-1">
+                <Button type="button" variant="ghost" size="icon" onClick={() => removeLine(index)} disabled={lines.length <= 1}>
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
             </div>
-            <div className="col-span-3 space-y-1">
-              <Label className="text-xs">Description</Label>
-              <Input value={line.description} onChange={e => updateLine(index, "description", e.target.value)} placeholder="Optional" />
-            </div>
-            <div className="col-span-1 space-y-1">
-              <Label className="text-xs">Qty</Label>
-              <Input type="number" min="1" value={line.quantity} onChange={e => updateLine(index, "quantity", parseInt(e.target.value) || 1)} />
-            </div>
-            <div className="col-span-2 space-y-1">
-              <Label className="text-xs">Price (excl VAT)</Label>
-              <Input type="number" min="0" step="0.01" value={line.unitPrice} onChange={e => updateLine(index, "unitPrice", parseFloat(e.target.value) || 0)} />
-            </div>
-            <div className="col-span-2 space-y-1">
-              <Label className="text-xs">VAT %</Label>
-              <Select value={line.vatRate.toString()} onValueChange={v => updateLine(index, "vatRate", parseFloat(v))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">0%</SelectItem>
-                  <SelectItem value="6">6%</SelectItem>
-                  <SelectItem value="12">12%</SelectItem>
-                  <SelectItem value="25">25%</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="col-span-1">
-              <Button type="button" variant="ghost" size="icon" onClick={() => removeLine(index)} disabled={lines.length <= 1}>
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
+            {/* Add Product / Update Product buttons */}
+            <div className="flex gap-2">
+              {canAddAsProduct(index) && (
+                <Button type="button" variant="outline" size="sm" onClick={() => handleAddProductFromLine(index)}>
+                  <Plus className="h-3 w-3 mr-1" />Add Product
+                </Button>
+              )}
+              {isLineFromExistingProduct(index) && hasLinePriceChanged(index) && (
+                <Button type="button" variant="outline" size="sm" onClick={() => handleUpdateProductFromLine(index)}>
+                  Update Product
+                </Button>
+              )}
             </div>
           </div>
         ))}
@@ -412,7 +495,7 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline }: CreateInvoic
             <div className="space-y-2"><Label>Product/Service Name *</Label><Input value={prodName} onChange={e => setProdName(e.target.value)} placeholder="Consulting Service" /></div>
             <div className="space-y-2"><Label>Description</Label><Input value={prodDescription} onChange={e => setProdDescription(e.target.value)} placeholder="Optional" /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>Price *</Label><Input type="number" min="0" step="0.01" value={prodPrice} onChange={e => setProdPrice(e.target.value)} placeholder="0.00" /></div>
+              <div className="space-y-2"><Label>Price *</Label><Input type="number" min="0" step="1" value={prodPrice} onChange={e => setProdPrice(e.target.value)} placeholder="0.00" /></div>
               <div className="space-y-2">
                 <Label>Unit</Label>
                 <Select value={prodUnit} onValueChange={setProdUnit}>

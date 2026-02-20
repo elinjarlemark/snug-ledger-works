@@ -14,6 +14,7 @@ export interface CompanyProfile {
   vatNumber: string;
   fiscalYearStart: string;
   fiscalYearEnd: string;
+  accountingStandard?: "K2" | "K3";
 }
 
 export interface AuthContextType {
