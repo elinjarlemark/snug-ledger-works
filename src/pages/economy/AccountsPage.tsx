@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Wallet, Info, Lock, Eye, Search, Check, ChevronDown } from "lucide-react";
+import { Wallet, Info, Lock, Eye, Search, Check, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -11,6 +11,7 @@ import { AddAccountDialog } from "@/components/accounting/AddAccountDialog";
 import { AccountStatementDialog } from "@/components/accounting/AccountStatementDialog";
 import { getAccountClassName } from "@/lib/bas-accounts";
 import { cn } from "@/lib/utils";
+import { YearSelector } from "@/components/ui/year-selector";
 
 const accountClasses = [
   { range: "1000-1999", name: "Assets (Tillgångar)", description: "Fixed assets, current assets, cash and bank accounts" },
@@ -22,22 +23,48 @@ const accountClasses = [
 
 export default function AccountsPage() {
   const { user } = useAuth();
-  const { accounts } = useAccounting();
+  const { accounts, vouchers } = useAccounting();
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedYear, setSelectedYear] = useState<number | undefined>(new Date().getFullYear());
 
   // Filter accounts based on search query
   const filteredAccounts = useMemo(() => {
-    if (!searchQuery) return accounts;
-    const query = searchQuery.toLowerCase();
-    return accounts.filter(
-      (account) =>
-        account.number.toLowerCase().includes(query) ||
-        account.name.toLowerCase().includes(query)
-    );
-  }, [accounts, searchQuery]);
+    let filtered = accounts;
+    
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (account) =>
+          account.number.toLowerCase().includes(query) ||
+          account.name.toLowerCase().includes(query)
+      );
+    }
+
+    // If a year is selected, only show accounts that have transactions in that year
+    if (selectedYear !== undefined) {
+      const accountsWithTransactions = new Set<string>();
+      vouchers.forEach((v) => {
+        const vYear = new Date(v.date).getFullYear();
+        if (vYear === selectedYear) {
+          v.lines.forEach((l) => accountsWithTransactions.add(l.accountNumber));
+        }
+      });
+      // Show all accounts but mark which have transactions
+      // Actually, let's filter to show only accounts with transactions when a year is selected
+      if (accountsWithTransactions.size > 0) {
+        filtered = filtered.filter((a) => accountsWithTransactions.has(a.number));
+      }
+    }
+
+    return filtered;
+  }, [accounts, searchQuery, selectedYear, vouchers]);
+
+  // Compute date range from selected year for the statement dialog
+  const statementStartDate = selectedYear ? `${selectedYear}-01-01` : undefined;
+  const statementEndDate = selectedYear ? `${selectedYear}-12-31` : undefined;
 
   return (
     <div className="space-y-12 animate-fade-in">
@@ -55,69 +82,84 @@ export default function AccountsPage() {
               </p>
             </div>
           </div>
-          
         </div>
       </div>
 
       {/* Accounts List */}
       <section>
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <h2 className="text-2xl font-semibold text-foreground">
             {user ? "Your Accounts" : "System Accounts"}
           </h2>
-          <Popover open={searchOpen} onOpenChange={setSearchOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-[280px] justify-between">
-                {searchQuery ? (
-                  <span className="text-foreground">{searchQuery}</span>
-                ) : (
-                  <span className="text-muted-foreground">Search accounts...</span>
-                )}
-                <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[400px] p-0" align="end">
-              <Command>
-                <CommandInput 
-                  placeholder="Search by number or name..." 
-                  value={searchQuery}
-                  onValueChange={setSearchQuery}
-                />
-                <CommandList>
-                  <CommandEmpty>No account found.</CommandEmpty>
-                  <CommandGroup className="max-h-64 overflow-auto">
-                    {accounts.map((account) => (
-                      <CommandItem
-                        key={account.number}
-                        value={`${account.number} ${account.name}`}
-                        onSelect={() => {
-                          setSearchQuery(`${account.number} ${account.name}`);
-                          setSearchOpen(false);
-                        }}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            searchQuery.includes(account.number) ? "opacity-100" : "opacity-0"
-                          )}
-                        />
-                        <span className="font-mono">{account.number}</span>
-                        <span className="ml-2 text-muted-foreground">{account.name}</span>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <YearSelector
+                value={selectedYear}
+                onChange={setSelectedYear}
+                className="w-[140px]"
+              />
+              {selectedYear !== undefined && (
+                <Button variant="ghost" size="sm" onClick={() => setSelectedYear(undefined)}>
+                  Show all
+                </Button>
+              )}
+            </div>
+            <Popover open={searchOpen} onOpenChange={setSearchOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-[280px] justify-between">
+                  {searchQuery ? (
+                    <span className="text-foreground">{searchQuery}</span>
+                  ) : (
+                    <span className="text-muted-foreground">Search accounts...</span>
+                  )}
+                  <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[400px] p-0" align="end">
+                <Command>
+                  <CommandInput
+                    placeholder="Search by number or name..."
+                    value={searchQuery}
+                    onValueChange={setSearchQuery}
+                  />
+                  <CommandList>
+                    <CommandEmpty>No account found.</CommandEmpty>
+                    <CommandGroup className="max-h-64 overflow-auto">
+                      {accounts.map((account) => (
+                        <CommandItem
+                          key={account.number}
+                          value={`${account.number} ${account.name}`}
+                          onSelect={() => {
+                            setSearchQuery(`${account.number} ${account.name}`);
+                            setSearchOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              searchQuery.includes(account.number) ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          <span className="font-mono">{account.number}</span>
+                          <span className="ml-2 text-muted-foreground">{account.name}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
-        {searchQuery && (
+        {(searchQuery || selectedYear !== undefined) && (
           <div className="mb-4 flex items-center gap-2">
             <span className="text-sm text-muted-foreground">
               Showing {filteredAccounts.length} of {accounts.length} accounts
+              {selectedYear !== undefined && ` with transactions in ${selectedYear}`}
             </span>
-            <Button variant="ghost" size="sm" onClick={() => setSearchQuery("")}>
-              Clear filter
+            <Button variant="ghost" size="sm" onClick={() => { setSearchQuery(""); setSelectedYear(undefined); }}>
+              Clear all filters
             </Button>
           </div>
         )}
@@ -145,8 +187,8 @@ export default function AccountsPage() {
                   </td>
                   {user && (
                     <td className="py-3 px-4 text-right">
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="sm"
                         onClick={() => setSelectedAccount(account.number)}
                       >
@@ -160,11 +202,11 @@ export default function AccountsPage() {
             </tbody>
           </table>
         </div>
-        
+
         <div className="mt-4 flex items-start gap-2 text-muted-foreground text-sm">
           <Info className="h-4 w-4 shrink-0 mt-0.5" />
           <span>
-            {user 
+            {user
               ? "Click 'Statement' to view account transactions. Add new accounts using the button above."
               : "Additional accounts can be added when logged in. All accounts must follow the BAS numbering standard."}
           </span>
@@ -213,8 +255,8 @@ export default function AccountsPage() {
 
       <AddAccountDialog open={addDialogOpen} onOpenChange={setAddDialogOpen} />
       {selectedAccount && (
-        <AccountStatementDialog 
-          open={!!selectedAccount} 
+        <AccountStatementDialog
+          open={!!selectedAccount}
           onOpenChange={(open) => !open && setSelectedAccount(null)}
           accountNumber={selectedAccount}
         />
