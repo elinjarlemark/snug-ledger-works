@@ -4,6 +4,7 @@ from fastapi import FastAPI, Depends, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 import time
 from sqlalchemy.exc import OperationalError
@@ -333,31 +334,38 @@ def upsert_company_sie_state(company_id: int, payload: CompanySIEStateUpsert, db
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
 
-    state = (
-        db.query(CompanySIEState)
-        .filter(CompanySIEState.company_id == company_id, CompanySIEState.user_id == payload.user_id)
-        .first()
-    )
-
-    if state:
-        state.sie_content = payload.sie_content
-        state.updated_at = datetime.utcnow()
-    else:
-        state = CompanySIEState(
+    now = datetime.utcnow()
+    upsert_stmt = (
+        pg_insert(CompanySIEState)
+        .values(
             user_id=payload.user_id,
             company_id=company_id,
             sie_content=payload.sie_content,
+            updated_at=now,
         )
-        db.add(state)
+        .on_conflict_do_update(
+            index_elements=[CompanySIEState.user_id, CompanySIEState.company_id],
+            set_={
+                "sie_content": payload.sie_content,
+                "updated_at": now,
+            },
+        )
+        .returning(
+            CompanySIEState.id,
+            CompanySIEState.company_id,
+            CompanySIEState.user_id,
+            CompanySIEState.updated_at,
+        )
+    )
 
+    row = db.execute(upsert_stmt).one()
     db.commit()
-    db.refresh(state)
 
     return {
-        "id": state.id,
-        "companyId": state.company_id,
-        "userId": state.user_id,
-        "updatedAt": state.updated_at.isoformat() if state.updated_at else None,
+        "id": row.id,
+        "companyId": row.company_id,
+        "userId": row.user_id,
+        "updatedAt": row.updated_at.isoformat() if row.updated_at else None,
     }
 
 
@@ -583,6 +591,8 @@ def delete_company(company_id: int, db: Session = Depends(get_db)):
     company = db.query(Company).filter(Company.id == company_id).first()
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
+
+    db.query(CompanySIEState).filter(CompanySIEState.company_id == company_id).delete()
     db.delete(company)
     db.commit()
     return {"success": True}

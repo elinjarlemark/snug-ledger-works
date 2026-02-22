@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
 import { BASAccount, getAccountClass, calculateBalance, getLatestBASAccounts } from "@/lib/bas-accounts";
 import { useAuth } from "./AuthContext";
 import { authService } from "@/services/auth";
@@ -87,6 +87,11 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
 
   const companyId = activeCompany?.id || "";
   const removedBasAccountsStorageKey = companyId ? `accountpro_removed_bas_accounts_${companyId}` : "";
+  const activeCompanyIdRef = useRef(companyId);
+
+  useEffect(() => {
+    activeCompanyIdRef.current = companyId;
+  }, [companyId]);
 
   const syncSieStateToDatabase = (nextVouchers: Voucher[], nextAccounts: BASAccount[]) => {
     const numericUserId = Number(user?.id);
@@ -159,7 +164,12 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    fetch(`${API_BASE_URL}/companies/${numericCompanyId}/sie-state?user_id=${numericUserId}`)
+    const hydrationController = new AbortController();
+    const requestedCompanyId = companyId;
+
+    fetch(`${API_BASE_URL}/companies/${numericCompanyId}/sie-state?user_id=${numericUserId}`, {
+      signal: hydrationController.signal,
+    })
       .then((response) => {
         if (!response.ok) {
           throw new Error("Failed to fetch SIE state");
@@ -167,6 +177,10 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         return response.json();
       })
       .then((payload) => {
+        if (hydrationController.signal.aborted || activeCompanyIdRef.current !== requestedCompanyId) {
+          return;
+        }
+
         const sieContent = typeof payload?.sieContent === "string" ? payload.sieContent : "";
         if (!sieContent.trim()) {
           return;
@@ -179,19 +193,32 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         );
         const nextAccounts = [...mergedAccounts, ...accountsToAdd].sort((a, b) => a.number.localeCompare(b.number));
 
-        const converted = convertSIEVouchersToInternal(parseResult.vouchers, companyId, [], nextAccounts);
+        const converted = convertSIEVouchersToInternal(parseResult.vouchers, requestedCompanyId, [], nextAccounts);
         const dbVouchers = converted.newVouchers.sort((a, b) =>
           new Date(a.date).getTime() - new Date(b.date).getTime() || a.voucherNumber - b.voucherNumber
         );
 
+        if (activeCompanyIdRef.current !== requestedCompanyId) {
+          return;
+        }
+
         setAccounts(nextAccounts);
         setVouchers(dbVouchers);
         setNextVoucherNumber(converted.nextVoucherNumber);
-        localStorage.setItem(`accountpro_accounts_${companyId}`, JSON.stringify(nextAccounts));
-        localStorage.setItem(`accountpro_vouchers_${companyId}`, JSON.stringify(dbVouchers));
-        localStorage.setItem(`accountpro_next_voucher_${companyId}`, converted.nextVoucherNumber.toString());
+        localStorage.setItem(`accountpro_accounts_${requestedCompanyId}`, JSON.stringify(nextAccounts));
+        localStorage.setItem(`accountpro_vouchers_${requestedCompanyId}`, JSON.stringify(dbVouchers));
+        localStorage.setItem(`accountpro_next_voucher_${requestedCompanyId}`, converted.nextVoucherNumber.toString());
       })
-      .catch(() => undefined);
+      .catch((error) => {
+        if (error?.name === "AbortError") {
+          return;
+        }
+        return undefined;
+      });
+
+    return () => {
+      hydrationController.abort();
+    };
   }, [companyId, accountingStandard, removedBasAccountsStorageKey, user?.id]);
 
   const saveAccounts = (newAccounts: BASAccount[]) => {
