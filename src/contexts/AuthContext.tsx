@@ -108,10 +108,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const activeCompany = companies.find(c => c.id === activeCompanyId) || null;
 
   const companiesRef = useRef<CompanyProfile[]>([]);
+  const companyUpdateControllersRef = useRef<Record<string, AbortController | undefined>>({});
 
   useEffect(() => {
     companiesRef.current = companies;
   }, [companies]);
+
+  const upsertCompanyOnServer = (companyId: string, company: Omit<CompanyProfile, "id">) => {
+    const previousController = companyUpdateControllersRef.current[companyId];
+    if (previousController) {
+      previousController.abort();
+    }
+
+    const controller = new AbortController();
+    companyUpdateControllersRef.current[companyId] = controller;
+
+    return fetch(`${API_BASE_URL}/companies/${companyId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(toCompanyRequestBody(company)),
+      signal: controller.signal,
+    })
+      .catch((error) => {
+        if (error?.name === "AbortError") {
+          return;
+        }
+        throw error;
+      })
+      .finally(() => {
+        if (companyUpdateControllersRef.current[companyId] === controller) {
+          delete companyUpdateControllersRef.current[companyId];
+        }
+      });
+  };
 
   
   // Check if the active company has all mandatory fields filled
@@ -373,11 +402,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           });
 
           if (latestCompanySnapshot.id !== createdCompanyId) {
-            fetch(`${API_BASE_URL}/companies/${createdCompanyId}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(toCompanyRequestBody(latestCompanySnapshot)),
-            }).catch(() => undefined);
+            upsertCompanyOnServer(createdCompanyId, latestCompanySnapshot).catch(() => undefined);
           }
 
           setActiveCompanyId(createdCompanyId);
@@ -409,22 +434,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateCompany = (company: CompanyProfile) => {
     if (authService.isDatabaseConnected()) {
-      fetch(`${API_BASE_URL}/companies/${company.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          company_name: company.companyName,
-          organization_number: company.organizationNumber,
-          address: company.address,
-          postal_code: company.postalCode,
-          city: company.city,
-          country: company.country,
-          vat_number: company.vatNumber,
-          fiscal_year_start: company.fiscalYearStart,
-          fiscal_year_end: company.fiscalYearEnd,
-          accounting_standard: company.accountingStandard || null,
-        }),
-      });
+      upsertCompanyOnServer(company.id, company).catch(() => undefined);
       const newCompanies = companies.map(c => c.id === company.id ? company : c);
       setCompanies(newCompanies);
       return;

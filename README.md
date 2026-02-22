@@ -151,6 +151,20 @@ To support accounts, SIE files, and receipts tied to a user, a common pattern is
 
 This keeps the database fast and lets you manage large files safely. You can also use a local Docker volume during development.
 
+
+### Runtime mode policy: Lovable (local fallback) vs Docker (database-first)
+
+To keep development smooth in Lovable while preparing production behavior:
+
+- **When running without database** (typical Lovable flow), keep current **localStorage fallback** behavior for vouchers, accounts, companies, and related client data so the app remains fully usable.
+- **When running with Docker/database**, the target mode is **database-first**:
+  - non-test logins should come from the DB
+  - company data should come from the DB
+  - SIE and related accounting state should come from the DB
+  - the UI should read from persisted server state as source of truth
+
+In short: do not remove local fallback now; keep it as compatibility mode for no-DB runtime, while incrementally moving Docker runtime toward full DB-backed persistence for multi-user readiness.
+
 ## Python backend (FastAPI) quick start
 
 The Docker setup includes a simple Python API so you can work in Python only.
@@ -221,3 +235,78 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+
+
+## Docker test plan (next-step verification)
+
+Use this plan to test local-fallback vs database-first behavior end-to-end.
+
+### 1) Start services
+
+```sh
+docker compose up --build
+```
+
+Verify services:
+
+```sh
+docker compose ps
+```
+
+Expected key endpoints:
+- Frontend: `http://localhost:5173`
+- API: `http://localhost:8000`
+- pgAdmin: `http://localhost:5051`
+
+### 2) Validate backend/migrations
+
+```sh
+curl -s http://localhost:8000/health
+curl -s http://localhost:8000/users
+```
+
+Confirm that migrations (including `company_sie_states`) were applied in DB.
+
+### 3) Test signup/login with database runtime
+
+- Create a non-test user in the UI.
+- Sign in with that user.
+- Confirm the user exists in DB (`users`) and company rows appear in `companies`.
+
+### 4) Test SIE source-of-truth endpoint manually
+
+After a company exists (`company_id`) and user id is known:
+
+```sh
+curl -s -X PUT http://localhost:8000/companies/<company_id>/sie-state   -H 'Content-Type: application/json'   -d '{"user_id": <user_id>, "sie_content": "#FLAGGA 0"}'
+
+curl -s "http://localhost:8000/companies/<company_id>/sie-state?user_id=<user_id>"
+```
+
+### 5) Test accounting flows in UI
+
+- Import SIE from Company page.
+- Open Accounting page and verify vouchers are visible.
+- Create/edit/delete a voucher and verify data persists after refresh.
+
+### 6) Restart verification
+
+```sh
+docker compose restart app api
+```
+
+Reload UI and verify vouchers/accounts/company info are still present from DB-backed runtime.
+
+## Onboarding target flow (planned)
+
+Desired user flow:
+1. User creates account.
+2. User chooses **"Importera tidigare bokföring"**.
+3. User uploads SIE.
+4. System reads company metadata + historical vouchers from SIE.
+5. Company fields are auto-populated from SIE metadata (instead of manual entry).
+6. New/edited vouchers update the persisted SIE state.
+
+Implementation note:
+- Keep current localStorage fallback for no-DB mode (Lovable).
+- In Docker/DB mode, gradually move to database-first source-of-truth.
