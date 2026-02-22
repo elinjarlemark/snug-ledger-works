@@ -1,7 +1,8 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { BASAccount, DEFAULT_BAS_ACCOUNTS, getAccountClass, calculateBalance, getLatestBASAccounts } from "@/lib/bas-accounts";
+import { BASAccount, getAccountClass, calculateBalance, getLatestBASAccounts } from "@/lib/bas-accounts";
 import { useAuth } from "./AuthContext";
-import { parseSIEFile, generateSIEFile, convertSIEVouchersToInternal, convertSIEAccountsToBAS, SIEParseResult } from "@/lib/sie";
+import { authService } from "@/services/auth";
+import { parseSIEFile, generateSIEFile, convertSIEVouchersToInternal, convertSIEAccountsToBAS } from "@/lib/sie";
 
 export interface VoucherLine {
   id: string;
@@ -75,18 +76,47 @@ interface AccountingContextType {
 
 const AccountingContext = createContext<AccountingContextType | undefined>(undefined);
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+
 export function AccountingProvider({ children }: { children: ReactNode }) {
-  const { activeCompany } = useAuth();
+  const { user, activeCompany } = useAuth();
   const accountingStandard = activeCompany?.accountingStandard ?? "";
   const [accounts, setAccounts] = useState<BASAccount[]>([]);
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [nextVoucherNumber, setNextVoucherNumber] = useState(1);
 
   const companyId = activeCompany?.id || "";
+  const removedBasAccountsStorageKey = companyId ? `accountpro_removed_bas_accounts_${companyId}` : "";
+
+  const syncSieStateToDatabase = (nextVouchers: Voucher[], nextAccounts: BASAccount[]) => {
+    const numericUserId = Number(user?.id);
+    const numericCompanyId = Number(companyId);
+
+    if (!authService.isDatabaseConnected() || !Number.isFinite(numericUserId) || !Number.isFinite(numericCompanyId) || !activeCompany) {
+      return;
+    }
+
+    const sieContent = generateSIEFile(nextVouchers, nextAccounts, {
+      companyName: activeCompany.companyName,
+      organizationNumber: activeCompany.organizationNumber,
+      fiscalYearStart: activeCompany.fiscalYearStart,
+      fiscalYearEnd: activeCompany.fiscalYearEnd,
+    });
+
+    fetch(`${API_BASE_URL}/companies/${numericCompanyId}/sie-state`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: numericUserId,
+        sie_content: sieContent,
+      }),
+    }).catch(() => undefined);
+  };
 
   // Load data when company changes
   useEffect(() => {
     const latestAccounts = getLatestBASAccounts(accountingStandard);
+    const latestK3Accounts = getLatestBASAccounts("K3");
 
     if (!companyId) {
       setAccounts(latestAccounts);
@@ -95,15 +125,21 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const storedAccounts = localStorage.getItem(`accountpro_accounts_${companyId}`);
     const storedVouchers = localStorage.getItem(`accountpro_vouchers_${companyId}`);
     const storedNextNumber = localStorage.getItem(`accountpro_next_voucher_${companyId}`);
+    const removedBasAccountNumbers = new Set<string>(
+      JSON.parse(localStorage.getItem(removedBasAccountsStorageKey) ?? "[]") as string[]
+    );
 
-    if (storedAccounts) {
-      setAccounts(JSON.parse(storedAccounts));
-    } else {
-      setAccounts(latestAccounts);
-      localStorage.setItem(`accountpro_accounts_${companyId}`, JSON.stringify(latestAccounts));
-    }
+    const basAccountNumbers = new Set(latestK3Accounts.map((account) => account.number));
+    const parsedAccounts = storedAccounts ? (JSON.parse(storedAccounts) as BASAccount[]) : [];
+    const customAccounts = parsedAccounts.filter((account) => !basAccountNumbers.has(account.number));
+    const visibleStandardAccounts = latestAccounts.filter((account) => !removedBasAccountNumbers.has(account.number));
+    const mergedAccounts = [...visibleStandardAccounts, ...customAccounts].sort((a, b) => a.number.localeCompare(b.number));
+
+    setAccounts(mergedAccounts);
+    localStorage.setItem(`accountpro_accounts_${companyId}`, JSON.stringify(mergedAccounts));
 
     if (storedVouchers) {
       setVouchers(JSON.parse(storedVouchers));
@@ -116,7 +152,47 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     } else {
       setNextVoucherNumber(1);
     }
-  }, [companyId, accountingStandard]);
+
+    const numericUserId = Number(user?.id);
+    const numericCompanyId = Number(companyId);
+    if (!authService.isDatabaseConnected() || !Number.isFinite(numericUserId) || !Number.isFinite(numericCompanyId)) {
+      return;
+    }
+
+    fetch(`${API_BASE_URL}/companies/${numericCompanyId}/sie-state?user_id=${numericUserId}`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Failed to fetch SIE state");
+        }
+        return response.json();
+      })
+      .then((payload) => {
+        const sieContent = typeof payload?.sieContent === "string" ? payload.sieContent : "";
+        if (!sieContent.trim()) {
+          return;
+        }
+
+        const parseResult = parseSIEFile(sieContent);
+        const sieAccounts = convertSIEAccountsToBAS(parseResult.accounts);
+        const accountsToAdd = sieAccounts.filter(
+          (newAcc) => !mergedAccounts.find((existing) => existing.number === newAcc.number)
+        );
+        const nextAccounts = [...mergedAccounts, ...accountsToAdd].sort((a, b) => a.number.localeCompare(b.number));
+
+        const converted = convertSIEVouchersToInternal(parseResult.vouchers, companyId, [], nextAccounts);
+        const dbVouchers = converted.newVouchers.sort((a, b) =>
+          new Date(a.date).getTime() - new Date(b.date).getTime() || a.voucherNumber - b.voucherNumber
+        );
+
+        setAccounts(nextAccounts);
+        setVouchers(dbVouchers);
+        setNextVoucherNumber(converted.nextVoucherNumber);
+        localStorage.setItem(`accountpro_accounts_${companyId}`, JSON.stringify(nextAccounts));
+        localStorage.setItem(`accountpro_vouchers_${companyId}`, JSON.stringify(dbVouchers));
+        localStorage.setItem(`accountpro_next_voucher_${companyId}`, converted.nextVoucherNumber.toString());
+      })
+      .catch(() => undefined);
+  }, [companyId, accountingStandard, removedBasAccountsStorageKey, user?.id]);
 
   const saveAccounts = (newAccounts: BASAccount[]) => {
     setAccounts(newAccounts);
@@ -137,6 +213,15 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
   const addAccount = (account: BASAccount) => {
     const exists = accounts.find(a => a.number === account.number);
     if (exists) return;
+
+    const basAccountNumbers = new Set(getLatestBASAccounts("K3").map((entry) => entry.number));
+    if (companyId && basAccountNumbers.has(account.number)) {
+      const removedBasAccountNumbers = new Set<string>(
+        JSON.parse(localStorage.getItem(removedBasAccountsStorageKey) ?? "[]") as string[]
+      );
+      removedBasAccountNumbers.delete(account.number);
+      localStorage.setItem(removedBasAccountsStorageKey, JSON.stringify([...removedBasAccountNumbers]));
+    }
     
     const newAccounts = [...accounts, account].sort((a, b) => a.number.localeCompare(b.number));
     saveAccounts(newAccounts);
@@ -148,6 +233,15 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       v.lines.some(l => l.accountNumber === accountNumber)
     );
     if (hasTransactions) return; // Can't delete account with transactions
+
+    const basAccountNumbers = new Set(getLatestBASAccounts("K3").map((entry) => entry.number));
+    if (companyId && basAccountNumbers.has(accountNumber)) {
+      const removedBasAccountNumbers = new Set<string>(
+        JSON.parse(localStorage.getItem(removedBasAccountsStorageKey) ?? "[]") as string[]
+      );
+      removedBasAccountNumbers.add(accountNumber);
+      localStorage.setItem(removedBasAccountsStorageKey, JSON.stringify([...removedBasAccountNumbers]));
+    }
     
     const newAccounts = accounts.filter(a => a.number !== accountNumber);
     saveAccounts(newAccounts);
@@ -179,12 +273,14 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     );
     
     saveVouchers(newVouchers, nextVoucherNumber + 1);
+    syncSieStateToDatabase(newVouchers, accounts);
     return newVoucher;
   };
 
   const deleteVoucher = (voucherId: string) => {
     const newVouchers = vouchers.filter(v => v.id !== voucherId);
     saveVouchers(newVouchers, nextVoucherNumber);
+    syncSieStateToDatabase(newVouchers, accounts);
   };
 
   const updateVoucher = (voucherId: string, updates: Partial<Pick<Voucher, "date" | "description" | "lines" | "attachments">>) => {
@@ -203,6 +299,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
 
     const newVouchers = vouchers.map(v => v.id === voucherId ? updatedVoucher : v);
     saveVouchers(newVouchers, nextVoucherNumber);
+    syncSieStateToDatabase(newVouchers, accounts);
     return updatedVoucher;
   };
 
@@ -363,6 +460,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         new Date(a.date).getTime() - new Date(b.date).getTime() || a.voucherNumber - b.voucherNumber
       );
       saveVouchers(updatedVouchers, newNextNumber);
+      syncSieStateToDatabase(updatedVouchers, accountsToAdd.length > 0 ? [...accounts, ...accountsToAdd] : accounts);
     }
 
     return {
