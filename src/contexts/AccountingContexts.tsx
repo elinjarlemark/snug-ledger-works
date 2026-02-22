@@ -83,6 +83,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
   const [nextVoucherNumber, setNextVoucherNumber] = useState(1);
 
   const companyId = activeCompany?.id || "";
+  const removedBasAccountsStorageKey = companyId ? `accountpro_removed_bas_accounts_${companyId}` : "";
 
   // Load data when company changes
   useEffect(() => {
@@ -99,17 +100,22 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     const storedAccounts = localStorage.getItem(`accountpro_accounts_${companyId}`);
     const storedVouchers = localStorage.getItem(`accountpro_vouchers_${companyId}`);
     const storedNextNumber = localStorage.getItem(`accountpro_next_voucher_${companyId}`);
+    const removedBasAccountNumbers = new Set<string>(
+      JSON.parse(localStorage.getItem(removedBasAccountsStorageKey) ?? "[]") as string[]
+    );
 
     if (storedAccounts) {
       const parsedAccounts = JSON.parse(storedAccounts) as BASAccount[];
       const basAccountNumbers = new Set(latestK3Accounts.map((account) => account.number));
       const customAccounts = parsedAccounts.filter((account) => !basAccountNumbers.has(account.number));
-      const mergedAccounts = [...latestAccounts, ...customAccounts].sort((a, b) => a.number.localeCompare(b.number));
+      const visibleStandardAccounts = latestAccounts.filter((account) => !removedBasAccountNumbers.has(account.number));
+      const mergedAccounts = [...visibleStandardAccounts, ...customAccounts].sort((a, b) => a.number.localeCompare(b.number));
       setAccounts(mergedAccounts);
       localStorage.setItem(`accountpro_accounts_${companyId}`, JSON.stringify(mergedAccounts));
     } else {
-      setAccounts(latestAccounts);
-      localStorage.setItem(`accountpro_accounts_${companyId}`, JSON.stringify(latestAccounts));
+      const visibleStandardAccounts = latestAccounts.filter((account) => !removedBasAccountNumbers.has(account.number));
+      setAccounts(visibleStandardAccounts);
+      localStorage.setItem(`accountpro_accounts_${companyId}`, JSON.stringify(visibleStandardAccounts));
     }
 
     if (storedVouchers) {
@@ -144,6 +150,15 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
   const addAccount = (account: BASAccount) => {
     const exists = accounts.find(a => a.number === account.number);
     if (exists) return;
+
+    const basAccountNumbers = new Set(getLatestBASAccounts("K3").map((entry) => entry.number));
+    if (companyId && basAccountNumbers.has(account.number)) {
+      const removedBasAccountNumbers = new Set<string>(
+        JSON.parse(localStorage.getItem(removedBasAccountsStorageKey) ?? "[]") as string[]
+      );
+      removedBasAccountNumbers.delete(account.number);
+      localStorage.setItem(removedBasAccountsStorageKey, JSON.stringify([...removedBasAccountNumbers]));
+    }
     
     const newAccounts = [...accounts, account].sort((a, b) => a.number.localeCompare(b.number));
     saveAccounts(newAccounts);
@@ -155,6 +170,15 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       v.lines.some(l => l.accountNumber === accountNumber)
     );
     if (hasTransactions) return; // Can't delete account with transactions
+
+    const basAccountNumbers = new Set(getLatestBASAccounts("K3").map((entry) => entry.number));
+    if (companyId && basAccountNumbers.has(accountNumber)) {
+      const removedBasAccountNumbers = new Set<string>(
+        JSON.parse(localStorage.getItem(removedBasAccountsStorageKey) ?? "[]") as string[]
+      );
+      removedBasAccountNumbers.add(accountNumber);
+      localStorage.setItem(removedBasAccountsStorageKey, JSON.stringify([...removedBasAccountNumbers]));
+    }
     
     const newAccounts = accounts.filter(a => a.number !== accountNumber);
     saveAccounts(newAccounts);
