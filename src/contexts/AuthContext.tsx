@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
 import { authService, User } from "@/services/auth";
 
 export type { User } from "@/services/auth";
@@ -80,8 +80,11 @@ const mapCompanyFromApi = (company: any): CompanyProfile => ({
   accountingStandard: company.accountingStandard === "K3" ? "K3" : company.accountingStandard === "K2" ? "K2" : "",
 });
 
-const toCompanyRequestBody = (company: Omit<CompanyProfile, "id">, userId?: number) => ({
-  ...(typeof userId === "number" ? { user_id: userId } : {}),
+const toCompanyRequestBody = (company: Omit<CompanyProfile, "id">, userId?: string | number) => {
+  const numericUserId = Number(userId);
+
+  return {
+    ...(Number.isFinite(numericUserId) ? { user_id: numericUserId } : {}),
   company_name: company.companyName,
   organization_number: company.organizationNumber,
   address: company.address,
@@ -92,7 +95,8 @@ const toCompanyRequestBody = (company: Omit<CompanyProfile, "id">, userId?: numb
   fiscal_year_start: company.fiscalYearStart,
   fiscal_year_end: company.fiscalYearEnd,
   accounting_standard: company.accountingStandard || null,
-});
+  };
+};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -102,6 +106,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
 
   const activeCompany = companies.find(c => c.id === activeCompanyId) || null;
+
+  const companiesRef = useRef<CompanyProfile[]>([]);
+
+  useEffect(() => {
+    companiesRef.current = companies;
+  }, [companies]);
+
   
   // Check if the active company has all mandatory fields filled
   const hasValidCompany = !!(
@@ -347,15 +358,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           const created = await response.json().catch(() => ({}));
           const createdCompanyId = String(created.id ?? newCompany.id);
-          let latestCompanySnapshot = newCompany;
+          const latestCompanySnapshot =
+            companiesRef.current.find((company) => company.id === newCompany.id) ?? newCompany;
 
           setCompanies((prevCompanies) => {
             const index = prevCompanies.findIndex((company) => company.id === newCompany.id);
             if (index === -1) {
-              return [...prevCompanies, { ...newCompany, id: createdCompanyId }];
+              return [...prevCompanies, { ...latestCompanySnapshot, id: createdCompanyId }];
             }
 
-            latestCompanySnapshot = { ...prevCompanies[index] };
             const nextCompanies = [...prevCompanies];
             nextCompanies[index] = { ...latestCompanySnapshot, id: createdCompanyId };
             return nextCompanies;
