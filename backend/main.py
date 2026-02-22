@@ -1,8 +1,10 @@
 import os
+from datetime import datetime
 from fastapi import FastAPI, Depends, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 import time
 from sqlalchemy.exc import OperationalError
@@ -13,7 +15,7 @@ from alembic.config import Config
 
 from database import get_db, SessionLocal, DATABASE_URL
 from passlib.context import CryptContext
-from models import User, SIEFile, Receipt, Company, Customer, Product
+from models import User, SIEFile, Receipt, Company, Customer, Product, CompanySIEState
 
 app = FastAPI()
 
@@ -74,6 +76,12 @@ class ReceiptCreate(BaseModel):
     storage_path: str
     note: str | None = None
 
+
+
+
+class CompanySIEStateUpsert(BaseModel):
+    user_id: int
+    sie_content: str
 
 class CompanyCreate(BaseModel):
     user_id: int
@@ -289,6 +297,76 @@ def create_sie_file(payload: SIEFileCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(sie_file)
     return {"id": sie_file.id}
+
+
+@app.get("/companies/{company_id}/sie-state")
+def get_company_sie_state(company_id: int, user_id: int, db: Session = Depends(get_db)):
+    state = (
+        db.query(CompanySIEState)
+        .filter(CompanySIEState.company_id == company_id, CompanySIEState.user_id == user_id)
+        .first()
+    )
+
+    if not state:
+        return {
+            "companyId": company_id,
+            "userId": user_id,
+            "sieContent": None,
+            "updatedAt": None,
+        }
+
+    return {
+        "id": state.id,
+        "companyId": state.company_id,
+        "userId": state.user_id,
+        "sieContent": state.sie_content,
+        "updatedAt": state.updated_at.isoformat() if state.updated_at else None,
+    }
+
+
+@app.put("/companies/{company_id}/sie-state")
+def upsert_company_sie_state(company_id: int, payload: CompanySIEStateUpsert, db: Session = Depends(get_db)):
+    company = (
+        db.query(Company)
+        .filter(Company.id == company_id, Company.user_id == payload.user_id)
+        .first()
+    )
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    now = datetime.utcnow()
+    upsert_stmt = (
+        pg_insert(CompanySIEState)
+        .values(
+            user_id=payload.user_id,
+            company_id=company_id,
+            sie_content=payload.sie_content,
+            updated_at=now,
+        )
+        .on_conflict_do_update(
+            index_elements=[CompanySIEState.user_id, CompanySIEState.company_id],
+            set_={
+                "sie_content": payload.sie_content,
+                "updated_at": now,
+            },
+        )
+        .returning(
+            CompanySIEState.id,
+            CompanySIEState.company_id,
+            CompanySIEState.user_id,
+            CompanySIEState.updated_at,
+        )
+    )
+
+    row = db.execute(upsert_stmt).one()
+    db.commit()
+
+    return {
+        "id": row.id,
+        "companyId": row.company_id,
+        "userId": row.user_id,
+        "updatedAt": row.updated_at.isoformat() if row.updated_at else None,
+    }
 
 
 @app.post("/receipts")
@@ -513,6 +591,8 @@ def delete_company(company_id: int, db: Session = Depends(get_db)):
     company = db.query(Company).filter(Company.id == company_id).first()
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
+
+    db.query(CompanySIEState).filter(CompanySIEState.company_id == company_id).delete()
     db.delete(company)
     db.commit()
     return {"success": True}

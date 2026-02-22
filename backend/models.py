@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float, Boolean, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -96,3 +96,14 @@ class Product(Base):
     vat_rate = Column(Float, nullable=False, default=25)
     unit = Column(String(20), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class CompanySIEState(Base):
+    __tablename__ = "company_sie_states"
+    __table_args__ = (UniqueConstraint("user_id", "company_id", name="uq_company_sie_states_user_company"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
+    sie_content = Column(Text, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

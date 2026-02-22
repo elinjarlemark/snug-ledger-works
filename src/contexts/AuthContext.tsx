@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
 import { authService, User } from "@/services/auth";
 
 export type { User } from "@/services/auth";
@@ -80,6 +80,24 @@ const mapCompanyFromApi = (company: any): CompanyProfile => ({
   accountingStandard: company.accountingStandard === "K3" ? "K3" : company.accountingStandard === "K2" ? "K2" : "",
 });
 
+const toCompanyRequestBody = (company: Omit<CompanyProfile, "id">, userId?: string | number) => {
+  const numericUserId = Number(userId);
+
+  return {
+    ...(Number.isFinite(numericUserId) ? { user_id: numericUserId } : {}),
+  company_name: company.companyName,
+  organization_number: company.organizationNumber,
+  address: company.address,
+  postal_code: company.postalCode,
+  city: company.city,
+  country: company.country,
+  vat_number: company.vatNumber,
+  fiscal_year_start: company.fiscalYearStart,
+  fiscal_year_end: company.fiscalYearEnd,
+  accounting_standard: company.accountingStandard || null,
+  };
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [companies, setCompanies] = useState<CompanyProfile[]>([]);
@@ -88,6 +106,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
 
   const activeCompany = companies.find(c => c.id === activeCompanyId) || null;
+
+  const companiesRef = useRef<CompanyProfile[]>([]);
+  const companyUpdateControllersRef = useRef<Record<string, AbortController | undefined>>({});
+
+  useEffect(() => {
+    companiesRef.current = companies;
+  }, [companies]);
+
+  const upsertCompanyOnServer = (companyId: string, company: Omit<CompanyProfile, "id">) => {
+    const previousController = companyUpdateControllersRef.current[companyId];
+    if (previousController) {
+      previousController.abort();
+    }
+
+    const controller = new AbortController();
+    companyUpdateControllersRef.current[companyId] = controller;
+
+    return fetch(`${API_BASE_URL}/companies/${companyId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(toCompanyRequestBody(company)),
+      signal: controller.signal,
+    })
+      .catch((error) => {
+        if (error?.name === "AbortError") {
+          return;
+        }
+        throw error;
+      })
+      .finally(() => {
+        if (companyUpdateControllersRef.current[companyId] === controller) {
+          delete companyUpdateControllersRef.current[companyId];
+        }
+      });
+  };
+
   
   // Check if the active company has all mandatory fields filled
   const hasValidCompany = !!(
@@ -325,37 +379,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       fetch(`${API_BASE_URL}/companies`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: user.id,
-          company_name: newCompany.companyName,
-          organization_number: newCompany.organizationNumber,
-          address: newCompany.address,
-          postal_code: newCompany.postalCode,
-          city: newCompany.city,
-          country: newCompany.country,
-          vat_number: newCompany.vatNumber,
-          fiscal_year_start: newCompany.fiscalYearStart,
-          fiscal_year_end: newCompany.fiscalYearEnd,
-          accounting_standard: newCompany.accountingStandard || null,
-        }),
+        body: JSON.stringify(toCompanyRequestBody(newCompany, user.id)),
       })
         .then(async (response) => {
           if (!response.ok) {
             throw new Error("Failed to create company");
           }
           const created = await response.json().catch(() => ({}));
-          const createdCompany = { ...newCompany, id: String(created.id ?? newCompany.id) };
+          const createdCompanyId = String(created.id ?? newCompany.id);
+          const latestCompanySnapshot =
+            companiesRef.current.find((company) => company.id === newCompany.id) ?? newCompany;
 
           setCompanies((prevCompanies) => {
             const index = prevCompanies.findIndex((company) => company.id === newCompany.id);
             if (index === -1) {
-              return [...prevCompanies, createdCompany];
+              return [...prevCompanies, { ...latestCompanySnapshot, id: createdCompanyId }];
             }
+
             const nextCompanies = [...prevCompanies];
-            nextCompanies[index] = createdCompany;
+            nextCompanies[index] = { ...latestCompanySnapshot, id: createdCompanyId };
             return nextCompanies;
           });
-          setActiveCompanyId(createdCompany.id);
+
+          if (latestCompanySnapshot.id !== createdCompanyId) {
+            upsertCompanyOnServer(createdCompanyId, latestCompanySnapshot).catch(() => undefined);
+          }
+
+          setActiveCompanyId(createdCompanyId);
         })
         .catch(() => {
           setCompanies((prevCompanies) => {
@@ -384,22 +434,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateCompany = (company: CompanyProfile) => {
     if (authService.isDatabaseConnected()) {
-      fetch(`${API_BASE_URL}/companies/${company.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          company_name: company.companyName,
-          organization_number: company.organizationNumber,
-          address: company.address,
-          postal_code: company.postalCode,
-          city: company.city,
-          country: company.country,
-          vat_number: company.vatNumber,
-          fiscal_year_start: company.fiscalYearStart,
-          fiscal_year_end: company.fiscalYearEnd,
-          accounting_standard: company.accountingStandard || null,
-        }),
-      });
+      upsertCompanyOnServer(company.id, company).catch(() => undefined);
       const newCompanies = companies.map(c => c.id === company.id ? company : c);
       setCompanies(newCompanies);
       return;
