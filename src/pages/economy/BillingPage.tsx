@@ -427,7 +427,7 @@ export default function BillingPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="customers" className="w-full">
+      <Tabs defaultValue="invoices" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="customers" className="gap-2">
             <Users className="h-4 w-4" />
