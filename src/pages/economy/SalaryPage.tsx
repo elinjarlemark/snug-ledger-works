@@ -239,7 +239,7 @@ export default function SalaryPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -248,7 +248,6 @@ export default function SalaryPage() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-foreground">Salary</h1>
-            <p className="text-sm text-muted-foreground">Payroll processing and employee management</p>
           </div>
         </div>
         <Button size="sm" onClick={() => { setEditingEmployee(undefined); setDialogOpen(true); }}>
