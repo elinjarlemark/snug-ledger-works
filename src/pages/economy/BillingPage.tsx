@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { FileText, Users, Package, Plus, Trash2, Edit, Receipt, Eye, X, Calendar, Send, Download, Mail } from "lucide-react";
+import { FileText, Users, Package, Plus, Trash2, Edit, Receipt, Eye, X, Calendar, Send, Download, Mail, CheckCircle, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -284,18 +285,24 @@ function InvoiceDetailView({
   invoice, 
   onClose, 
   onDelete, 
-  onEdit 
+  onEdit,
+  onStatusChange,
+  onConvertQuote,
 }: { 
   invoice: Invoice; 
   onClose: () => void; 
   onDelete: (id: string) => void;
   onEdit: (invoice: Invoice) => void;
+  onStatusChange: (id: string, status: Invoice["status"]) => void;
+  onConvertQuote: (quoteId: string) => void;
 }) {
   const { activeCompany } = useAuth();
+  const navigate = useNavigate();
   const isQuote = invoice.documentType === "quote";
   const docLabel = isQuote ? "Quote" : "Invoice";
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showSendDialog, setShowSendDialog] = useState(false);
+  const [showPaidConfirm, setShowPaidConfirm] = useState(false);
   const [emailTo, setEmailTo] = useState("");
   const [emailSubject, setEmailSubject] = useState(`${docLabel} #${invoice.invoiceNumber} from ${activeCompany?.companyName || "us"}`);
   const [emailBody, setEmailBody] = useState(
@@ -307,8 +314,36 @@ function InvoiceDetailView({
       companyName: activeCompany.companyName,
       organizationNumber: activeCompany.organizationNumber,
     } : undefined);
-    toast.success(`${docLabel} downloaded as PDF`);
+    onStatusChange(invoice.id, "sent");
+    toast.success(`${docLabel} downloaded as PDF and marked as sent`);
     setShowSendDialog(false);
+  };
+
+  const handleSendAutomatically = () => {
+    onStatusChange(invoice.id, "sent");
+    toast.success(`${docLabel} marked as sent`);
+    setShowSendDialog(false);
+  };
+
+  const handleMarkPaid = (createVoucher: boolean) => {
+    onStatusChange(invoice.id, "paid");
+    setShowPaidConfirm(false);
+    toast.success("Invoice marked as paid");
+    if (createVoucher) {
+      const bookingAccount = activeCompany?.invoiceBookingAccount || "1930";
+      navigate("/economy/accounting", {
+        state: {
+          openCreateVoucher: true,
+          prefillVoucher: {
+            description: `Invoice #${invoice.invoiceNumber} - ${invoice.customerName}`,
+            lines: [
+              { accountNumber: bookingAccount, accountName: "", debit: invoice.total, credit: 0 },
+              { accountNumber: "", accountName: "", debit: 0, credit: invoice.total },
+            ],
+          },
+        },
+      });
+    }
   };
 
   return (
@@ -319,6 +354,16 @@ function InvoiceDetailView({
           <p className="text-sm text-muted-foreground">{invoice.customerName}</p>
         </div>
         <div className="flex items-center gap-2">
+          {isQuote && invoice.status !== "accepted" && (
+            <Button variant="default" size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => onConvertQuote(invoice.id)}>
+              <CheckCircle className="h-4 w-4 mr-1" />Quote Accepted
+            </Button>
+          )}
+          {!isQuote && invoice.status === "sent" && (
+            <Button variant="default" size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => setShowPaidConfirm(true)}>
+              <DollarSign className="h-4 w-4 mr-1" />Paid
+            </Button>
+          )}
           <Button variant="destructive" size="sm" onClick={() => setShowDeleteConfirm(true)}>
             <Trash2 className="h-4 w-4 mr-1" />Delete
           </Button>
@@ -421,6 +466,22 @@ function InvoiceDetailView({
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Paid Confirmation - Create Voucher? */}
+      <AlertDialog open={showPaidConfirm} onOpenChange={setShowPaidConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Invoice Paid</AlertDialogTitle>
+            <AlertDialogDescription>
+              Do you want to create a voucher for this invoice?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => handleMarkPaid(false)}>No</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleMarkPaid(true)}>Yes, Create Voucher</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Send Dialog */}
       <Dialog open={showSendDialog} onOpenChange={setShowSendDialog}>
         <DialogContent className="max-w-md">
@@ -443,7 +504,7 @@ function InvoiceDetailView({
               <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">or</span></div>
             </div>
 
-            <div className="border rounded-lg p-4 space-y-3 opacity-80">
+            <div className="border rounded-lg p-4 space-y-3">
               <div className="flex items-center gap-2 mb-2">
                 <Mail className="h-4 w-4 text-muted-foreground" />
                 <p className="font-medium text-sm">Send Automatically via Email</p>
@@ -474,7 +535,7 @@ function InvoiceDetailView({
 
 export default function BillingPage() {
   const { user } = useAuth();
-  const { customers, products, invoices, addCustomer, updateCustomer, deleteCustomer, addProduct, updateProduct, deleteProduct, deleteInvoice } = useBilling();
+  const { customers, products, invoices, addCustomer, updateCustomer, deleteCustomer, addProduct, updateProduct, deleteProduct, deleteInvoice, updateInvoiceStatus, convertQuoteToInvoice } = useBilling();
   const location = useLocation();
   
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
@@ -484,6 +545,16 @@ export default function BillingPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>();
   const [editingProduct, setEditingProduct] = useState<Product | undefined>();
+
+  // Compute display status: only sent invoices can become overdue
+  const getDisplayStatus = (inv: Invoice) => {
+    if (inv.status === "sent" && inv.dueDate) {
+      const today = new Date().toISOString().split("T")[0];
+      if (inv.dueDate < today) return "overdue";
+    }
+    // Draft invoices never become overdue even if past due date
+    return inv.status;
+  };
 
   const actualInvoices = invoices.filter(i => (i.documentType || "invoice") === "invoice");
   const quotes = invoices.filter(i => i.documentType === "quote");
@@ -744,6 +815,8 @@ export default function BillingPage() {
               onClose={() => setSelectedInvoice(null)}
               onDelete={(id) => { deleteInvoice(id); toast.success("Invoice deleted"); }}
               onEdit={() => toast.info("Edit functionality coming soon")}
+              onStatusChange={(id, status) => { updateInvoiceStatus(id, status); setSelectedInvoice(prev => prev ? { ...prev, status } : null); }}
+              onConvertQuote={(id) => { const inv = convertQuoteToInvoice(id); if (inv) { setSelectedInvoice(inv); toast.success("Quote converted to invoice"); } }}
             />
           )}
 
@@ -789,14 +862,19 @@ export default function BillingPage() {
                             {formatAmount(invoice.total)} SEK
                           </td>
                           <td className="py-2 px-3 text-right">
-                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
-                              invoice.status === "paid" ? "bg-green-500/10 text-green-600" :
-                              invoice.status === "overdue" ? "bg-destructive/10 text-destructive" :
-                              invoice.status === "sent" ? "bg-blue-500/10 text-blue-600" :
-                              "bg-muted text-muted-foreground"
-                            }`}>
-                              {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-                            </span>
+                            {(() => {
+                              const displayStatus = getDisplayStatus(invoice);
+                              return (
+                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                                  displayStatus === "paid" ? "bg-green-500/10 text-green-600" :
+                                  displayStatus === "overdue" ? "bg-destructive/10 text-destructive" :
+                                  displayStatus === "sent" ? "bg-blue-500/10 text-blue-600" :
+                                  "bg-muted text-muted-foreground"
+                                }`}>
+                                  {displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}
+                                </span>
+                              );
+                            })()}
                           </td>
                         </tr>
                       ))}
@@ -826,6 +904,8 @@ export default function BillingPage() {
               onClose={() => setSelectedInvoice(null)}
               onDelete={(id) => { deleteInvoice(id); toast.success("Quote deleted"); }}
               onEdit={() => toast.info("Edit functionality coming soon")}
+              onStatusChange={(id, status) => { updateInvoiceStatus(id, status); setSelectedInvoice(prev => prev ? { ...prev, status } : null); }}
+              onConvertQuote={(id) => { const inv = convertQuoteToInvoice(id); if (inv) { setSelectedInvoice(inv); toast.success("Quote accepted and converted to invoice"); } }}
             />
           )}
 

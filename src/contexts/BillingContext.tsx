@@ -19,6 +19,7 @@ interface BillingContextType {
   getProductById: (productId: string) => Product | undefined;
   createInvoice: (invoice: Omit<Invoice, "id" | "companyId" | "invoiceNumber" | "createdAt">) => Invoice;
   updateInvoiceStatus: (invoiceId: string, status: Invoice["status"], paidDate?: string) => void;
+  convertQuoteToInvoice: (quoteId: string) => Invoice | null;
   deleteInvoice: (invoiceId: string) => void;
   getInvoiceById: (invoiceId: string) => Invoice | undefined;
 }
@@ -342,6 +343,26 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     saveInvoices(newInvoices, nextInvoiceNumber);
   };
 
+  const convertQuoteToInvoice = (quoteId: string): Invoice | null => {
+    const quote = invoices.find(inv => inv.id === quoteId);
+    if (!quote) return null;
+    const newInvoice: Invoice = {
+      ...quote,
+      id: crypto.randomUUID(),
+      documentType: "invoice",
+      invoiceNumber: nextInvoiceNumber,
+      status: "sent",
+      issueDate: new Date().toISOString().split("T")[0],
+      createdAt: new Date().toISOString(),
+    };
+    const newInvoices = [
+      ...invoices.map(inv => inv.id === quoteId ? { ...inv, status: "accepted" as const } : inv),
+      newInvoice,
+    ];
+    saveInvoices(newInvoices, nextInvoiceNumber + 1);
+    return newInvoice;
+  };
+
   const deleteInvoice = (invoiceId: string) => {
     saveInvoices(invoices.filter(inv => inv.id !== invoiceId), nextInvoiceNumber);
   };
@@ -364,6 +385,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       getProductById,
       createInvoice,
       updateInvoiceStatus,
+      convertQuoteToInvoice,
       deleteInvoice,
       getInvoiceById,
     }}>

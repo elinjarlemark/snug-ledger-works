@@ -17,6 +17,7 @@ export interface CompanyProfile {
   fiscalYearStart: string;
   fiscalYearEnd: string;
   accountingStandard: 'K2' | 'K3' | '';
+  invoiceBookingAccount?: string;
 }
 
 export interface PendingSignup {

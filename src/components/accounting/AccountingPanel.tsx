@@ -27,6 +27,7 @@ interface AccountingPanelProps {
   autoOpenCreate?: boolean;
   onAutoOpenCreateConsumed?: () => void;
   onToggleCompare?: () => void;
+  prefillVoucher?: any;
 }
 
 export function AccountingPanel({
@@ -37,6 +38,7 @@ export function AccountingPanel({
   autoOpenCreate,
   onAutoOpenCreateConsumed,
   onToggleCompare,
+  prefillVoucher,
 }: AccountingPanelProps) {
   const { user } = useAuth();
   const { vouchers } = useAccounting();
@@ -163,7 +165,7 @@ export function AccountingPanel({
           onCancel={handleFormCancel}
           onSuccess={handleFormSuccess}
           editVoucher={editingVoucher || undefined}
-          duplicateFrom={duplicatingVoucher || undefined}
+          duplicateFrom={duplicatingVoucher || (prefillVoucher ? { ...prefillVoucher, voucherNumber: 0, date: new Date().toISOString().split("T")[0], lines: prefillVoucher.lines.map((l: any) => ({ ...l, id: crypto.randomUUID() })) } as Voucher : undefined)}
         />
       )}
 

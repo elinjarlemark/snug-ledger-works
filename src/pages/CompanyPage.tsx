@@ -73,6 +73,7 @@ export default function CompanyPage() {
     fiscalYearStart: "01-01",
     fiscalYearEnd: "12-31",
     accountingStandard: "" as "K2" | "K3" | "",
+    invoiceBookingAccount: "1930",
   });
 
   useEffect(() => {
@@ -88,6 +89,7 @@ export default function CompanyPage() {
         fiscalYearStart: activeCompany.fiscalYearStart,
         fiscalYearEnd: activeCompany.fiscalYearEnd,
         accountingStandard: activeCompany.accountingStandard,
+        invoiceBookingAccount: activeCompany.invoiceBookingAccount || "1930",
       });
     }
   }, [activeCompany]);
@@ -526,6 +528,18 @@ export default function CompanyPage() {
                       {!canDeleteActiveCompany && (
                         <p className="text-xs text-muted-foreground">Save at least two companies before deleting one.</p>
                       )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="invoiceBookingAccount">Invoice Booking Account</Label>
+                      <Input
+                        id="invoiceBookingAccount"
+                        value={formData.invoiceBookingAccount}
+                        onChange={(e) => handleChange("invoiceBookingAccount", e.target.value.replace(/\D/g, ""))}
+                        placeholder="1930"
+                        maxLength={4}
+                      />
+                      <p className="text-xs text-muted-foreground">Account used for debit when booking paid invoices (default: 1930)</p>
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-4">
