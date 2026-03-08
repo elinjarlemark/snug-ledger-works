@@ -454,7 +454,7 @@ export default function BillingPage() {
               <DialogTrigger asChild>
                 <Button><Plus className="h-4 w-4 mr-2" />Add Customer</Button>
               </DialogTrigger>
-              <DialogContent className="max-w-lg">
+              <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>{editingCustomer ? "Edit Customer" : "Add Customer"}</DialogTitle>
                 </DialogHeader>
