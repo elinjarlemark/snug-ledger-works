@@ -57,7 +57,13 @@ const App = () => (
                       {/* Public pages with header/footer */}
                       <Route element={<PublicLayout />}>
                         <Route path="/" element={<Index />} />
+                        <Route path="/about" element={<AboutPage />} />
+                        <Route path="/pricing" element={<PricingPage />} />
+                        <Route path="/contact" element={<ContactPage />} />
                       </Route>
+
+                      {/* Preview */}
+                      <Route path="/preview" element={<PreviewPage />} />
 
                       {/* Economy section with sidebar */}
                       <Route path='/economy' element={<RequireCompany><EconomyLayout /></RequireCompany>}>

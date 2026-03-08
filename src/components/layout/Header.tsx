@@ -87,7 +87,7 @@ export function Header() {
         </div>
 
         <nav className="flex items-center gap-8">
-          {navItems.map((item) => (
+          {(user ? loggedInNavItems : loggedOutNavItems).map((item) => (
             <Link
               key={item.href}
               to={item.href}
@@ -99,7 +99,7 @@ export function Header() {
               {item.name}
             </Link>
           ))}
-          
+
           {user ? (
             <HoverCard openDelay={100} closeDelay={200}>
               <HoverCardTrigger asChild>
