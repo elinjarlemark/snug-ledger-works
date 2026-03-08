@@ -130,7 +130,7 @@ export default function LoginPage() {
                 </div>
 
                 <div className='space-y-2'>
-                  <Label htmlFor='resetPassword'>New password</Label>
+                  <Label htmlFor='resetPassword'>New password *</Label>
                   <Input
                     id='resetPassword'
                     type='password'
