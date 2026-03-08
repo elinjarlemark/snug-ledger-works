@@ -230,31 +230,31 @@ function ReportPanel({ compact }: ReportPanelProps) {
                   <p className="text-muted-foreground text-sm py-4">No expense transactions in this period</p>
                 ) : (
                   <div className="bg-muted/30 rounded-lg overflow-hidden">
-                    <table className="w-full">
+                    <table className="w-full text-xs">
                       <thead>
-                        <tr className="text-sm border-b">
-                          <th className="text-left p-3">Account</th>
-                          <th className="text-left p-3">Name</th>
-                          {!compact && <th className="text-right p-3">Debit</th>}
-                          {!compact && <th className="text-right p-3">Credit</th>}
-                          <th className="text-right p-3">Balance</th>
+                        <tr className="border-b">
+                          <th className="text-left py-2 px-3 font-medium">Account</th>
+                          <th className="text-left py-2 px-3 font-medium">Name</th>
+                          {!compact && <th className="text-right py-2 px-3 font-medium">Debit</th>}
+                          {!compact && <th className="text-right py-2 px-3 font-medium">Credit</th>}
+                          <th className="text-right py-2 px-3 font-medium">Balance</th>
                         </tr>
                       </thead>
                       <tbody>
                         {incomeStatement.expenses.map((entry) => (
                           <tr key={entry.accountNumber} className="border-b border-border/50">
-                            <td className="p-3 font-mono text-secondary">{entry.accountNumber}</td>
-                            <td className="p-3">{entry.accountName}</td>
-                            {!compact && <td className="p-3 text-right font-mono">{formatAmount(entry.totalDebit)}</td>}
-                            {!compact && <td className="p-3 text-right font-mono">{formatAmount(entry.totalCredit)}</td>}
-                            <td className="p-3 text-right font-mono font-semibold text-destructive">{formatAmount(entry.balance)}</td>
+                            <td className="py-2 px-3 font-mono text-secondary">{entry.accountNumber}</td>
+                            <td className="py-2 px-3">{entry.accountName}</td>
+                            {!compact && <td className="py-2 px-3 text-right font-mono">{formatAmount(entry.totalDebit)}</td>}
+                            {!compact && <td className="py-2 px-3 text-right font-mono">{formatAmount(entry.totalCredit)}</td>}
+                            <td className="py-2 px-3 text-right font-mono font-medium text-destructive">{formatAmount(entry.balance)}</td>
                           </tr>
                         ))}
                       </tbody>
                       <tfoot>
                         <tr className="bg-destructive/10">
-                          <td colSpan={compact ? 2 : 4} className="p-3 font-semibold">Total Expenses</td>
-                          <td className="p-3 text-right font-mono font-bold text-destructive">{formatAmount(totalExpenses)}</td>
+                          <td colSpan={compact ? 2 : 4} className="py-2 px-3 font-medium">Total Expenses</td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-destructive">{formatAmount(totalExpenses)}</td>
                         </tr>
                       </tfoot>
                     </table>
