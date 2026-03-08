@@ -17,9 +17,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { User, LogOut, Check, ChevronDown, ClipboardList, Settings, Plus, FileText, BookOpen, Search } from "lucide-react";
 
-const navItems = [
-  { name: "Economy", href: "/economy" },
+const loggedInNavItems = [
   { name: "Settings", href: "/settings" },
+  { name: "Economy", href: "/economy" },
+];
+
+const loggedOutNavItems = [
+  { name: "Preview", href: "/preview" },
+  { name: "About", href: "/about" },
+  { name: "Pricing", href: "/pricing" },
+  { name: "Contact", href: "/contact" },
 ];
 
 const MAX_COMPANIES_SHOWN = 5;
