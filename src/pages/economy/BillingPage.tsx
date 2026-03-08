@@ -364,14 +364,26 @@ function InvoiceDetailView({
               <DollarSign className="h-4 w-4 mr-1" />Paid
             </Button>
           )}
-          <Button variant="destructive" size="sm" onClick={() => setShowDeleteConfirm(true)}>
-            <Trash2 className="h-4 w-4 mr-1" />Delete
-          </Button>
           <Button variant="outline" size="sm" onClick={() => onEdit(invoice)}>
             <Edit className="h-4 w-4 mr-1" />Edit
           </Button>
-          <Button size="sm" onClick={() => setShowSendDialog(true)}>
-            <Send className="h-4 w-4 mr-1" />Send
+          {invoice.status === "sent" || invoice.status === "paid" ? (
+            <Button size="sm" onClick={() => {
+              exportInvoicePDF(invoice, activeCompany ? {
+                companyName: activeCompany.companyName,
+                organizationNumber: activeCompany.organizationNumber,
+              } : undefined);
+              toast.success("PDF saved");
+            }}>
+              <Download className="h-4 w-4 mr-1" />Save
+            </Button>
+          ) : (
+            <Button size="sm" onClick={() => setShowSendDialog(true)}>
+              <Send className="h-4 w-4 mr-1" />Send
+            </Button>
+          )}
+          <Button variant="destructive" size="sm" onClick={() => setShowDeleteConfirm(true)}>
+            <Trash2 className="h-4 w-4 mr-1" />Delete
           </Button>
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="h-5 w-5" />
