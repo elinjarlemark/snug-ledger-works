@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input";
 
 function DeclarationField({ label, id, sign }: { label: string; id: string; sign?: string }) {
   return (
-    <div className="flex items-center justify-between gap-2 py-1.5 px-2 border-b border-border/50 last:border-b-0">
-      <label htmlFor={id} className="text-xs text-foreground shrink-0 flex-1">
+    <div className="flex items-start justify-between gap-2 py-1.5 px-2 border-b border-border/50 last:border-b-0">
+      <label htmlFor={id} className="text-xs text-foreground flex-1 pt-1">
         {label}
       </label>
       {sign && <span className="text-xs text-muted-foreground font-medium shrink-0">{sign}</span>}
@@ -142,7 +142,9 @@ export default function DeclarationPage() {
             <DeclarationField label="1.13 Industrienhet och elproduktionsenhet: värmekraftverk" id="f1_13" />
             <DeclarationField label="1.14 Elproduktionsenhet: vattenkraftverk" id="f1_14" />
             <DeclarationField label="1.15 Elproduktionsenhet: vindkraftverk" id="f1_15" />
-            <DeclarationField label="1.16 Elproduktionsenhet: kärnkraftverk" id="f1_16" />
+          </SectionCard>
+          <SectionCard title="Underlag för skattereduktion">
+            <DeclarationField label="1.16 Förnybar el (kilowattimmar)" id="f1_16" />
           </SectionCard>
         </div>
       </div>
