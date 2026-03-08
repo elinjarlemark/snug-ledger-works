@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { listCompanies, login } from "../lib/api";
-import { useCompanySession } from "../hooks/useCompanySession";
+import { useCompanySession } from "../hooks/useCompanySessions";
 
 export default function CompanyTest() {
   const [email, setEmail] = useState("test1@example.com");
