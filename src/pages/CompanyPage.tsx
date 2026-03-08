@@ -89,6 +89,7 @@ export default function CompanyPage() {
         fiscalYearStart: activeCompany.fiscalYearStart,
         fiscalYearEnd: activeCompany.fiscalYearEnd,
         accountingStandard: activeCompany.accountingStandard,
+        invoiceBookingAccount: activeCompany.invoiceBookingAccount || "1930",
       });
     }
   }, [activeCompany]);
