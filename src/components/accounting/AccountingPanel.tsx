@@ -38,6 +38,7 @@ export function AccountingPanel({
   autoOpenCreate,
   onAutoOpenCreateConsumed,
   onToggleCompare,
+  prefillVoucher,
 }: AccountingPanelProps) {
   const { user } = useAuth();
   const { vouchers } = useAccounting();
