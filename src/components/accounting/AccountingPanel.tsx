@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, Eye, Calendar, Search, Lock, Unlock, Columns2 } from "lucide-react";
+import { Plus, Eye, Calendar, Search, Lock, Columns2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
@@ -40,7 +40,7 @@ export function AccountingPanel({
 }: AccountingPanelProps) {
   const { user } = useAuth();
   const { vouchers } = useAccounting();
-  const { isYearLocked, lockYear, unlockYear } = useFiscalLock();
+  const { isYearLocked } = useFiscalLock();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
   const [editingVoucher, setEditingVoucher] = useState<Voucher | null>(null);
@@ -146,17 +146,6 @@ export function AccountingPanel({
     setSearchQuery("");
   };
 
-  const handleToggleLock = () => {
-    if (selectedYear === undefined) return;
-    if (currentYearLocked) {
-      unlockYear(selectedYear);
-      toast.info(`Fiscal year ${selectedYear} unlocked`);
-    } else {
-      lockYear(selectedYear);
-      toast.success(`Fiscal year ${selectedYear} locked`);
-    }
-  };
-
   if (!user) return null;
 
   const totalPages = Math.ceil(filteredVouchers.length / VOUCHERS_PER_PAGE);
@@ -194,30 +183,9 @@ export function AccountingPanel({
           {/* Filters */}
           <Card>
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div>
+              <div>
                   <CardTitle className={compact ? "text-base" : "text-lg"}>Voucher Period</CardTitle>
                   <CardDescription>Filter vouchers by date range</CardDescription>
-                </div>
-                {selectedYear !== undefined && (
-                  <Button
-                    variant={currentYearLocked ? "destructive" : "outline"}
-                    size="sm"
-                    onClick={handleToggleLock}
-                  >
-                    {currentYearLocked ? (
-                      <>
-                        <Lock className="h-4 w-4 mr-1" />
-                        Unlock {selectedYear}
-                      </>
-                    ) : (
-                      <>
-                        <Unlock className="h-4 w-4 mr-1" />
-                        Lock {selectedYear}
-                      </>
-                    )}
-                  </Button>
-                )}
               </div>
             </CardHeader>
             <CardContent>
