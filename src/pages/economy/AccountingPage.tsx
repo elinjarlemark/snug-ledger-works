@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, FileSpreadsheet, ListChecks, Calculator, Lock, Columns2, X } from "lucide-react";
+import { BookOpen, FileSpreadsheet, ListChecks, Calculator, Lock, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useOutletContext, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -95,30 +95,21 @@ export default function AccountingPage() {
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
-              <BookOpen className="h-5 w-5 text-secondary" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">Accounting</h1>
-              <p className="text-sm text-muted-foreground">
-                Core bookkeeping with Swedish BAS compliance
-              </p>
-            </div>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
+            <BookOpen className="h-5 w-5 text-secondary" />
           </div>
-
-          {user && (
-            <Button variant="outline" size="sm" onClick={handleToggleCompare}>
-              <Columns2 className="h-4 w-4 mr-2" />
-              Compare
-            </Button>
-          )}
+          <div>
+            <h1 className="text-xl font-bold text-foreground">Accounting</h1>
+            <p className="text-sm text-muted-foreground">
+              Core bookkeeping with Swedish BAS compliance
+            </p>
+          </div>
         </div>
       </div>
 
       {/* Main Panel */}
-      {user && <AccountingPanel autoOpenCreate={autoOpenCreate} />}
+      {user && <AccountingPanel autoOpenCreate={autoOpenCreate} onToggleCompare={handleToggleCompare} />}
 
       {/* Introduction */}
       <>
