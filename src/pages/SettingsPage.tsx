@@ -487,6 +487,22 @@ export default function SettingsPage() {
                     </CardContent>
                   </Card>
                 )}
+
+                {/* Delete Company */}
+                {activeCompany && isExistingCompany && (
+                  <Card className="border-destructive/30">
+                    <CardHeader>
+                      <CardTitle className="text-destructive">Delete Company</CardTitle>
+                      <CardDescription>Permanently delete this company and all its data</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Button variant="destructive" onClick={() => setShowDeleteCompanyConfirm(true)}>
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Company
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
               </TabsContent>
 
               <TabsContent value="personal" className="space-y-6 mt-6">
@@ -534,12 +550,88 @@ export default function SettingsPage() {
                     </Button>
                   </CardContent>
                 </Card>
+
+                {/* Delete Account */}
+                <Card className="border-destructive/30">
+                  <CardHeader>
+                    <CardTitle className="text-destructive">Delete Account</CardTitle>
+                    <CardDescription>Permanently delete your personal account and all associated data</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button variant="destructive" onClick={() => setShowDeleteAccountConfirm(true)}>
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Personal Account
+                    </Button>
+                  </CardContent>
+                </Card>
               </TabsContent>
             </Tabs>
           </div>
         </main>
         <Footer />
       </div>
+
+      {/* Delete Company - Confirm Dialog */}
+      <AlertDialog open={showDeleteCompanyConfirm} onOpenChange={setShowDeleteCompanyConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this company?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The company "{activeCompany?.companyName}" and all its data will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteCompanyConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Yes</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Company - Export Dialog */}
+      <AlertDialog open={showDeleteCompanyExport} onOpenChange={setShowDeleteCompanyExport}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Export your data</AlertDialogTitle>
+            <AlertDialogDescription>
+              You will now get an export of your bookings in an SIE4 file and audit trail text file. The download will start when you press Complete.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={handleDeleteCompanyExportAndComplete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Complete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Account - Confirm Dialog */}
+      <AlertDialog open={showDeleteAccountConfirm} onOpenChange={setShowDeleteAccountConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete your account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. Your personal account and all associated data will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteAccountConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Yes</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Account - Bye Dialog */}
+      <AlertDialog open={showDeleteAccountBye} onOpenChange={setShowDeleteAccountBye}>
+        <AlertDialogContent className="text-center">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-2xl">We hope you come back! 👋</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your account has been prepared for deletion. Click the button below to finalize.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="justify-center sm:justify-center">
+            <AlertDialogAction onClick={handleDeleteAccountBye}>BYE</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
