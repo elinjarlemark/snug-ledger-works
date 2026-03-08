@@ -285,18 +285,24 @@ function InvoiceDetailView({
   invoice, 
   onClose, 
   onDelete, 
-  onEdit 
+  onEdit,
+  onStatusChange,
+  onConvertQuote,
 }: { 
   invoice: Invoice; 
   onClose: () => void; 
   onDelete: (id: string) => void;
   onEdit: (invoice: Invoice) => void;
+  onStatusChange: (id: string, status: Invoice["status"]) => void;
+  onConvertQuote: (quoteId: string) => void;
 }) {
   const { activeCompany } = useAuth();
+  const navigate = useNavigate();
   const isQuote = invoice.documentType === "quote";
   const docLabel = isQuote ? "Quote" : "Invoice";
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showSendDialog, setShowSendDialog] = useState(false);
+  const [showPaidConfirm, setShowPaidConfirm] = useState(false);
   const [emailTo, setEmailTo] = useState("");
   const [emailSubject, setEmailSubject] = useState(`${docLabel} #${invoice.invoiceNumber} from ${activeCompany?.companyName || "us"}`);
   const [emailBody, setEmailBody] = useState(
@@ -308,8 +314,36 @@ function InvoiceDetailView({
       companyName: activeCompany.companyName,
       organizationNumber: activeCompany.organizationNumber,
     } : undefined);
-    toast.success(`${docLabel} downloaded as PDF`);
+    onStatusChange(invoice.id, "sent");
+    toast.success(`${docLabel} downloaded as PDF and marked as sent`);
     setShowSendDialog(false);
+  };
+
+  const handleSendAutomatically = () => {
+    onStatusChange(invoice.id, "sent");
+    toast.success(`${docLabel} marked as sent`);
+    setShowSendDialog(false);
+  };
+
+  const handleMarkPaid = (createVoucher: boolean) => {
+    onStatusChange(invoice.id, "paid");
+    setShowPaidConfirm(false);
+    toast.success("Invoice marked as paid");
+    if (createVoucher) {
+      const bookingAccount = activeCompany?.invoiceBookingAccount || "1930";
+      navigate("/economy/accounting", {
+        state: {
+          openCreateVoucher: true,
+          prefillVoucher: {
+            description: `Invoice #${invoice.invoiceNumber} - ${invoice.customerName}`,
+            lines: [
+              { accountNumber: bookingAccount, accountName: "", debit: invoice.total, credit: 0 },
+              { accountNumber: "", accountName: "", debit: 0, credit: invoice.total },
+            ],
+          },
+        },
+      });
+    }
   };
 
   return (
@@ -320,6 +354,16 @@ function InvoiceDetailView({
           <p className="text-sm text-muted-foreground">{invoice.customerName}</p>
         </div>
         <div className="flex items-center gap-2">
+          {isQuote && invoice.status !== "accepted" && (
+            <Button variant="default" size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => onConvertQuote(invoice.id)}>
+              <CheckCircle className="h-4 w-4 mr-1" />Quote Accepted
+            </Button>
+          )}
+          {!isQuote && invoice.status === "sent" && (
+            <Button variant="default" size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => setShowPaidConfirm(true)}>
+              <DollarSign className="h-4 w-4 mr-1" />Paid
+            </Button>
+          )}
           <Button variant="destructive" size="sm" onClick={() => setShowDeleteConfirm(true)}>
             <Trash2 className="h-4 w-4 mr-1" />Delete
           </Button>
@@ -422,6 +466,22 @@ function InvoiceDetailView({
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Paid Confirmation - Create Voucher? */}
+      <AlertDialog open={showPaidConfirm} onOpenChange={setShowPaidConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Invoice Paid</AlertDialogTitle>
+            <AlertDialogDescription>
+              Do you want to create a voucher for this invoice?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => handleMarkPaid(false)}>No</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleMarkPaid(true)}>Yes, Create Voucher</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Send Dialog */}
       <Dialog open={showSendDialog} onOpenChange={setShowSendDialog}>
         <DialogContent className="max-w-md">
@@ -444,7 +504,7 @@ function InvoiceDetailView({
               <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">or</span></div>
             </div>
 
-            <div className="border rounded-lg p-4 space-y-3 opacity-80">
+            <div className="border rounded-lg p-4 space-y-3">
               <div className="flex items-center gap-2 mb-2">
                 <Mail className="h-4 w-4 text-muted-foreground" />
                 <p className="font-medium text-sm">Send Automatically via Email</p>
