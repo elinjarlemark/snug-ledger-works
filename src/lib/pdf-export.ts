@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { GeneralLedgerEntry } from "@/contexts/AccountingContext";
+import { Invoice } from "@/lib/billing/types";
 import { formatAmount } from "@/lib/bas-accounts";
 
 interface CompanyInfo {
@@ -260,4 +261,93 @@ export function exportBalanceSheetPDF(
   doc.text("Page 1 of 1", pageWidth - 14, footerY, { align: "right" });
   
   doc.save(`balance-sheet-${asOfDate}.pdf`);
+}
+
+export function exportInvoicePDF(
+  invoice: Invoice,
+  company?: CompanyInfo
+) {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const isQuote = invoice.documentType === "quote";
+  const docLabel = isQuote ? "Quote" : "Invoice";
+
+  // Header
+  doc.setFontSize(20);
+  doc.setFont("helvetica", "bold");
+  doc.text(docLabel, 14, 22);
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.text(`#${invoice.invoiceNumber}`, 14, 30);
+
+  if (company) {
+    doc.setFont("helvetica", "bold");
+    doc.text(company.companyName, pageWidth - 14, 22, { align: "right" });
+    doc.setFont("helvetica", "normal");
+    doc.text(`Org.nr: ${company.organizationNumber}`, pageWidth - 14, 28, { align: "right" });
+  }
+
+  // Customer info
+  let yPos = 42;
+  doc.setFont("helvetica", "bold");
+  doc.text("Customer:", 14, yPos);
+  doc.setFont("helvetica", "normal");
+  doc.text(invoice.customerName, 14, yPos + 6);
+  doc.text(invoice.customerAddress, 14, yPos + 12);
+
+  // Dates
+  doc.text(`Issue Date: ${invoice.issueDate}`, pageWidth - 14, yPos, { align: "right" });
+  doc.text(`${isQuote ? "Valid Until" : "Due Date"}: ${invoice.dueDate}`, pageWidth - 14, yPos + 6, { align: "right" });
+  doc.text(`Status: ${invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}`, pageWidth - 14, yPos + 12, { align: "right" });
+
+  yPos += 24;
+
+  // Line items table
+  autoTable(doc, {
+    startY: yPos,
+    head: [["Product", "Qty", "Unit Price", "VAT %", "Total excl. VAT", "Total incl. VAT"]],
+    body: invoice.lines.map(line => [
+      line.productName + (line.description ? `\n${line.description}` : ""),
+      line.quantity.toString(),
+      formatAmount(line.unitPrice),
+      `${line.vatRate}%`,
+      formatAmount(line.totalExclVat),
+      formatAmount(line.totalInclVat),
+    ]),
+    styles: { fontSize: 9 },
+    headStyles: { fillColor: [51, 51, 51] },
+    columnStyles: {
+      1: { halign: "right" },
+      2: { halign: "right" },
+      3: { halign: "right" },
+      4: { halign: "right" },
+      5: { halign: "right" },
+    },
+  });
+
+  const finalY = (doc as any).lastAutoTable?.finalY || yPos + 40;
+
+  // Totals
+  const totalsY = finalY + 10;
+  doc.setFontSize(10);
+  doc.text("Subtotal (excl. VAT):", pageWidth - 80, totalsY);
+  doc.text(`${formatAmount(invoice.subtotal)} SEK`, pageWidth - 14, totalsY, { align: "right" });
+
+  doc.text("Total VAT:", pageWidth - 80, totalsY + 7);
+  doc.text(`${formatAmount(invoice.totalVat)} SEK`, pageWidth - 14, totalsY + 7, { align: "right" });
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.text("Total (incl. VAT):", pageWidth - 80, totalsY + 16);
+  doc.text(`${formatAmount(invoice.total)} SEK`, pageWidth - 14, totalsY + 16, { align: "right" });
+
+  // Footer
+  const footerY = doc.internal.pageSize.getHeight() - 15;
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Generated: ${new Date().toISOString().split("T")[0]}`, 14, footerY);
+  doc.text("Page 1 of 1", pageWidth - 14, footerY, { align: "right" });
+
+  doc.save(`${docLabel.toLowerCase()}-${invoice.invoiceNumber}.pdf`);
 }

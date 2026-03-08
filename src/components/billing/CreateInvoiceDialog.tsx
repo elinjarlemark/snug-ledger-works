@@ -41,6 +41,7 @@ interface CreateInvoiceDialogProps {
   onOpenChange: (open: boolean) => void;
   inline?: boolean;
   documentType?: DocumentType;
+  onInvoiceCreated?: (invoice: Invoice) => void;
 }
 
 // Helper: format postal code as XXX XX
@@ -72,7 +73,7 @@ function filterCity(value: string): string {
   return value.replace(/[0-9]/g, "");
 }
 
-export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType = "invoice" }: CreateInvoiceDialogProps) {
+export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType = "invoice", onInvoiceCreated }: CreateInvoiceDialogProps) {
   const { customers, products, addCustomer, addProduct, updateProduct, createInvoice } = useBilling();
   
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
@@ -305,7 +306,7 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
     if (!customer) { toast.error("Please select or create a customer"); return; }
     if (invoiceLines.length === 0) { toast.error("Please add at least one line item"); return; }
 
-    createInvoice({
+    const created = createInvoice({
       documentType,
       customerId: customer.id, customerName: customer.name, customerAddress: customer.address,
       issueDate: format(issueDate, "yyyy-MM-dd"), dueDate: format(dueDate, "yyyy-MM-dd"),
@@ -317,6 +318,7 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
     setSelectedCustomerId("");
     setInlineCustomer(null);
     setLines([{ productName: "", description: "", quantity: 1, unitPrice: 0, vatRate: 25 }]);
+    onInvoiceCreated?.(created);
   };
 
   const formContent = (
