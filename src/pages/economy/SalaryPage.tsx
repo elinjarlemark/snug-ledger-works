@@ -66,7 +66,7 @@ function EmployeeForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) { toast.error("Name is required"); return; }
+    if (!name.trim() || /[0-9]/.test(name)) { toast.error("Valid name is required (no numbers)"); return; }
     if (!personalNumber.trim() || personalNumber.replace(/\D/g, "").length !== 12) {
       toast.error("Valid personal number (12 digits) is required"); return;
     }
