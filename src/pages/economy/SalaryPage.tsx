@@ -40,7 +40,7 @@ interface Employee {
   city: string;
   salary: number;
   jobTitle: string;
-  employmentType: "full-time" | "part-time" | "seasonal";
+  employmentType: "full-time" | "part-time" | "seasonal" | "hourly";
 }
 
 function EmployeeForm({
