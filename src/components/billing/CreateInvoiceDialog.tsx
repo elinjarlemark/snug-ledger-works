@@ -388,7 +388,7 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
             {canAddAsProduct(index) && (
               <div className="absolute top-1 right-1">
                 <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] px-1.5" onClick={() => handleAddProductFromLine(index)}>
-                  <Plus className="h-3 w-3 mr-0.5" />Add Product
+                  <Plus className="h-3 w-3 mr-0.5" />Save Product
                 </Button>
               </div>
             )}
