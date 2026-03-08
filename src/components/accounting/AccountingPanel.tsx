@@ -35,6 +35,7 @@ export function AccountingPanel({
   onClearIncomingDuplicate,
   onDuplicateToOther,
   autoOpenCreate,
+  onAutoOpenCreateConsumed,
   onToggleCompare,
 }: AccountingPanelProps) {
   const { user } = useAuth();
