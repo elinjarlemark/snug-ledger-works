@@ -54,6 +54,7 @@ function EmployeeForm({
 }) {
   const [name, setName] = useState(editEmployee?.name || "");
   const [personalNumber, setPersonalNumber] = useState(editEmployee?.personalNumber || "");
+  const isHourly = employmentType === "hourly";
   const [address, setAddress] = useState(editEmployee?.address || "");
   const [postalCode, setPostalCode] = useState(editEmployee?.postalCode || "");
   const [city, setCity] = useState(editEmployee?.city || "");
