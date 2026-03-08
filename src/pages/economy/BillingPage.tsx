@@ -1,12 +1,10 @@
 import { useState, useEffect } from "react";
-import { FileText, Users, Package, Plus, Trash2, Edit, Receipt, Eye, X, Calendar } from "lucide-react";
+import { FileText, Users, Package, Plus, Trash2, Edit, Receipt, Eye, X, Calendar, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import {
   Dialog,
   DialogContent,
@@ -23,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBilling } from "@/contexts/BillingContext";
-import { Customer, Product, Invoice, calculateProductPrice } from "@/lib/billing/types";
+import { Customer, Product, Invoice, DocumentType, calculateProductPrice } from "@/lib/billing/types";
 import { toast } from "sonner";
 import { Link, useLocation } from "react-router-dom";
 import { Lock } from "lucide-react";
@@ -31,6 +29,31 @@ import { formatAmount } from "@/lib/bas-accounts";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { CreateInvoiceDialog } from "@/components/billing/CreateInvoiceDialog";
+
+// Helper functions for input validation
+function formatPostalCode(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 5);
+  if (digits.length > 3) return digits.slice(0, 3) + " " + digits.slice(3);
+  return digits;
+}
+
+function formatOrgNumber(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+  if (digits.length > 6) return digits.slice(0, 6) + "-" + digits.slice(6);
+  return digits;
+}
+
+function filterName(value: string): string {
+  return value.replace(/[0-9]/g, "");
+}
+
+function filterPhone(value: string): string {
+  return value.replace(/[a-zA-ZåäöÅÄÖ]/g, "");
+}
+
+function filterCity(value: string): string {
+  return value.replace(/[0-9]/g, "");
+}
 
 // Customer Form Component
 function CustomerForm({ 
@@ -50,14 +73,18 @@ function CustomerForm({
   const [address, setAddress] = useState(editCustomer?.address || "");
   const [postalCode, setPostalCode] = useState(editCustomer?.postalCode || "");
   const [city, setCity] = useState(editCustomer?.city || "");
-  const [country, setCountry] = useState(editCustomer?.country || "Sweden");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) { toast.error("Name is required"); return; }
     if (!address.trim()) { toast.error("Address is required"); return; }
-    if (!postalCode.trim()) { toast.error("Postal code is required"); return; }
+    const postalDigits = postalCode.replace(/\D/g, "");
+    if (postalDigits.length !== 5) { toast.error("Postal code must be 5 digits"); return; }
     if (!city.trim()) { toast.error("City is required"); return; }
+    if (type === "company" && organizationNumber.replace(/\D/g, "").length !== 10) {
+      toast.error("Organization number must be 10 digits (XXXXXX-XXXX)");
+      return;
+    }
 
     onSubmit({
       type,
@@ -66,9 +93,9 @@ function CustomerForm({
       email: email.trim() || undefined,
       phone: phone.trim() || undefined,
       address: address.trim(),
-      postalCode: postalCode.trim(),
+      postalCode: formatPostalCode(postalCode),
       city: city.trim(),
-      country: country.trim(),
+      country: "Sweden",
     });
   };
 
@@ -86,17 +113,12 @@ function CustomerForm({
       </div>
       <div className="space-y-2">
         <Label htmlFor="name">Name *</Label>
-        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder={type === "company" ? "Company Name AB" : "John Doe"} required />
+        <Input id="name" value={name} onChange={(e) => setName(filterName(e.target.value))} placeholder={type === "company" ? "Company Name AB" : "John Doe"} required />
       </div>
       {type === "company" && (
         <div className="space-y-2">
-          <Label htmlFor="orgNum">Organization Number</Label>
-          <Input id="orgNum" value={organizationNumber} onChange={(e) => {
-            const value = e.target.value.replace(/\D/g, "");
-            if (value.length <= 10) {
-              setOrganizationNumber(value.length > 6 ? value.slice(0, 6) + "-" + value.slice(6) : value);
-            }
-          }} placeholder="XXXXXX-XXXX" maxLength={11} />
+          <Label htmlFor="orgNum">Organization Number *</Label>
+          <Input id="orgNum" value={organizationNumber} onChange={(e) => setOrganizationNumber(formatOrgNumber(e.target.value))} placeholder="XXXXXX-XXXX" maxLength={11} />
         </div>
       )}
       <div className="grid grid-cols-2 gap-4">
@@ -106,7 +128,7 @@ function CustomerForm({
         </div>
         <div className="space-y-2">
           <Label htmlFor="phone">Phone</Label>
-          <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+46 70 123 45 67" />
+          <Input id="phone" value={phone} onChange={(e) => setPhone(filterPhone(e.target.value))} placeholder="+46 70 123 45 67" />
         </div>
       </div>
       <div className="space-y-2">
@@ -116,15 +138,15 @@ function CustomerForm({
       <div className="grid grid-cols-3 gap-4">
         <div className="space-y-2">
           <Label htmlFor="postalCode">Postal Code *</Label>
-          <Input id="postalCode" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} placeholder="123 45" required />
+          <Input id="postalCode" value={postalCode} onChange={(e) => setPostalCode(formatPostalCode(e.target.value))} placeholder="XXX XX" maxLength={6} required />
         </div>
         <div className="space-y-2">
           <Label htmlFor="city">City *</Label>
-          <Input id="city" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Stockholm" required />
+          <Input id="city" value={city} onChange={(e) => setCity(filterCity(e.target.value))} placeholder="Stockholm" required />
         </div>
         <div className="space-y-2">
           <Label htmlFor="country">Country</Label>
-          <Input id="country" value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Sweden" />
+          <Input id="country" value="Sweden" disabled className="bg-muted" />
         </div>
       </div>
       <div className="flex gap-3 pt-4">
@@ -247,11 +269,13 @@ function ProductForm({
 
 // Invoice Detail View (inline)
 function InvoiceDetailView({ invoice, onClose }: { invoice: Invoice; onClose: () => void }) {
+  const isQuote = invoice.documentType === "quote";
+  const docLabel = isQuote ? "Quote" : "Invoice";
   return (
     <div className="bg-card rounded-xl border border-border p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-foreground">Invoice #{invoice.invoiceNumber}</h2>
+          <h2 className="text-xl font-semibold text-foreground">{docLabel} #{invoice.invoiceNumber}</h2>
           <p className="text-sm text-muted-foreground">
             {invoice.customerName}
           </p>
@@ -267,7 +291,7 @@ function InvoiceDetailView({ invoice, onClose }: { invoice: Invoice; onClose: ()
           <p className="font-medium">{invoice.issueDate}</p>
         </div>
         <div>
-          <p className="text-sm text-muted-foreground">Due Date</p>
+          <p className="text-sm text-muted-foreground">{isQuote ? "Valid Until" : "Due Date"}</p>
           <p className="font-medium">{invoice.dueDate}</p>
         </div>
         <div>
@@ -278,7 +302,9 @@ function InvoiceDetailView({ invoice, onClose }: { invoice: Invoice; onClose: ()
           <p className="text-sm text-muted-foreground">Status</p>
           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
             invoice.status === "paid" ? "bg-success/10 text-success" :
+            invoice.status === "accepted" ? "bg-success/10 text-success" :
             invoice.status === "overdue" ? "bg-destructive/10 text-destructive" :
+            invoice.status === "declined" ? "bg-destructive/10 text-destructive" :
             invoice.status === "sent" ? "bg-secondary/10 text-secondary" :
             "bg-muted text-muted-foreground"
           }`}>
@@ -341,9 +367,13 @@ export default function BillingPage() {
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [showCreateInvoice, setShowCreateInvoice] = useState(false);
+  const [showCreateQuote, setShowCreateQuote] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>();
   const [editingProduct, setEditingProduct] = useState<Product | undefined>();
+
+  const actualInvoices = invoices.filter(i => (i.documentType || "invoice") === "invoice");
+  const quotes = invoices.filter(i => i.documentType === "quote");
 
   useEffect(() => {
     if ((location.state as any)?.openCreateInvoice) {
@@ -427,10 +457,14 @@ export default function BillingPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="invoices" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="invoices" className="gap-2">
             <Receipt className="h-4 w-4" />
-            Invoices ({invoices.length})
+            Invoices ({actualInvoices.length})
+          </TabsTrigger>
+          <TabsTrigger value="quotes" className="gap-2">
+            <Send className="h-4 w-4" />
+            Quotes ({quotes.length})
           </TabsTrigger>
           <TabsTrigger value="customers" className="gap-2">
             <Users className="h-4 w-4" />
@@ -581,16 +615,15 @@ export default function BillingPage() {
 
         {/* Invoices Tab */}
         <TabsContent value="invoices" className="space-y-4">
-          {/* Inline Create Invoice Form */}
           {showCreateInvoice && (
             <CreateInvoiceDialog
               open={showCreateInvoice}
               onOpenChange={setShowCreateInvoice}
               inline
+              documentType="invoice"
             />
           )}
 
-          {/* Invoice Detail View */}
           {selectedInvoice && !showCreateInvoice && (
             <InvoiceDetailView
               invoice={selectedInvoice}
@@ -598,7 +631,6 @@ export default function BillingPage() {
             />
           )}
 
-          {/* Invoice List */}
           {!showCreateInvoice && !selectedInvoice && (
             <>
               <div className="flex justify-between items-center">
@@ -609,7 +641,7 @@ export default function BillingPage() {
                 </Button>
               </div>
 
-              {invoices.length === 0 ? (
+              {actualInvoices.length === 0 ? (
                 <Card>
                   <CardContent className="py-12 text-center text-muted-foreground">
                     No invoices yet. Create your first invoice to get started.
@@ -627,7 +659,7 @@ export default function BillingPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {invoices.map((invoice) => (
+                      {actualInvoices.map((invoice) => (
                         <tr
                           key={invoice.id}
                           className="border-b border-border/50 hover:bg-muted/20 cursor-pointer transition-colors"
@@ -646,6 +678,83 @@ export default function BillingPage() {
                               "bg-muted text-muted-foreground"
                             }`}>
                               {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
+        </TabsContent>
+
+        {/* Quotes Tab */}
+        <TabsContent value="quotes" className="space-y-4">
+          {showCreateQuote && (
+            <CreateInvoiceDialog
+              open={showCreateQuote}
+              onOpenChange={setShowCreateQuote}
+              inline
+              documentType="quote"
+            />
+          )}
+
+          {selectedInvoice && !showCreateQuote && selectedInvoice.documentType === "quote" && (
+            <InvoiceDetailView
+              invoice={selectedInvoice}
+              onClose={() => setSelectedInvoice(null)}
+            />
+          )}
+
+          {!showCreateQuote && !(selectedInvoice?.documentType === "quote") && (
+            <>
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-semibold">Quotes</h2>
+                <Button onClick={() => setShowCreateQuote(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Quote
+                </Button>
+              </div>
+
+              {quotes.length === 0 ? (
+                <Card>
+                  <CardContent className="py-12 text-center text-muted-foreground">
+                    No quotes yet. Create your first quote to get started.
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="bg-card rounded-lg border border-border overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/30">
+                        <th className="text-left py-2 px-3 font-medium">Quote #</th>
+                        <th className="text-left py-2 px-3 font-medium">Customer</th>
+                        <th className="text-right py-2 px-3 font-medium">Total</th>
+                        <th className="text-left py-2 px-3 font-medium">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {quotes.map((quote) => (
+                        <tr
+                          key={quote.id}
+                          className="border-b border-border/50 hover:bg-muted/20 cursor-pointer transition-colors"
+                          onClick={() => setSelectedInvoice(quote)}
+                        >
+                          <td className="py-2 px-3 font-mono text-secondary">#{quote.invoiceNumber}</td>
+                          <td className="py-2 px-3 text-foreground">{quote.customerName}</td>
+                          <td className="py-2 px-3 text-right font-mono font-medium">
+                            {formatAmount(quote.total)} SEK
+                          </td>
+                          <td className="py-2 px-3">
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                              quote.status === "accepted" ? "bg-green-500/10 text-green-600" :
+                              quote.status === "declined" ? "bg-destructive/10 text-destructive" :
+                              quote.status === "sent" ? "bg-blue-500/10 text-blue-600" :
+                              "bg-muted text-muted-foreground"
+                            }`}>
+                              {quote.status.charAt(0).toUpperCase() + quote.status.slice(1)}
                             </span>
                           </td>
                         </tr>
