@@ -303,11 +303,6 @@ function InvoiceDetailView({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showSendDialog, setShowSendDialog] = useState(false);
   const [showPaidConfirm, setShowPaidConfirm] = useState(false);
-  const [emailTo, setEmailTo] = useState("");
-  const [emailSubject, setEmailSubject] = useState(`${docLabel} #${invoice.invoiceNumber} from ${activeCompany?.companyName || "us"}`);
-  const [emailBody, setEmailBody] = useState(
-    `Hi,\n\nPlease find the attached ${docLabel.toLowerCase()} #${invoice.invoiceNumber}.\n\nTotal amount: ${formatAmount(invoice.total)} SEK\nDue date: ${invoice.dueDate}\n\nBest regards,\n${activeCompany?.companyName || ""}`
-  );
 
   const handleSendManually = () => {
     exportInvoicePDF(invoice, activeCompany ? {
