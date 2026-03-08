@@ -64,7 +64,7 @@ export default function VATReportPage() {
     let purchasesExclVat = 0; // Purchases excl VAT (account 4xxx-7xxx)
 
     periodVouchers.forEach(v => {
-      v.rows.forEach(r => {
+      v.lines.forEach(r => {
         const accNum = parseInt(r.account);
         // Output VAT accounts (2610-2619)
         if (accNum >= 2610 && accNum <= 2619) {

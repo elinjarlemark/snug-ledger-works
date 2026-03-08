@@ -63,9 +63,6 @@ function EmployeeForm({
   const [city, setCity] = useState(editEmployee?.city || "");
   const [salary, setSalary] = useState(editEmployee?.salary?.toString() || "");
   const [jobTitle, setJobTitle] = useState(editEmployee?.jobTitle || "");
-  const [employmentType, setEmploymentType] = useState<Employee["employmentType"]>(
-    editEmployee?.employmentType || "full-time"
-  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
