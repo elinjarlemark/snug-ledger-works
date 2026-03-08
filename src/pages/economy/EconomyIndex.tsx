@@ -310,7 +310,7 @@ export default function EconomyIndex() {
                 </div>
               </div>
               
-              <h3 className="text-xl font-semibold text-foreground mb-2">
+              <h3 className="text-base font-semibold text-foreground mb-1">
                 {module.name}
               </h3>
               

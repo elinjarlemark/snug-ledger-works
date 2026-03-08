@@ -215,7 +215,7 @@ export default function AccountsPage() {
 
       {/* Account Classes Reference */}
       <section className="info-section">
-        <h2 className="text-xl font-semibold text-foreground mb-6">
+        <h2 className="text-base font-semibold text-foreground mb-4">
           Account Class Reference
         </h2>
         <div className="space-y-4">
