@@ -183,31 +183,31 @@ function ReportPanel({ compact }: ReportPanelProps) {
                   <p className="text-muted-foreground text-sm py-4">No revenue transactions in this period</p>
                 ) : (
                   <div className="bg-muted/30 rounded-lg overflow-hidden">
-                    <table className="w-full">
+                    <table className="w-full text-xs">
                       <thead>
-                        <tr className="text-sm border-b">
-                          <th className="text-left p-3">Account</th>
-                          <th className="text-left p-3">Name</th>
-                          {!compact && <th className="text-right p-3">Debit</th>}
-                          {!compact && <th className="text-right p-3">Credit</th>}
-                          <th className="text-right p-3">Balance</th>
+                        <tr className="border-b">
+                          <th className="text-left py-2 px-3 font-medium">Account</th>
+                          <th className="text-left py-2 px-3 font-medium">Name</th>
+                          {!compact && <th className="text-right py-2 px-3 font-medium">Debit</th>}
+                          {!compact && <th className="text-right py-2 px-3 font-medium">Credit</th>}
+                          <th className="text-right py-2 px-3 font-medium">Balance</th>
                         </tr>
                       </thead>
                       <tbody>
                         {incomeStatement.revenues.map((entry) => (
                           <tr key={entry.accountNumber} className="border-b border-border/50">
-                            <td className="p-3 font-mono text-secondary">{entry.accountNumber}</td>
-                            <td className="p-3">{entry.accountName}</td>
-                            {!compact && <td className="p-3 text-right font-mono">{formatAmount(entry.totalDebit)}</td>}
-                            {!compact && <td className="p-3 text-right font-mono">{formatAmount(entry.totalCredit)}</td>}
-                            <td className="p-3 text-right font-mono font-semibold text-success">{formatAmount(entry.balance)}</td>
+                            <td className="py-2 px-3 font-mono text-secondary">{entry.accountNumber}</td>
+                            <td className="py-2 px-3">{entry.accountName}</td>
+                            {!compact && <td className="py-2 px-3 text-right font-mono">{formatAmount(entry.totalDebit)}</td>}
+                            {!compact && <td className="py-2 px-3 text-right font-mono">{formatAmount(entry.totalCredit)}</td>}
+                            <td className="py-2 px-3 text-right font-mono font-medium text-success">{formatAmount(entry.balance)}</td>
                           </tr>
                         ))}
                       </tbody>
                       <tfoot>
                         <tr className="bg-success/10">
-                          <td colSpan={compact ? 2 : 4} className="p-3 font-semibold">Total Revenue</td>
-                          <td className="p-3 text-right font-mono font-bold text-success">{formatAmount(totalRevenue)}</td>
+                          <td colSpan={compact ? 2 : 4} className="py-2 px-3 font-medium">Total Revenue</td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-success">{formatAmount(totalRevenue)}</td>
                         </tr>
                       </tfoot>
                     </table>
@@ -230,31 +230,31 @@ function ReportPanel({ compact }: ReportPanelProps) {
                   <p className="text-muted-foreground text-sm py-4">No expense transactions in this period</p>
                 ) : (
                   <div className="bg-muted/30 rounded-lg overflow-hidden">
-                    <table className="w-full">
+                    <table className="w-full text-xs">
                       <thead>
-                        <tr className="text-sm border-b">
-                          <th className="text-left p-3">Account</th>
-                          <th className="text-left p-3">Name</th>
-                          {!compact && <th className="text-right p-3">Debit</th>}
-                          {!compact && <th className="text-right p-3">Credit</th>}
-                          <th className="text-right p-3">Balance</th>
+                        <tr className="border-b">
+                          <th className="text-left py-2 px-3 font-medium">Account</th>
+                          <th className="text-left py-2 px-3 font-medium">Name</th>
+                          {!compact && <th className="text-right py-2 px-3 font-medium">Debit</th>}
+                          {!compact && <th className="text-right py-2 px-3 font-medium">Credit</th>}
+                          <th className="text-right py-2 px-3 font-medium">Balance</th>
                         </tr>
                       </thead>
                       <tbody>
                         {incomeStatement.expenses.map((entry) => (
                           <tr key={entry.accountNumber} className="border-b border-border/50">
-                            <td className="p-3 font-mono text-secondary">{entry.accountNumber}</td>
-                            <td className="p-3">{entry.accountName}</td>
-                            {!compact && <td className="p-3 text-right font-mono">{formatAmount(entry.totalDebit)}</td>}
-                            {!compact && <td className="p-3 text-right font-mono">{formatAmount(entry.totalCredit)}</td>}
-                            <td className="p-3 text-right font-mono font-semibold text-destructive">{formatAmount(entry.balance)}</td>
+                            <td className="py-2 px-3 font-mono text-secondary">{entry.accountNumber}</td>
+                            <td className="py-2 px-3">{entry.accountName}</td>
+                            {!compact && <td className="py-2 px-3 text-right font-mono">{formatAmount(entry.totalDebit)}</td>}
+                            {!compact && <td className="py-2 px-3 text-right font-mono">{formatAmount(entry.totalCredit)}</td>}
+                            <td className="py-2 px-3 text-right font-mono font-medium text-destructive">{formatAmount(entry.balance)}</td>
                           </tr>
                         ))}
                       </tbody>
                       <tfoot>
                         <tr className="bg-destructive/10">
-                          <td colSpan={compact ? 2 : 4} className="p-3 font-semibold">Total Expenses</td>
-                          <td className="p-3 text-right font-mono font-bold text-destructive">{formatAmount(totalExpenses)}</td>
+                          <td colSpan={compact ? 2 : 4} className="py-2 px-3 font-medium">Total Expenses</td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-destructive">{formatAmount(totalExpenses)}</td>
                         </tr>
                       </tfoot>
                     </table>
@@ -316,28 +316,28 @@ function ReportPanel({ compact }: ReportPanelProps) {
                     <p className="text-muted-foreground text-sm py-4">No asset transactions</p>
                   ) : (
                     <div className="bg-muted/30 rounded-lg overflow-hidden">
-                      <table className="w-full">
+                      <table className="w-full text-xs">
                         <thead>
-                          <tr className="text-sm border-b">
-                            <th className="text-left p-3">Account</th>
-                            <th className="text-right p-3">Balance</th>
+                          <tr className="border-b">
+                            <th className="text-left py-2 px-3 font-medium">Account</th>
+                            <th className="text-right py-2 px-3 font-medium">Balance</th>
                           </tr>
                         </thead>
                         <tbody>
                           {balanceSheet.assets.map((entry) => (
                             <tr key={entry.accountNumber} className="border-b border-border/50">
-                              <td className="p-3">
+                              <td className="py-2 px-3">
                                 <span className="font-mono text-secondary">{entry.accountNumber}</span>
                                 <span className="ml-2 text-muted-foreground">{entry.accountName}</span>
                               </td>
-                              <td className="p-3 text-right font-mono">{formatAmount(entry.balance)}</td>
+                              <td className="py-2 px-3 text-right font-mono">{formatAmount(entry.balance)}</td>
                             </tr>
                           ))}
                         </tbody>
                         <tfoot>
                           <tr className="bg-secondary/10">
-                            <td className="p-3 font-semibold">Total Assets</td>
-                            <td className="p-3 text-right font-mono font-bold">{formatAmount(balanceSheet.totalAssets)}</td>
+                            <td className="py-2 px-3 font-medium">Total Assets</td>
+                            <td className="py-2 px-3 text-right font-mono font-bold">{formatAmount(balanceSheet.totalAssets)}</td>
                           </tr>
                         </tfoot>
                       </table>
@@ -360,28 +360,28 @@ function ReportPanel({ compact }: ReportPanelProps) {
                     <p className="text-muted-foreground text-sm py-4">No equity/liability transactions</p>
                   ) : (
                     <div className="bg-muted/30 rounded-lg overflow-hidden">
-                      <table className="w-full">
+                      <table className="w-full text-xs">
                         <thead>
-                          <tr className="text-sm border-b">
-                            <th className="text-left p-3">Account</th>
-                            <th className="text-right p-3">Balance</th>
+                          <tr className="border-b">
+                            <th className="text-left py-2 px-3 font-medium">Account</th>
+                            <th className="text-right py-2 px-3 font-medium">Balance</th>
                           </tr>
                         </thead>
                         <tbody>
                           {balanceSheet.equityLiabilities.map((entry) => (
                             <tr key={entry.accountNumber} className="border-b border-border/50">
-                              <td className="p-3">
+                              <td className="py-2 px-3">
                                 <span className="font-mono text-secondary">{entry.accountNumber}</span>
                                 <span className="ml-2 text-muted-foreground">{entry.accountName}</span>
                               </td>
-                              <td className="p-3 text-right font-mono">{formatAmount(entry.balance)}</td>
+                              <td className="py-2 px-3 text-right font-mono">{formatAmount(entry.balance)}</td>
                             </tr>
                           ))}
                         </tbody>
                         <tfoot>
                           <tr className="bg-primary/10">
-                            <td className="p-3 font-semibold">Total Equity & Liabilities</td>
-                            <td className="p-3 text-right font-mono font-bold">{formatAmount(balanceSheet.totalEquityLiabilities)}</td>
+                            <td className="py-2 px-3 font-medium">Total Equity & Liabilities</td>
+                            <td className="py-2 px-3 text-right font-mono font-bold">{formatAmount(balanceSheet.totalEquityLiabilities)}</td>
                           </tr>
                         </tfoot>
                       </table>
@@ -411,32 +411,32 @@ function ReportPanel({ compact }: ReportPanelProps) {
                 <div className="text-center py-12 text-muted-foreground">No transactions in this period</div>
               ) : (
                 <div className="bg-muted/30 rounded-lg overflow-hidden">
-                  <table className="w-full">
+                  <table className="w-full text-xs">
                     <thead>
-                      <tr className="text-sm border-b bg-muted/50">
-                        <th className="text-left p-3">Account</th>
-                        <th className="text-left p-3">Name</th>
-                        {!compact && <th className="text-left p-3">Class</th>}
-                        <th className="text-right p-3">Debit</th>
-                        <th className="text-right p-3">Credit</th>
-                        <th className="text-right p-3">Balance</th>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-left py-2 px-3 font-medium">Account</th>
+                        <th className="text-left py-2 px-3 font-medium">Name</th>
+                        {!compact && <th className="text-left py-2 px-3 font-medium">Class</th>}
+                        <th className="text-right py-2 px-3 font-medium">Debit</th>
+                        <th className="text-right py-2 px-3 font-medium">Credit</th>
+                        <th className="text-right py-2 px-3 font-medium">Balance</th>
                       </tr>
                     </thead>
                     <tbody>
                       {generalLedger.map((entry) => (
                         <tr key={entry.accountNumber} className="border-b border-border/50">
-                          <td className="p-3 font-mono text-secondary font-semibold">{entry.accountNumber}</td>
-                          <td className="p-3">{entry.accountName}</td>
+                          <td className="py-2 px-3 font-mono text-secondary font-medium">{entry.accountNumber}</td>
+                          <td className="py-2 px-3">{entry.accountName}</td>
                           {!compact && (
-                            <td className="p-3">
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-secondary/10 text-secondary">
+                            <td className="py-2 px-3">
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-secondary/10 text-secondary">
                                 {getAccountClassName(getAccountClass(entry.accountNumber))}
                               </span>
                             </td>
                           )}
-                          <td className="p-3 text-right font-mono">{formatAmount(entry.totalDebit)}</td>
-                          <td className="p-3 text-right font-mono">{formatAmount(entry.totalCredit)}</td>
-                          <td className="p-3 text-right font-mono font-semibold">{formatAmount(entry.balance)}</td>
+                          <td className="py-2 px-3 text-right font-mono">{formatAmount(entry.totalDebit)}</td>
+                          <td className="py-2 px-3 text-right font-mono">{formatAmount(entry.totalCredit)}</td>
+                          <td className="py-2 px-3 text-right font-mono font-medium">{formatAmount(entry.balance)}</td>
                         </tr>
                       ))}
                     </tbody>

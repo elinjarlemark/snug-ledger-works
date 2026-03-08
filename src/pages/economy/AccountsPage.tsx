@@ -163,36 +163,37 @@ export default function AccountsPage() {
             </Button>
           </div>
         )}
-        <div className="bg-card rounded-xl border border-border overflow-hidden">
-          <table className="w-full">
+        <div className="bg-card rounded-lg border border-border overflow-hidden">
+          <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-border bg-muted/30">
-                <th className="text-left py-3 px-4 font-semibold text-foreground">Account Number</th>
-                <th className="text-left py-3 px-4 font-semibold text-foreground">Account Name</th>
-                <th className="text-left py-3 px-4 font-semibold text-foreground">Class</th>
-                {user && <th className="text-right py-3 px-4 font-semibold text-foreground">Actions</th>}
+                <th className="text-left py-2 px-3 font-medium text-foreground">Account Number</th>
+                <th className="text-left py-2 px-3 font-medium text-foreground">Account Name</th>
+                <th className="text-left py-2 px-3 font-medium text-foreground">Class</th>
+                {user && <th className="text-right py-2 px-3 font-medium text-foreground">Actions</th>}
               </tr>
             </thead>
             <tbody>
               {filteredAccounts.map((account) => (
                 <tr key={account.number} className="border-b border-border/50">
-                  <td className="py-3 px-4 font-mono text-secondary font-semibold">
+                  <td className="py-2 px-3 font-mono text-secondary font-medium">
                     {account.number}
                   </td>
-                  <td className="py-3 px-4 text-foreground">{account.name}</td>
-                  <td className="py-3 px-4">
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-secondary/10 text-secondary">
+                  <td className="py-2 px-3 text-foreground">{account.name}</td>
+                  <td className="py-2 px-3">
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-secondary/10 text-secondary">
                       {getAccountClassName(account.class)}
                     </span>
                   </td>
                   {user && (
-                    <td className="py-3 px-4 text-right">
+                    <td className="py-2 px-3 text-right">
                       <Button
                         variant="ghost"
                         size="sm"
+                        className="h-6 text-xs px-2"
                         onClick={() => setSelectedAccount(account.number)}
                       >
-                        <Eye className="h-4 w-4 mr-1" />
+                        <Eye className="h-3 w-3 mr-1" />
                         Statement
                       </Button>
                     </td>

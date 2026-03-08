@@ -265,42 +265,42 @@ export default function SalaryPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="bg-card rounded-xl border border-border overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="bg-card rounded-lg border border-border overflow-hidden">
+          <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-border bg-muted/30">
-                <th className="text-left py-2.5 px-3 font-medium text-foreground">Name</th>
-                <th className="text-left py-2.5 px-3 font-medium text-foreground">Personal Number</th>
-                <th className="text-left py-2.5 px-3 font-medium text-foreground">Job Title</th>
-                <th className="text-left py-2.5 px-3 font-medium text-foreground">Type</th>
-                <th className="text-right py-2.5 px-3 font-medium text-foreground">Salary</th>
-                <th className="text-right py-2.5 px-3 font-medium text-foreground">Actions</th>
+                <th className="text-left py-2 px-3 font-medium text-foreground">Name</th>
+                <th className="text-left py-2 px-3 font-medium text-foreground">Personal Number</th>
+                <th className="text-left py-2 px-3 font-medium text-foreground">Job Title</th>
+                <th className="text-left py-2 px-3 font-medium text-foreground">Type</th>
+                <th className="text-right py-2 px-3 font-medium text-foreground">Salary</th>
+                <th className="text-right py-2 px-3 font-medium text-foreground">Actions</th>
               </tr>
             </thead>
             <tbody>
               {employees.map((emp) => (
                 <tr key={emp.id} className="border-b border-border/50">
-                  <td className="py-2.5 px-3">
+                  <td className="py-2 px-3">
                     <p className="font-medium text-foreground">{emp.name}</p>
-                    <p className="text-xs text-muted-foreground">{emp.address}, {emp.postalCode} {emp.city}</p>
+                    <p className="text-[10px] text-muted-foreground">{emp.address}, {emp.postalCode} {emp.city}</p>
                   </td>
-                  <td className="py-2.5 px-3 font-mono text-xs text-muted-foreground">{emp.personalNumber}</td>
-                  <td className="py-2.5 px-3 text-foreground">{emp.jobTitle}</td>
-                  <td className="py-2.5 px-3">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-secondary/10 text-secondary">
+                  <td className="py-2 px-3 font-mono text-muted-foreground">{emp.personalNumber}</td>
+                  <td className="py-2 px-3 text-foreground">{emp.jobTitle}</td>
+                  <td className="py-2 px-3">
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-secondary/10 text-secondary">
                       {employmentLabel(emp.employmentType)}
                     </span>
                   </td>
-                  <td className="py-2.5 px-3 text-right font-mono text-foreground">
+                  <td className="py-2 px-3 text-right font-mono text-foreground">
                     {emp.salary.toLocaleString("sv-SE")} SEK
                   </td>
-                  <td className="py-2.5 px-3 text-right">
+                  <td className="py-2 px-3 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setEditingEmployee(emp); setDialogOpen(true); }}>
-                        <Edit className="h-3.5 w-3.5" />
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => { setEditingEmployee(emp); setDialogOpen(true); }}>
+                        <Edit className="h-3 w-3" />
                       </Button>
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => setDeleteConfirm(emp.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive" onClick={() => setDeleteConfirm(emp.id)}>
+                        <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
                   </td>

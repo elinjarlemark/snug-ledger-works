@@ -536,16 +536,16 @@ export default function BillingPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="bg-card rounded-xl border border-border overflow-hidden">
-              <table className="w-full">
+            <div className="bg-card rounded-lg border border-border overflow-hidden">
+              <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
-                    <th className="text-left py-3 px-4 font-semibold">Name</th>
-                    <th className="text-left py-3 px-4 font-semibold">Unit</th>
-                    <th className="text-right py-3 px-4 font-semibold">Price excl. VAT</th>
-                    <th className="text-right py-3 px-4 font-semibold">VAT</th>
-                    <th className="text-right py-3 px-4 font-semibold">Price incl. VAT</th>
-                    <th className="text-right py-3 px-4 font-semibold w-24">Actions</th>
+                    <th className="text-left py-2 px-3 font-medium">Name</th>
+                    <th className="text-left py-2 px-3 font-medium">Unit</th>
+                    <th className="text-right py-2 px-3 font-medium">Price excl. VAT</th>
+                    <th className="text-right py-2 px-3 font-medium">VAT</th>
+                    <th className="text-right py-2 px-3 font-medium">Price incl. VAT</th>
+                    <th className="text-right py-2 px-3 font-medium w-20">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -553,23 +553,21 @@ export default function BillingPage() {
                     const calc = calculateProductPrice(product.price, product.includesVat, product.vatRate);
                     return (
                       <tr key={product.id} className="border-b border-border/50">
-                        <td className="py-3 px-4">
-                          <div>
-                            <p className="font-medium">{product.name}</p>
-                            {product.description && <p className="text-sm text-muted-foreground">{product.description}</p>}
-                          </div>
+                        <td className="py-2 px-3">
+                          <p className="font-medium text-foreground">{product.name}</p>
+                          {product.description && <p className="text-[10px] text-muted-foreground">{product.description}</p>}
                         </td>
-                        <td className="py-3 px-4 text-muted-foreground">{product.unit || "-"}</td>
-                        <td className="py-3 px-4 text-right font-mono">{formatAmount(calc.priceExclVat)}</td>
-                        <td className="py-3 px-4 text-right text-muted-foreground">{product.vatRate}%</td>
-                        <td className="py-3 px-4 text-right font-mono font-semibold">{formatAmount(calc.priceInclVat)}</td>
-                        <td className="py-3 px-4 text-right">
+                        <td className="py-2 px-3 text-muted-foreground">{product.unit || "-"}</td>
+                        <td className="py-2 px-3 text-right font-mono">{formatAmount(calc.priceExclVat)}</td>
+                        <td className="py-2 px-3 text-right text-muted-foreground">{product.vatRate}%</td>
+                        <td className="py-2 px-3 text-right font-mono font-medium">{formatAmount(calc.priceInclVat)}</td>
+                        <td className="py-2 px-3 text-right">
                           <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => { setEditingProduct(product); setProductDialogOpen(true); }}>
-                              <Edit className="h-4 w-4" />
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditingProduct(product); setProductDialogOpen(true); }}>
+                              <Edit className="h-3 w-3" />
                             </Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleDeleteProduct(product.id)}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteProduct(product.id)}>
+                              <Trash2 className="h-3 w-3 text-destructive" />
                             </Button>
                           </div>
                         </td>
@@ -619,17 +617,17 @@ export default function BillingPage() {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="bg-card rounded-xl border border-border overflow-hidden">
-                  <table className="w-full">
+                <div className="bg-card rounded-lg border border-border overflow-hidden">
+                  <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-border bg-muted/30">
-                        <th className="text-left py-3 px-4 font-semibold">Invoice #</th>
-                        <th className="text-left py-3 px-4 font-semibold">Customer</th>
-                        <th className="text-left py-3 px-4 font-semibold">Date</th>
-                        <th className="text-left py-3 px-4 font-semibold">Due Date</th>
-                        <th className="text-right py-3 px-4 font-semibold">Total</th>
-                        <th className="text-left py-3 px-4 font-semibold">Status</th>
-                        <th className="text-center py-3 px-4 font-semibold">Actions</th>
+                        <th className="text-left py-2 px-3 font-medium">Invoice #</th>
+                        <th className="text-left py-2 px-3 font-medium">Customer</th>
+                        <th className="text-left py-2 px-3 font-medium">Date</th>
+                        <th className="text-left py-2 px-3 font-medium">Due Date</th>
+                        <th className="text-right py-2 px-3 font-medium">Total</th>
+                        <th className="text-left py-2 px-3 font-medium">Status</th>
+                        <th className="text-center py-2 px-3 font-medium">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -639,15 +637,15 @@ export default function BillingPage() {
                           className="border-b border-border/50 hover:bg-muted/20 cursor-pointer transition-colors"
                           onClick={() => setSelectedInvoice(invoice)}
                         >
-                          <td className="py-3 px-4 font-mono">#{invoice.invoiceNumber}</td>
-                          <td className="py-3 px-4">{invoice.customerName}</td>
-                          <td className="py-3 px-4">{invoice.issueDate}</td>
-                          <td className="py-3 px-4">{invoice.dueDate}</td>
-                          <td className="py-3 px-4 text-right font-mono font-semibold">
+                          <td className="py-2 px-3 font-mono text-secondary">#{invoice.invoiceNumber}</td>
+                          <td className="py-2 px-3 text-foreground">{invoice.customerName}</td>
+                          <td className="py-2 px-3 text-muted-foreground">{invoice.issueDate}</td>
+                          <td className="py-2 px-3 text-muted-foreground">{invoice.dueDate}</td>
+                          <td className="py-2 px-3 text-right font-mono font-medium">
                             {formatAmount(invoice.total)} SEK
                           </td>
-                          <td className="py-3 px-4">
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          <td className="py-2 px-3">
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
                               invoice.status === "paid" ? "bg-success/10 text-success" :
                               invoice.status === "overdue" ? "bg-destructive/10 text-destructive" :
                               invoice.status === "sent" ? "bg-secondary/10 text-secondary" :
@@ -656,13 +654,14 @@ export default function BillingPage() {
                               {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-center">
+                          <td className="py-2 px-3 text-center">
                             <Button
                               variant="ghost"
                               size="sm"
+                              className="h-6 text-xs px-2"
                               onClick={(e) => { e.stopPropagation(); setSelectedInvoice(invoice); }}
                             >
-                              <Eye className="h-4 w-4 mr-1" />
+                              <Eye className="h-3 w-3 mr-1" />
                               View
                             </Button>
                           </td>
