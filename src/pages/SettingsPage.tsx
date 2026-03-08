@@ -492,6 +492,97 @@ export default function SettingsPage() {
                   </Card>
                 )}
 
+                {/* Räkenskapsår (Fiscal Years) */}
+                {activeCompany && isExistingCompany && (
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
+                          <Calendar className="h-5 w-5 text-secondary" />
+                        </div>
+                        <div>
+                          <CardTitle>Räkenskapsår</CardTitle>
+                          <CardDescription>View and manage fiscal year locks</CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {(() => {
+                        // Derive years from vouchers
+                        const yearsFromVouchers = new Set<number>();
+                        mainVouchers.forEach((v) => {
+                          const year = new Date(v.date).getFullYear();
+                          yearsFromVouchers.add(year);
+                        });
+                        // Also include any locked years
+                        lockedYears.forEach((y) => yearsFromVouchers.add(y));
+                        // Include current year
+                        yearsFromVouchers.add(new Date().getFullYear());
+                        const sortedYears = Array.from(yearsFromVouchers).sort((a, b) => b - a);
+
+                        return (
+                          <div className="bg-card rounded-lg border border-border overflow-hidden">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="border-b border-border bg-muted/30">
+                                  <th className="text-left py-2 px-3 font-medium text-foreground">Räkenskapsår</th>
+                                  <th className="text-left py-2 px-3 font-medium text-foreground">Period</th>
+                                  <th className="text-left py-2 px-3 font-medium text-foreground">Status</th>
+                                  <th className="text-right py-2 px-3 font-medium text-foreground">Åtgärd</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {sortedYears.map((year) => {
+                                  const locked = isYearLocked(year);
+                                  const start = formData.fiscalYearStart || "01-01";
+                                  const end = formData.fiscalYearEnd || "12-31";
+                                  return (
+                                    <tr key={year} className="border-b border-border/50">
+                                      <td className="py-2 px-3 font-medium text-foreground">{year}</td>
+                                      <td className="py-2 px-3 text-muted-foreground">
+                                        {year}-{start} — {year}-{end}
+                                      </td>
+                                      <td className="py-2 px-3">
+                                        {locked ? (
+                                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-destructive/10 text-destructive">
+                                            <Lock className="h-3 w-3" /> Låst
+                                          </span>
+                                        ) : (
+                                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-success/10 text-success">
+                                            <Unlock className="h-3 w-3" /> Öppet
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="py-2 px-3 text-right">
+                                        <Button
+                                          variant={locked ? "outline" : "destructive"}
+                                          size="sm"
+                                          className="h-6 text-xs px-2"
+                                          onClick={() => {
+                                            if (locked) {
+                                              unlockYear(year);
+                                              toast.info(`Räkenskapsår ${year} upplåst`);
+                                            } else {
+                                              lockYear(year);
+                                              toast.success(`Räkenskapsår ${year} låst`);
+                                            }
+                                          }}
+                                        >
+                                          {locked ? "Lås upp" : "Lås"}
+                                        </Button>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        );
+                      })()}
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* Delete Company */}
                 {activeCompany && isExistingCompany && (
                   <Card className="border-destructive/30">
