@@ -12,7 +12,8 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
+   const [name, setName] = useState('');
+   const [personalNumber, setPersonalNumber] = useState('');
 
   const [isLoading, setIsLoading] = useState(false);
 
