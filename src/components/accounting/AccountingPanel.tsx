@@ -25,6 +25,7 @@ interface AccountingPanelProps {
   onClearIncomingDuplicate?: () => void;
   onDuplicateToOther?: (voucher: Voucher) => void;
   autoOpenCreate?: boolean;
+  onToggleCompare?: () => void;
 }
 
 export function AccountingPanel({
