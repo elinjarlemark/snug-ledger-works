@@ -103,6 +103,8 @@ export default function SettingsPage() {
     if (!user) navigate("/login");
   }, [user, navigate]);
 
+  if (!user) return null;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeCompany) return;
