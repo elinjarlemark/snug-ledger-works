@@ -455,19 +455,6 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
                 </Button>
               </div>
             </div>
-            {/* Add Product / Update Product buttons */}
-            <div className="flex gap-2">
-              {canAddAsProduct(index) && (
-                <Button type="button" variant="outline" size="sm" onClick={() => handleAddProductFromLine(index)}>
-                  <Plus className="h-3 w-3 mr-1" />Add Product
-                </Button>
-              )}
-              {isLineFromExistingProduct(index) && hasLinePriceChanged(index) && (
-                <Button type="button" variant="outline" size="sm" onClick={() => handleUpdateProductFromLine(index)}>
-                  Update Product
-                </Button>
-              )}
-            </div>
           </div>
         ))}
 

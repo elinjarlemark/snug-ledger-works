@@ -118,7 +118,7 @@ function EmployeeForm({
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">City *</Label>
-          <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Stockholm" className="h-9 text-sm" required />
+          <Input value={city} onChange={(e) => setCity(e.target.value.replace(/[0-9]/g, ""))} placeholder="Stockholm" className="h-9 text-sm" required />
         </div>
       </div>
       <div className="space-y-1.5">
