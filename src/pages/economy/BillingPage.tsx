@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { FileText, Users, Package, Plus, Trash2, Edit, Receipt, Eye, X, Calendar, Send } from "lucide-react";
+import { FileText, Users, Package, Plus, Trash2, Edit, Receipt, Eye, X, Calendar, Send, Download, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,12 +13,23 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBilling } from "@/contexts/BillingContext";
 import { Customer, Product, Invoice, DocumentType, calculateProductPrice } from "@/lib/billing/types";
@@ -29,6 +40,7 @@ import { formatAmount } from "@/lib/bas-accounts";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { CreateInvoiceDialog } from "@/components/billing/CreateInvoiceDialog";
+import { exportInvoicePDF } from "@/lib/pdf-export";
 
 // Helper functions for input validation
 function formatPostalCode(value: string): string {
