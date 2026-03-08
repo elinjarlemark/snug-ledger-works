@@ -38,7 +38,7 @@ function SectionCard({
 }
 
 export default function DeclarationPage() {
-  const { user, companyProfile } = useAuth();
+  const { user, activeCompany } = useAuth();
 
   if (!user) {
     return (
