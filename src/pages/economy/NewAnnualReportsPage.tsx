@@ -114,7 +114,7 @@ export default function NewAnnualReportsPage() {
 
       {/* Features */}
       <section>
-        <h2 className="text-2xl font-semibold text-foreground mb-6">
+        <h2 className="text-base font-semibold text-foreground mb-4">
           Annual Report Features
         </h2>
         <div className="grid md:grid-cols-2 gap-6">
