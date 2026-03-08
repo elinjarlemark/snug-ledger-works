@@ -10,8 +10,6 @@ import {
   BarChart3,
   Wallet,
   ArrowRight,
-  TrendingUp,
-  TrendingDown,
   LogIn,
 } from "lucide-react";
 import {
@@ -19,10 +17,10 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { Area, AreaChart, XAxis, YAxis, ReferenceLine, ResponsiveContainer } from "recharts";
+import { Area, AreaChart, XAxis, YAxis, ReferenceLine } from "recharts";
 import { useAccounting } from "@/contexts/AccountingContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
+import { format, startOfMonth, endOfMonth } from "date-fns";
 
 const economyModules = [
   {
@@ -73,12 +71,15 @@ export default function EconomyIndex() {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, []);
 
+  const currentYear = new Date().getFullYear();
+
   const monthlyData = useMemo(() => {
     const data = [];
     const now = new Date();
+    const currentMonth = now.getMonth(); // 0-11
     
-    for (let i = 11; i >= 0; i--) {
-      const monthDate = subMonths(now, i);
+    for (let i = 0; i <= currentMonth; i++) {
+      const monthDate = new Date(currentYear, i, 1);
       const monthStart = format(startOfMonth(monthDate), "yyyy-MM-dd");
       const monthEnd = format(endOfMonth(monthDate), "yyyy-MM-dd");
       
@@ -92,15 +93,19 @@ export default function EconomyIndex() {
     }
     
     return data;
-  }, [getIncomeStatement]);
+  }, [getIncomeStatement, currentYear]);
 
-  const currentMonthResult = monthlyData[monthlyData.length - 1]?.netResult || 0;
   const hasData = monthlyData.some(d => d.netResult !== 0);
-  
-  // Calculate 12-month rolling total
-  const twelveMonthTotal = useMemo(() => {
-    return monthlyData.reduce((sum, month) => sum + month.netResult, 0);
-  }, [monthlyData]);
+
+  // Year-to-date totals
+  const yearTotals = useMemo(() => {
+    const yearStart = `${currentYear}-01-01`;
+    const yearEnd = format(endOfMonth(new Date()), "yyyy-MM-dd");
+    const { revenues, expenses, netResult } = getIncomeStatement(yearStart, yearEnd);
+    const totalRevenue = revenues.reduce((sum, r) => sum + Math.abs(r.balance), 0);
+    const totalExpenses = expenses.reduce((sum, e) => sum + Math.abs(e.balance), 0);
+    return { totalRevenue, totalExpenses, netResult };
+  }, [getIncomeStatement, currentYear]);
 
   // Not logged in - show informational overview
   if (!user) {
@@ -168,25 +173,35 @@ export default function EconomyIndex() {
         <h1 className="text-xl font-bold text-foreground">Economy Overview</h1>
       </div>
 
-      {/* Monthly Net Result Chart */}
+      {/* Year Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground">Total Revenue</p>
+          <p className="text-xl font-bold mt-1 text-foreground">
+            {yearTotals.totalRevenue.toLocaleString("sv-SE", { minimumFractionDigits: 2 })} SEK
+          </p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground">Total Expenses</p>
+          <p className="text-xl font-bold mt-1 text-foreground">
+            {yearTotals.totalExpenses.toLocaleString("sv-SE", { minimumFractionDigits: 2 })} SEK
+          </p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground">Net Result</p>
+          <p className={`text-xl font-bold mt-1 ${yearTotals.netResult >= 0 ? "text-green-600" : "text-destructive"}`}>
+            {yearTotals.netResult >= 0 ? "+" : ""}{yearTotals.netResult.toLocaleString("sv-SE", { minimumFractionDigits: 2 })} SEK
+          </p>
+        </div>
+      </div>
+
+      {/* This Year's Net Result Chart */}
       <Card>
         <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg font-semibold">Monthly Net Result</CardTitle>
-            <div className="flex items-center gap-2">
-              {currentMonthResult >= 0 ? (
-                <TrendingUp className="h-5 w-5 text-green-500" />
-              ) : (
-                <TrendingDown className="h-5 w-5 text-destructive" />
-              )}
-              <span className={`text-lg font-bold ${currentMonthResult >= 0 ? "text-green-500" : "text-destructive"}`}>
-                {currentMonthResult >= 0 ? "+" : ""}{currentMonthResult.toLocaleString("sv-SE", { minimumFractionDigits: 2 })} SEK
-              </span>
-            </div>
-          </div>
-          <p className="text-sm text-muted-foreground">This month's income minus expenses</p>
+          <CardTitle className="text-lg font-semibold">{currentYear} Net Result</CardTitle>
+          <p className="text-sm text-muted-foreground">Monthly income minus expenses for {currentYear}</p>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
           {hasData ? (
             <ChartContainer config={chartConfig} className="h-[200px] w-full">
               <AreaChart data={monthlyData} margin={{ top: 20, right: 20, left: 20, bottom: 0 }}>
@@ -238,27 +253,9 @@ export default function EconomyIndex() {
             </ChartContainer>
           ) : (
             <div className="h-[200px] flex items-center justify-center text-muted-foreground">
-              <p>No voucher data yet. Create vouchers to see your monthly results.</p>
+              <p>No voucher data yet. Create vouchers to see your {currentYear} results.</p>
             </div>
           )}
-          
-          {/* 12-Month Total */}
-          <div className="flex items-center justify-between pt-2 border-t border-border">
-            <div>
-              <p className="text-sm font-medium text-foreground">12-Month Net Result</p>
-              <p className="text-xs text-muted-foreground">Rolling total for the last 12 months</p>
-            </div>
-            <div className="flex items-center gap-2">
-              {twelveMonthTotal >= 0 ? (
-                <TrendingUp className="h-5 w-5 text-green-500" />
-              ) : (
-                <TrendingDown className="h-5 w-5 text-destructive" />
-              )}
-              <span className={`text-lg font-bold ${twelveMonthTotal >= 0 ? "text-green-500" : "text-destructive"}`}>
-                {twelveMonthTotal >= 0 ? "+" : ""}{twelveMonthTotal.toLocaleString("sv-SE", { minimumFractionDigits: 2 })} SEK
-              </span>
-            </div>
-          </div>
         </CardContent>
       </Card>
 
