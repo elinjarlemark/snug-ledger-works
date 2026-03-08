@@ -163,44 +163,21 @@ export default function DeclarationPage() {
         </div>
       </section>
 
-      {/* Create Declaration Section - Only show when logged in */}
-      {user ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Generate Declaration</CardTitle>
-            <CardDescription>
-              Create a tax declaration based on your bookkeeping data
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-4">
-              <p className="text-sm text-muted-foreground">
-                The declaration will be generated using data from your accounting records.
-                Make sure all transactions are recorded before generating.
-              </p>
-              <div>
-                <Button onClick={handleCreateDeclaration} className="gap-2">
-                  <Play className="h-4 w-4" />
-                  Create Declaration
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <section className="bg-primary/5 rounded-xl p-8 border border-primary/10">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-              <Lock className="h-6 w-6 text-primary" />
+      {/* Login Prompt - Only show when logged out */}
+      {!user && (
+        <section className="bg-primary/5 rounded-xl p-6 border border-primary/10">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <Lock className="h-5 w-5 text-primary" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-foreground mb-2">
+              <h3 className="text-sm font-semibold text-foreground mb-1">
                 Prepare Declarations
               </h3>
-              <p className="text-muted-foreground mb-4">
-                Sign in to prepare and review tax declarations. Generate accurate reports based on your bookkeeping data.
+              <p className="text-sm text-muted-foreground mb-3">
+                Sign in to prepare and review tax declarations.
               </p>
-              <Button asChild>
+              <Button size="sm" asChild>
                 <Link to="/login">Sign In</Link>
               </Button>
             </div>
