@@ -136,7 +136,7 @@ export default function AccountingPage() {
 
         {/* Features Grid */}
         <section>
-          <h2 className="text-2xl font-semibold text-foreground mb-6">
+          <h2 className="text-base font-semibold text-foreground mb-4">
             Key Features
           </h2>
           <div className="grid md:grid-cols-3 gap-6">
