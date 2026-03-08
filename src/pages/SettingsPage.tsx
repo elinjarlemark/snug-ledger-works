@@ -350,7 +350,7 @@ export default function SettingsPage() {
                       <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="grid md:grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label htmlFor="companyName">Company Name</Label>
+                            <Label htmlFor="companyName">Company Name *</Label>
                             <Input id="companyName" value={formData.companyName} onChange={(e) => handleChange("companyName", e.target.value)} placeholder="Your Company AB" />
                           </div>
                           <div className="space-y-2">
