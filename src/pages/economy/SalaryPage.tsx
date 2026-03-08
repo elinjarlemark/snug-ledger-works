@@ -127,8 +127,8 @@ function EmployeeForm({
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label className="text-xs">Monthly Salary (SEK) *</Label>
-          <Input type="number" min="0" step="100" value={salary} onChange={(e) => setSalary(e.target.value)} placeholder="35000" className="h-9 text-sm" required />
+          <Label className="text-xs">{isHourly ? "Hourly Salary (SEK)" : "Monthly Salary (SEK)"} *</Label>
+          <Input type="number" min="0" step="1" value={salary} onChange={(e) => setSalary(e.target.value)} placeholder={isHourly ? "250" : "35000"} className="h-9 text-sm" required />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">Employment Type *</Label>
