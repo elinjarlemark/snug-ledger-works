@@ -315,6 +315,7 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
 
     toast.success(`${docLabel} created`);
     onOpenChange(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
     setSelectedCustomerId("");
     setInlineCustomer(null);
     setLines([{ productName: "", description: "", quantity: 1, unitPrice: 0, vatRate: 25 }]);
@@ -325,17 +326,17 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
     <div className="space-y-4">
       {/* Customer + Dates */}
       <div className="flex gap-3">
-        <div className="flex-1 min-w-0 space-y-1.5">
+        <div className="max-w-[180px] space-y-1.5">
           <Label className="text-xs font-semibold">Customer</Label>
           {customers.length > 0 ? (
             <Select value={selectedCustomerId} onValueChange={(v) => { setSelectedCustomerId(v); setInlineCustomer(null); }}>
-              <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select customer..." /></SelectTrigger>
+              <SelectTrigger className="h-9 text-sm w-[180px]"><SelectValue placeholder="Select customer..." /></SelectTrigger>
               <SelectContent>
                 {customers.map(c => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}
               </SelectContent>
             </Select>
           ) : (
-            <div className="h-9 flex items-center text-sm text-muted-foreground border rounded-md px-3 bg-muted/30">No customers yet</div>
+            <div className="h-9 flex items-center text-sm text-muted-foreground border rounded-md px-3 bg-muted/30 w-[180px]">No customers yet</div>
           )}
           <Button type="button" variant="outline" size="sm" className="h-7 text-xs px-2.5 w-auto" onClick={() => setShowNewCustomerForm(true)}>
             <UserPlus className="h-3.5 w-3.5 mr-1" />New Customer
@@ -388,7 +389,7 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
             {canAddAsProduct(index) && (
               <div className="absolute top-1 right-1">
                 <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] px-1.5" onClick={() => handleAddProductFromLine(index)}>
-                  <Plus className="h-3 w-3 mr-0.5" />Add Product
+                  <Plus className="h-3 w-3 mr-0.5" />Save Product
                 </Button>
               </div>
             )}
