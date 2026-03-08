@@ -65,7 +65,7 @@ export default function VATReportPage() {
 
     periodVouchers.forEach(v => {
       v.lines.forEach(r => {
-        const accNum = parseInt(r.account);
+        const accNum = parseInt(r.accountNumber);
         // Output VAT accounts (2610-2619)
         if (accNum >= 2610 && accNum <= 2619) {
           outputVat += (r.credit || 0) - (r.debit || 0);
