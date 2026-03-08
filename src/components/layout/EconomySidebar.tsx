@@ -39,7 +39,6 @@ export function EconomySidebar({ collapsed, onToggle }: EconomySidebarProps) {
   const location = useLocation();
   const { user } = useAuth();
   const [pinned, setPinned] = useState(!collapsed);
-  const [hovered, setHovered] = useState(false);
 
   const navItems = user?.role === "admin"
     ? [...sidebarItems, { name: "Admin Panel", href: "/admin", icon: Shield, description: "Manage users" }]
