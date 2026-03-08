@@ -28,6 +28,7 @@ import { Building, Save, ArrowLeft, Plus, Trash2, Check, Upload, Download } from
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { TakeoverPopup } from "@/components/company/TakeoverPopup";
+import { TakeoverListener } from "@/components/company/TakeoverListener";
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8000";
 
@@ -392,7 +393,7 @@ export default function CompanyPage() {
 
             {/* Join requests (OWNER/ADMIN sees pending requests here) */}
             {activeCompany && (
-              <JoinRequestsPanel companyId={activeCompany.id} userId={Number(user.id)} />
+              <JoinRequestsPanel companyId={activeCompany.id} userId={String(user.id)} />
             )}
 						
 						{activeCompany && (

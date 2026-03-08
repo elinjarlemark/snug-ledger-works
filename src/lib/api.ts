@@ -168,3 +168,17 @@ export async function decideJoinRequest(
     action: action,
   });
 }
+
+// ---- Lock heartbeat ----
+export async function lockHeartbeat(companyId: number | string, userId: number | string) {
+  return api.post('/companies/' + companyId + '/lock/heartbeat', { user_id: Number(userId) });
+}
+
+// ---- SIE state ----
+export async function getSieState(companyId: number | string, userId: number | string) {
+  return api.get('/companies/' + companyId + '/sie-state?user_id=' + Number(userId));
+}
+
+export async function putSieState(companyId: number | string, userId: number | string, sieContent: string) {
+  return api.put('/companies/' + companyId + '/sie-state', { user_id: Number(userId), sie_content: sieContent });
+}
