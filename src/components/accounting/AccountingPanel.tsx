@@ -27,6 +27,7 @@ interface AccountingPanelProps {
   autoOpenCreate?: boolean;
   onAutoOpenCreateConsumed?: () => void;
   onToggleCompare?: () => void;
+  prefillVoucher?: any;
 }
 
 export function AccountingPanel({
