@@ -290,7 +290,7 @@ export default function SettingsPage() {
   };
 
   const isExistingCompany = !!activeCompany && activeCompany.organizationNumber.replace(/-/g, "").length === 10;
-  const savedCompaniesCount = companies.filter((c) => c.organizationNumber.replace(/-/g, "").length === 10).length;
+  
 
   return (
     <>
