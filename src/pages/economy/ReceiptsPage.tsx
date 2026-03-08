@@ -119,7 +119,7 @@ export default function ReceiptsPage() {
       </div>
 
       <div className="flex items-center justify-between gap-4">
-        <h2 className="text-2xl font-semibold text-foreground">
+        <h2 className="text-base font-semibold text-foreground">
           All Receipts ({filteredReceipts.length})
         </h2>
         <div className="relative w-64">
