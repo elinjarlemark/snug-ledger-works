@@ -124,10 +124,10 @@ export default function EconomyIndex() {
   if (!user) {
     return (
       <div className="space-y-8 animate-fade-in">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold text-foreground">Economy Overview</h1>
-          <p className="text-lg text-muted-foreground">
-            A complete suite of tools for Swedish business accounting. Explore what each module offers below.
+        <div className="space-y-1">
+          <h1 className="text-xl font-bold text-foreground">Economy Overview</h1>
+          <p className="text-sm text-muted-foreground">
+            A complete suite of tools for Swedish business accounting.
           </p>
         </div>
 
