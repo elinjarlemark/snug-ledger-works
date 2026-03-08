@@ -43,21 +43,7 @@ export default function AccountsPage() {
       );
     }
 
-    // If a year is selected, only show accounts that have transactions in that year
-    if (selectedYear !== undefined) {
-      const accountsWithTransactions = new Set<string>();
-      vouchers.forEach((v) => {
-        const vYear = new Date(v.date).getFullYear();
-        if (vYear === selectedYear) {
-          v.lines.forEach((l) => accountsWithTransactions.add(l.accountNumber));
-        }
-      });
-      // Show all accounts but mark which have transactions
-      // Actually, let's filter to show only accounts with transactions when a year is selected
-      if (accountsWithTransactions.size > 0) {
-        filtered = filtered.filter((a) => accountsWithTransactions.has(a.number));
-      }
-    }
+    // No year-based filtering - show all accounts regardless of year selection
 
     return filtered;
   }, [accounts, searchQuery, selectedYear, vouchers]);
