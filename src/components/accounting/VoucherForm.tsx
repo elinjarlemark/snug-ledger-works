@@ -24,6 +24,7 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
   const sourceVoucher = editVoucher || duplicateFrom;
   const { accounts, nextVoucherNumber, createVoucher, updateVoucher, validateVoucher } = useAccounting();
   const { activeCompany } = useAuth();
+  const { addEntry } = useAuditTrail();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const debitInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
   const creditInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
