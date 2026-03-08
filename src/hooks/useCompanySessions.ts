@@ -21,7 +21,7 @@ export function useCompanySession(companyId: number | null, userId: number | nul
   const hbTimer = useRef<number | null>(null);
 
   function storageKey() {
-    return companyId ? sie_cache_company_${companyId} : "";
+    return companyId ? `sie_cache_company_${companyId}` : "";
   }
 
   // Acquire lock + load SIE

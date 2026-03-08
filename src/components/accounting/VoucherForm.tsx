@@ -20,6 +20,7 @@ interface VoucherFormProps {
 }
 
 export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }: VoucherFormProps) {
+  const sourceVoucher = editVoucher || duplicateFrom;
   const { accounts, nextVoucherNumber, createVoucher, updateVoucher, validateVoucher } = useAccounting();
   const { activeCompany } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
