@@ -654,8 +654,9 @@ export default function BillingPage() {
                      <tr className="border-b border-border bg-muted/30">
                         <th className="text-left py-2 px-3 font-medium">Invoice #</th>
                         <th className="text-left py-2 px-3 font-medium">Customer</th>
+                        <th className="text-left py-2 px-3 font-medium">Issue Date</th>
                         <th className="text-right py-2 px-3 font-medium">Total</th>
-                        <th className="text-left py-2 px-3 font-medium">Status</th>
+                        <th className="text-right py-2 px-3 font-medium">Status</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -667,10 +668,11 @@ export default function BillingPage() {
                         >
                           <td className="py-2 px-3 font-mono text-secondary">#{invoice.invoiceNumber}</td>
                           <td className="py-2 px-3 text-foreground">{invoice.customerName}</td>
+                          <td className="py-2 px-3 text-muted-foreground">{invoice.issueDate}</td>
                           <td className="py-2 px-3 text-right font-mono font-medium">
                             {formatAmount(invoice.total)} SEK
                           </td>
-                          <td className="py-2 px-3">
+                          <td className="py-2 px-3 text-right">
                             <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
                               invoice.status === "paid" ? "bg-green-500/10 text-green-600" :
                               invoice.status === "overdue" ? "bg-destructive/10 text-destructive" :
