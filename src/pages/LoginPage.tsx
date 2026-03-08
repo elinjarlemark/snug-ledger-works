@@ -105,6 +105,15 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit} className='space-y-6'>
+
+          {!isSignUp && !isReset && (
+            <div className='rounded-md border border-dashed p-3 text-sm text-muted-foreground'>
+              <p className='font-medium text-foreground'>Testkonto (Lovable/lokalt)</p>
+              <p>Email: <span className='font-mono'>test@test.com</span></p>
+              <p>Lösenord: <span className='font-mono'>test</span></p>
+            </div>
+          )}
+
             {isReset ? (
               <>
                 <div className='space-y-2'>

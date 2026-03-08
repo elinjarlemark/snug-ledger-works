@@ -268,28 +268,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isAdminUser = email.toLowerCase() === 'admin@snug.local';
 
     if (authService.isDatabaseConnected()) {
-      const response = await fetch(API_BASE_URL + '/companies?user_id=' + newUser.id);
-      const payload = await response.json().catch(() => []);
-      const apiCompanies = Array.isArray(payload) ? payload.map(mapCompanyFromApi) : [];
+      try {
+        const response = await fetch(API_BASE_URL + '/companies?user_id=' + newUser.id);
+        const payload = await response.json().catch(() => []);
+        const apiCompanies = Array.isArray(payload) ? payload.map(mapCompanyFromApi) : [];
 
-      if (apiCompanies.length > 0) {
-        setCompanies(apiCompanies);
-        localStorage.setItem('accountpro_companies', JSON.stringify(apiCompanies));
+        if (apiCompanies.length > 0) {
+          setCompanies(apiCompanies);
+          localStorage.setItem('accountpro_companies', JSON.stringify(apiCompanies));
 
-        const storedActiveId = localStorage.getItem('accountpro_active_company');
-        if (storedActiveId && apiCompanies.some((c) => c.id === storedActiveId)) {
-          setActiveCompanyId(storedActiveId);
+          const storedActiveId = localStorage.getItem('accountpro_active_company');
+          if (storedActiveId && apiCompanies.some((c) => c.id === storedActiveId)) {
+            setActiveCompanyId(storedActiveId);
+          } else {
+            setActiveCompanyId(apiCompanies[0].id);
+            localStorage.setItem('accountpro_active_company', apiCompanies[0].id);
+          }
         } else {
-          setActiveCompanyId(apiCompanies[0].id);
-          localStorage.setItem('accountpro_active_company', apiCompanies[0].id);
+          setCompanies([]);
+          setActiveCompanyId(null);
+          localStorage.setItem('accountpro_companies', JSON.stringify([]));
+          localStorage.removeItem('accountpro_active_company');
         }
-      } else {
-        setCompanies([]);
-        setActiveCompanyId(null);
-        localStorage.setItem('accountpro_companies', JSON.stringify([]));
-        localStorage.removeItem('accountpro_active_company');
+        return;
+      } catch {
+        // Fallback to local state in Lovable/local mode when backend is unreachable.
       }
-      return;
     }
 
     const storedCompanies = localStorage.getItem('accountpro_companies');

@@ -165,6 +165,19 @@ To keep development smooth in Lovable while preparing production behavior:
 
 In short: do not remove local fallback now; keep it as compatibility mode for no-DB runtime, while incrementally moving Docker runtime toward full DB-backed persistence for multi-user readiness.
 
+### Local/Lovable storage toggle
+
+You can force runtime storage mode with an env var:
+
+- `VITE_STORAGE_MODE=local` → force localStorage mode (good for Lovable testing)
+- `VITE_STORAGE_MODE=database` → force backend/database mode
+- unset value → auto-detect (Lovable host uses local mode)
+
+Default local test account in frontend local mode:
+- Email: `test@test.com`
+- Password: `test`
+
+
 ## Python backend (FastAPI) quick start
 
 The Docker setup includes a simple Python API so you can work in Python only.
