@@ -266,47 +266,12 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
         </div>
       </div>
 
-      {/* Attachments */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <Label>Receipts / Attachments</Label>
-          <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-            <Upload className="h-4 w-4 mr-1" />
-            Add Receipt
-          </Button>
-          <input ref={fileInputRef} type="file" accept="image/*,.pdf" multiple className="hidden" onChange={handleFileChange} />
-        </div>
-        {pendingAttachments.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {pendingAttachments.map((attachment) => (
-              <div key={attachment.id} className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2 text-sm">
-                {attachment.type.startsWith("image/") ? (
-                  <Image className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                )}
-                <span className="max-w-32 truncate">{attachment.name}</span>
-                <Button type="button" variant="ghost" size="icon" className="h-5 w-5" onClick={() => removeAttachment(attachment.id)}>
-                  <X className="h-3 w-3" />
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
       {/* Voucher lines */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <Label>Voucher Lines</Label>
-          <Button type="button" variant="outline" size="sm" onClick={addLine}>
-            <Plus className="h-4 w-4 mr-1" />
-            Add Line
-          </Button>
-        </div>
+        <Label>Voucher Lines</Label>
 
         <div className="border border-border rounded-lg overflow-hidden">
-          <table className="w-full">
+          <table className="w-full table-fixed">
             <thead>
               <tr className="bg-muted/50 text-sm">
                 <th className="text-left p-3 font-medium">Account</th>
@@ -329,10 +294,10 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
                           variant="outline"
                           role="combobox"
                           aria-expanded={openComboboxes[line.id] || false}
-                          className="w-full justify-between font-normal"
+                          className="w-full justify-between font-normal overflow-hidden"
                         >
                           {line.accountNumber ? (
-                            <span>
+                            <span className="truncate">
                               <span className="font-mono">{line.accountNumber}</span>
                               <span className="ml-2 text-muted-foreground">{line.accountName}</span>
                             </span>
@@ -445,6 +410,40 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
             </tfoot>
           </table>
         </div>
+
+        <Button type="button" variant="outline" size="sm" onClick={addLine}>
+          <Plus className="h-4 w-4 mr-1" />
+          Add Line
+        </Button>
+      </div>
+
+      {/* Attachments */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label>Receipts / Attachments</Label>
+          <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+            <Upload className="h-4 w-4 mr-1" />
+            Add Receipt
+          </Button>
+          <input ref={fileInputRef} type="file" accept="image/*,.pdf" multiple className="hidden" onChange={handleFileChange} />
+        </div>
+        {pendingAttachments.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {pendingAttachments.map((attachment) => (
+              <div key={attachment.id} className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2 text-sm">
+                {attachment.type.startsWith("image/") ? (
+                  <Image className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span className="max-w-32 truncate">{attachment.name}</span>
+                <Button type="button" variant="ghost" size="icon" className="h-5 w-5" onClick={() => removeAttachment(attachment.id)}>
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Validation */}
