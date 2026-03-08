@@ -350,7 +350,7 @@ export default function SettingsPage() {
                       <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="grid md:grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label htmlFor="companyName">Company Name</Label>
+                            <Label htmlFor="companyName">Company Name *</Label>
                             <Input id="companyName" value={formData.companyName} onChange={(e) => handleChange("companyName", e.target.value)} placeholder="Your Company AB" />
                           </div>
                           <div className="space-y-2">
@@ -365,21 +365,21 @@ export default function SettingsPage() {
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="address">Street Address</Label>
+                          <Label htmlFor="address">Street Address *</Label>
                           <Input id="address" value={formData.address} onChange={(e) => handleChange("address", e.target.value)} placeholder="Storgatan 1" />
                         </div>
 
                         <div className="grid md:grid-cols-3 gap-4">
                           <div className="space-y-2">
-                            <Label htmlFor="postalCode">Postal Code</Label>
+                            <Label htmlFor="postalCode">Postal Code *</Label>
                             <Input id="postalCode" value={formData.postalCode} onChange={(e) => handleChange("postalCode", e.target.value)} placeholder="123 45" />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="city">City</Label>
+                            <Label htmlFor="city">City *</Label>
                             <Input id="city" value={formData.city} onChange={(e) => handleChange("city", e.target.value)} placeholder="Stockholm" />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="country">Country</Label>
+                            <Label htmlFor="country">Country *</Label>
                             <Input id="country" value={formData.country} onChange={(e) => handleChange("country", e.target.value)} placeholder="Sweden" />
                           </div>
                         </div>

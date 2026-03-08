@@ -12,7 +12,8 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
+   const [name, setName] = useState('');
+   const [personalNumber, setPersonalNumber] = useState('');
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -56,6 +57,12 @@ export default function LoginPage() {
           toast.error('Name is required');
           return;
         }
+        const pnDigits = personalNumber.replace(/-/g, '');
+        if (pnDigits.length !== 12) {
+          toast.error('Personal number must be exactly 12 digits (XXXXXXXX-XXXX)');
+          return;
+        }
+        localStorage.setItem('accountpro_pending_personal_number', personalNumber);
 
         beginSignup(email, password, name);
         toast.success('Nästa steg: välj eller skapa bolag');
@@ -117,7 +124,7 @@ export default function LoginPage() {
             {isReset ? (
               <>
                 <div className='space-y-2'>
-                  <Label htmlFor='resetEmail'>Email address</Label>
+                  <Label htmlFor='resetEmail'>Email address *</Label>
                   <Input
                     id='resetEmail'
                     type='email'
@@ -129,7 +136,7 @@ export default function LoginPage() {
                 </div>
 
                 <div className='space-y-2'>
-                  <Label htmlFor='resetPassword'>New password</Label>
+                  <Label htmlFor='resetPassword'>New password *</Label>
                   <Input
                     id='resetPassword'
                     type='password'
@@ -143,25 +150,48 @@ export default function LoginPage() {
             ) : (
               <>
                 {isSignUp && (
-                  <div className='space-y-2'>
-                    <Label htmlFor='name'>Full name</Label>
-                    <div className='relative'>
-                      <User className='absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground' />
+                  <>
+                    <div className='space-y-2'>
+                      <Label htmlFor='name'>Full name *</Label>
+                      <div className='relative'>
+                        <User className='absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground' />
+                        <Input
+                          id='name'
+                          type='text'
+                          placeholder='Your name'
+                          className='pl-10'
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          required={isSignUp}
+                        />
+                      </div>
+                    </div>
+                    <div className='space-y-2'>
+                      <Label htmlFor='personalNumber'>Personal Number (Personnummer) *</Label>
                       <Input
-                        id='name'
+                        id='personalNumber'
                         type='text'
-                        placeholder='Your name'
-                        className='pl-10'
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
+                        placeholder='XXXXXXXX-XXXX'
+                        value={personalNumber}
+                        onChange={(e) => {
+                          const digitsOnly = e.target.value.replace(/\D/g, '');
+                          const limited = digitsOnly.slice(0, 12);
+                          let formatted = limited;
+                          if (limited.length > 8) formatted = limited.slice(0, 8) + '-' + limited.slice(8);
+                          setPersonalNumber(formatted);
+                        }}
+                        maxLength={13}
                         required={isSignUp}
                       />
+                      <p className='text-xs text-muted-foreground'>
+                        {personalNumber.replace(/-/g, '').length}/12 digits
+                      </p>
                     </div>
-                  </div>
+                  </>
                 )}
 
                 <div className='space-y-2'>
-                  <Label htmlFor='email'>Email address</Label>
+                  <Label htmlFor='email'>Email address *</Label>
                   <div className='relative'>
                     <Mail className='absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground' />
                     <Input
@@ -177,7 +207,7 @@ export default function LoginPage() {
                 </div>
 
                 <div className='space-y-2'>
-                  <Label htmlFor='password'>Password</Label>
+                  <Label htmlFor='password'>Password *</Label>
                   <div className='relative'>
                     <Lock className='absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground' />
                     <Input
