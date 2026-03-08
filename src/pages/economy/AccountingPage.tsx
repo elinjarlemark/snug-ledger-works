@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BookOpen, FileSpreadsheet, ListChecks, Calculator, Lock, X } from "lucide-react";
+import { BookOpen, FileSpreadsheet, ListChecks, Calculator, Lock, X, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useOutletContext, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
