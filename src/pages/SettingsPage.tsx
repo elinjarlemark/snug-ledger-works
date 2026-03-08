@@ -390,16 +390,10 @@ export default function SettingsPage() {
                 {activeCompany && (
                   <Card>
                     <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <div>
+                      <div>
                           <CardTitle>Company Details</CardTitle>
                           <CardDescription>This information will be used in reports and invoices</CardDescription>
                         </div>
-                        <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={handleDeleteCompany} disabled={!canDeleteActiveCompany}>
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </Button>
-                      </div>
                     </CardHeader>
                     <CardContent>
                       <form onSubmit={handleSubmit} className="space-y-6">
