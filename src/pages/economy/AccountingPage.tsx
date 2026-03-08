@@ -46,8 +46,9 @@ export default function AccountingPage() {
   const [compareMode, setCompareMode] = useState(false);
   const [duplicateToRight, setDuplicateToRight] = useState<Voucher | null>(null);
   const [duplicateToLeft, setDuplicateToLeft] = useState<Voucher | null>(null);
+  const [triggerCreate, setTriggerCreate] = useState(false);
 
-  const autoOpenCreate = !!(location.state as any)?.openCreateVoucher;
+  const autoOpenCreate = !!(location.state as any)?.openCreateVoucher || triggerCreate;
 
   // Get sidebar control from layout
   const layoutContext = useOutletContext<{ setSidebarCollapsed?: (v: boolean) => void } | null>();
