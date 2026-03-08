@@ -77,8 +77,6 @@ export function AccountingPanel({
 
   useEffect(() => {
     setCurrentPage(1);
-    // Scroll list to top when search changes
-    listRef.current?.scrollIntoView({ behavior: "instant", block: "start" });
   }, [searchQuery, voucherStartDate, voucherEndDate]);
 
   useEffect(() => {
