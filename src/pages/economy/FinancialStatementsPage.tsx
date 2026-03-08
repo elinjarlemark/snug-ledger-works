@@ -316,28 +316,28 @@ function ReportPanel({ compact }: ReportPanelProps) {
                     <p className="text-muted-foreground text-sm py-4">No asset transactions</p>
                   ) : (
                     <div className="bg-muted/30 rounded-lg overflow-hidden">
-                      <table className="w-full">
+                      <table className="w-full text-xs">
                         <thead>
-                          <tr className="text-sm border-b">
-                            <th className="text-left p-3">Account</th>
-                            <th className="text-right p-3">Balance</th>
+                          <tr className="border-b">
+                            <th className="text-left py-2 px-3 font-medium">Account</th>
+                            <th className="text-right py-2 px-3 font-medium">Balance</th>
                           </tr>
                         </thead>
                         <tbody>
                           {balanceSheet.assets.map((entry) => (
                             <tr key={entry.accountNumber} className="border-b border-border/50">
-                              <td className="p-3">
+                              <td className="py-2 px-3">
                                 <span className="font-mono text-secondary">{entry.accountNumber}</span>
                                 <span className="ml-2 text-muted-foreground">{entry.accountName}</span>
                               </td>
-                              <td className="p-3 text-right font-mono">{formatAmount(entry.balance)}</td>
+                              <td className="py-2 px-3 text-right font-mono">{formatAmount(entry.balance)}</td>
                             </tr>
                           ))}
                         </tbody>
                         <tfoot>
                           <tr className="bg-secondary/10">
-                            <td className="p-3 font-semibold">Total Assets</td>
-                            <td className="p-3 text-right font-mono font-bold">{formatAmount(balanceSheet.totalAssets)}</td>
+                            <td className="py-2 px-3 font-medium">Total Assets</td>
+                            <td className="py-2 px-3 text-right font-mono font-bold">{formatAmount(balanceSheet.totalAssets)}</td>
                           </tr>
                         </tfoot>
                       </table>
