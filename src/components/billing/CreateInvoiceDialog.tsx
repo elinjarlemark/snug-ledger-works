@@ -324,49 +324,53 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
   const formContent = (
     <div className="space-y-4">
       {/* Customer + Dates */}
-      <div className="flex flex-wrap gap-3">
-        <div className="flex-1 min-w-[200px] space-y-1.5">
+      <div className="flex gap-3">
+        <div className="flex-1 min-w-0 space-y-1.5">
           <Label className="text-xs font-semibold">Customer</Label>
-          {customers.length > 0 && (
+          {customers.length > 0 ? (
             <Select value={selectedCustomerId} onValueChange={(v) => { setSelectedCustomerId(v); setInlineCustomer(null); }}>
               <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select customer..." /></SelectTrigger>
               <SelectContent>
                 {customers.map(c => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}
               </SelectContent>
             </Select>
+          ) : (
+            <div className="h-9 flex items-center text-sm text-muted-foreground border rounded-md px-3 bg-muted/30">No customers yet</div>
           )}
-          <Button type="button" variant="outline" size="sm" className="h-9 w-full" onClick={() => setShowNewCustomerForm(true)}>
-            <UserPlus className="h-4 w-4 mr-1" />New Customer
+          <Button type="button" variant="outline" size="sm" className="h-7 text-xs px-2.5 w-auto" onClick={() => setShowNewCustomerForm(true)}>
+            <UserPlus className="h-3.5 w-3.5 mr-1" />New Customer
           </Button>
         </div>
-        <div className="space-y-1.5">
-          <div className="space-y-1">
-            <Label className="text-xs">Issue Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9 w-[140px] justify-start text-left font-normal text-sm">
-                  <CalendarIcon className="mr-1 h-3.5 w-3.5" />
-                  {format(issueDate, "yyyy-MM-dd")}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={issueDate} onSelect={(d) => d && setIssueDate(d)} initialFocus className="p-3 pointer-events-auto" />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Due Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9 w-[140px] justify-start text-left font-normal text-sm">
-                  <CalendarIcon className="mr-1 h-3.5 w-3.5" />
-                  {format(dueDate, "yyyy-MM-dd")}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={dueDate} onSelect={(d) => d && setDueDate(d)} initialFocus className="p-3 pointer-events-auto" />
-              </PopoverContent>
-            </Popover>
+        <div className="w-[160px] shrink-0 space-y-1.5">
+          <div className="border border-border rounded-lg p-2.5 space-y-2.5 bg-muted/20">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Issue Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-9 w-full justify-start text-left font-normal text-sm">
+                    <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
+                    {format(issueDate, "yyyy-MM-dd")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={issueDate} onSelect={(d) => d && setIssueDate(d)} initialFocus className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Due Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-9 w-full justify-start text-left font-normal text-sm">
+                    <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
+                    {format(dueDate, "yyyy-MM-dd")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={dueDate} onSelect={(d) => d && setDueDate(d)} initialFocus className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
         </div>
       </div>
