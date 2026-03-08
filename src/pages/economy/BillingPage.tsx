@@ -495,14 +495,15 @@ function InvoiceDetailView({
       </AlertDialog>
 
       {/* Send Dialog */}
-      <Dialog open={showSendDialog} onOpenChange={setShowSendDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Send {docLabel}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">Choose how to send this {docLabel.toLowerCase()}:</p>
-            
+      <AlertDialog open={showSendDialog} onOpenChange={setShowSendDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send {docLabel}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Choose how to send this {docLabel.toLowerCase()}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3">
             <Button variant="outline" className="w-full justify-start gap-3 h-auto py-3" onClick={handleSendManually}>
               <Download className="h-5 w-5 shrink-0" />
               <div className="text-left">
@@ -510,37 +511,19 @@ function InvoiceDetailView({
                 <p className="text-xs text-muted-foreground">Download as PDF and send it yourself</p>
               </div>
             </Button>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-              <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">or</span></div>
-            </div>
-
-            <div className="border rounded-lg p-4 space-y-3">
-              <div className="flex items-center gap-2 mb-2">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <p className="font-medium text-sm">Send Automatically via Email</p>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">Coming Soon</span>
+            <Button variant="outline" className="w-full justify-start gap-3 h-auto py-3 opacity-50 cursor-not-allowed" disabled>
+              <Mail className="h-5 w-5 shrink-0" />
+              <div className="text-left">
+                <p className="font-medium">Send Automatically via Email</p>
+                <p className="text-xs text-muted-foreground">Coming Soon</p>
               </div>
-              <div className="space-y-2">
-                <div className="space-y-1">
-                  <Label className="text-xs">To</Label>
-                  <Input value={emailTo} onChange={(e) => setEmailTo(e.target.value)} placeholder="customer@example.com" className="h-8 text-sm" disabled />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Subject</Label>
-                  <Input value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} className="h-8 text-sm" disabled />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Message</Label>
-                  <Textarea value={emailBody} onChange={(e) => setEmailBody(e.target.value)} rows={4} className="text-sm resize-none" disabled />
-                </div>
-                <p className="text-[10px] text-muted-foreground">The {docLabel.toLowerCase()} PDF will be attached automatically.</p>
-              </div>
-            </div>
+            </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

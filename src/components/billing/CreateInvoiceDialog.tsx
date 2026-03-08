@@ -315,6 +315,7 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
 
     toast.success(`${docLabel} created`);
     onOpenChange(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
     setSelectedCustomerId("");
     setInlineCustomer(null);
     setLines([{ productName: "", description: "", quantity: 1, unitPrice: 0, vatRate: 25 }]);
