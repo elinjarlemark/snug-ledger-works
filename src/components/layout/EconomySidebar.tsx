@@ -111,7 +111,7 @@ export function EconomySidebar({ collapsed, onToggle }: EconomySidebarProps) {
               key={item.href}
               to={item.href}
               onClick={() => handleNavClick(item.href)}
-              className={cn("economy-sidebar-link", isActive && "active")}
+              className={cn("economy-sidebar-link", !isExpanded && "justify-center px-0 gap-0", isActive && "active")}
               title={collapsed ? item.name : undefined}
             >
               <Icon className="h-5 w-5 shrink-0" />
