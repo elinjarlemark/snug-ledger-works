@@ -80,15 +80,41 @@ export default function DeclarationPage() {
         </div>
       </div>
 
+      {/* Create Declaration Section - Only show when logged in (moved to top) */}
+      {user && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Generate Declaration</CardTitle>
+            <CardDescription className="text-xs">
+              Create a tax declaration based on your bookkeeping data
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-3">
+              <p className="text-xs text-muted-foreground">
+                The declaration will be generated using data from your accounting records.
+                Make sure all transactions are recorded before generating.
+              </p>
+              <div>
+                <Button onClick={handleCreateDeclaration} size="sm" className="gap-2">
+                  <Play className="h-3.5 w-3.5" />
+                  Create Declaration
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Introduction */}
       <section className="info-section">
-        <h2 className="text-xl font-semibold text-foreground mb-4">
+        <h2 className="text-base font-semibold text-foreground mb-3">
           Simplified Tax Compliance
         </h2>
-        <p className="text-muted-foreground mb-4">
+        <p className="text-muted-foreground text-sm mb-3">
           The Declaration module helps you prepare and submit required tax declarations to Swedish authorities. All declaration data is derived directly from your bookkeeping records.
         </p>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground text-sm">
           Ensure accuracy with pre-submission validation and maintain a complete history of all submitted declarations for audit purposes.
         </p>
       </section>
