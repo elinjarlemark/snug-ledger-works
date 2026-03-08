@@ -235,13 +235,58 @@ export default function SettingsPage() {
     }
   };
 
-  const handleDeleteCompany = () => {
-    if (!activeCompany || !canDeleteActiveCompany) {
-      toast.error("You must have at least two saved companies before deleting one");
-      return;
+  const handleDeleteCompanyConfirm = () => {
+    setShowDeleteCompanyConfirm(false);
+    setShowDeleteCompanyExport(true);
+  };
+
+  const handleDeleteCompanyExportAndComplete = () => {
+    if (!activeCompany) return;
+
+    // Export SIE file
+    if (vouchers.length > 0) {
+      const sieContent = exportSIE();
+      const sieBlob = new Blob([sieContent], { type: "text/plain;charset=utf-8" });
+      const sieUrl = URL.createObjectURL(sieBlob);
+      const sieLink = document.createElement("a");
+      sieLink.href = sieUrl;
+      sieLink.download = (activeCompany.companyName || "company") + "_" + new Date().toISOString().split("T")[0] + ".se";
+      document.body.appendChild(sieLink);
+      sieLink.click();
+      document.body.removeChild(sieLink);
+      URL.revokeObjectURL(sieUrl);
     }
+
+    // Export audit trail as text file
+    if (auditEntries.length > 0) {
+      const auditContent = auditEntries
+        .map((e) => `[${new Date(e.timestamp).toLocaleString()}] ${e.userName}: ${e.description}`)
+        .join("\n");
+      const auditBlob = new Blob([auditContent], { type: "text/plain;charset=utf-8" });
+      const auditUrl = URL.createObjectURL(auditBlob);
+      const auditLink = document.createElement("a");
+      auditLink.href = auditUrl;
+      auditLink.download = (activeCompany.companyName || "company") + "_audit_trail_" + new Date().toISOString().split("T")[0] + ".txt";
+      document.body.appendChild(auditLink);
+      auditLink.click();
+      document.body.removeChild(auditLink);
+      URL.revokeObjectURL(auditUrl);
+    }
+
     deleteCompany(activeCompany.id);
+    setShowDeleteCompanyExport(false);
     toast.success("Company deleted");
+  };
+
+  const handleDeleteAccountConfirm = () => {
+    setShowDeleteAccountConfirm(false);
+    setShowDeleteAccountBye(true);
+  };
+
+  const handleDeleteAccountBye = async () => {
+    setShowDeleteAccountBye(false);
+    await deleteAccount();
+    navigate("/");
   };
 
   const isExistingCompany = !!activeCompany && activeCompany.organizationNumber.replace(/-/g, "").length === 10;
