@@ -99,7 +99,7 @@ export default function AccountingPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div>
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
             <BookOpen className="h-5 w-5 text-secondary" />
@@ -111,6 +111,12 @@ export default function AccountingPage() {
             </p>
           </div>
         </div>
+        {user && (
+          <Button size="sm" onClick={() => {/* handled via autoOpenCreate or panel */}}>
+            <Plus className="h-4 w-4 mr-1" />
+            Create Voucher
+          </Button>
+        )}
       </div>
 
       {/* Main Panel */}

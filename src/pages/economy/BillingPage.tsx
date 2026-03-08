@@ -417,12 +417,12 @@ export default function BillingPage() {
     <div className="space-y-8 animate-fade-in">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-lg bg-secondary/10 flex items-center justify-center">
-          <FileText className="h-6 w-6 text-secondary" />
+        <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
+          <FileText className="h-5 w-5 text-secondary" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Billing</h1>
-          <p className="text-muted-foreground">Manage customers, products, and invoices</p>
+          <h1 className="text-xl font-bold text-foreground">Billing</h1>
+          <p className="text-sm text-muted-foreground">Manage customers, products, and invoices</p>
         </div>
       </div>
 

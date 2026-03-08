@@ -188,13 +188,7 @@ export function AccountingPanel({
 
       {/* Voucher List */}
       {!showCreateForm && !selectedVoucher && !editingVoucher && (
-        <>
-          <div className="flex justify-end">
-            <Button onClick={handleCreateClick} size={compact ? "sm" : "default"}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Voucher
-            </Button>
-          </div>
+         <>
 
           {/* Filters */}
           <Card>

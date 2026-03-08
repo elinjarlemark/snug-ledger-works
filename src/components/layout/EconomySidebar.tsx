@@ -145,14 +145,10 @@ export function EconomySidebar({ collapsed, onToggle }: EconomySidebarProps) {
         <div className="h-16"></div>
       </nav>
 
-      <div className={cn("p-4 border-t border-sidebar-border transition-opacity duration-200 shrink-0", !isExpanded && "opacity-0 pointer-events-none")}>
-        <div className="rounded-lg bg-sidebar-accent p-4">
-          <p className="text-sidebar-foreground text-sm font-medium mb-2">Need help?</p>
-          <p className="text-sidebar-foreground/60 text-xs mb-3">Check our documentation or contact support.</p>
-          <Button variant="secondary" size="sm" className="w-full" asChild>
-            <Link to="/support">Get Support</Link>
-          </Button>
-        </div>
+      <div className={cn("p-3 border-t border-sidebar-border transition-opacity duration-200 shrink-0", !isExpanded && "opacity-0 pointer-events-none")}>
+        <Button variant="secondary" size="sm" className="w-full" asChild>
+          <Link to="/support">Get Support</Link>
+        </Button>
       </div>
     </aside>
   );
