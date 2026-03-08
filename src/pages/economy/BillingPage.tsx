@@ -546,6 +546,16 @@ export default function BillingPage() {
   const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>();
   const [editingProduct, setEditingProduct] = useState<Product | undefined>();
 
+  // Compute display status: only sent invoices can become overdue
+  const getDisplayStatus = (inv: Invoice) => {
+    if (inv.status === "sent" && inv.dueDate) {
+      const today = new Date().toISOString().split("T")[0];
+      if (inv.dueDate < today) return "overdue";
+    }
+    // Draft invoices never become overdue even if past due date
+    return inv.status;
+  };
+
   const actualInvoices = invoices.filter(i => (i.documentType || "invoice") === "invoice");
   const quotes = invoices.filter(i => i.documentType === "quote");
 
