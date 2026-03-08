@@ -138,6 +138,7 @@ function EmployeeForm({
               <SelectItem value="full-time">Full-time</SelectItem>
               <SelectItem value="part-time">Part-time</SelectItem>
               <SelectItem value="seasonal">Seasonal</SelectItem>
+              <SelectItem value="hourly">Hourly</SelectItem>
             </SelectContent>
           </Select>
         </div>
