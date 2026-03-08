@@ -217,18 +217,39 @@ export default function ReceiptsPage() {
             <DialogTitle>Link receipt to voucher</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <Select value={selectedVoucherId} onValueChange={setSelectedVoucherId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a voucher..." />
-              </SelectTrigger>
-              <SelectContent>
-                {vouchers.map(v => (
-                  <SelectItem key={v.id} value={v.id}>
-                    #{v.voucherNumber} — {v.description}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={voucherPickerOpen} onOpenChange={setVoucherPickerOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" role="combobox" aria-expanded={voucherPickerOpen} className="w-full justify-between">
+                  {selectedVoucherId
+                    ? (() => { const v = vouchers.find(v => v.id === selectedVoucherId); return v ? `#${v.voucherNumber} — ${v.description}` : "Select a voucher..."; })()
+                    : "Select a voucher..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search by number or name..." />
+                  <CommandList>
+                    <CommandEmpty>No voucher found.</CommandEmpty>
+                    <CommandGroup>
+                      {vouchers.map(v => (
+                        <CommandItem
+                          key={v.id}
+                          value={`${v.voucherNumber} ${v.description}`}
+                          onSelect={() => {
+                            setSelectedVoucherId(v.id);
+                            setVoucherPickerOpen(false);
+                          }}
+                        >
+                          <Check className={cn("mr-2 h-4 w-4", selectedVoucherId === v.id ? "opacity-100" : "opacity-0")} />
+                          #{v.voucherNumber} — {v.description}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setRelinkDialog(null)}>Cancel</Button>
               <Button onClick={handleRelink} disabled={!selectedVoucherId}>Link</Button>
