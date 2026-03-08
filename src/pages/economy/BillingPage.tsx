@@ -25,7 +25,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBilling } from "@/contexts/BillingContext";
 import { Customer, Product, Invoice, calculateProductPrice } from "@/lib/billing/types";
 import { toast } from "sonner";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Lock } from "lucide-react";
 import { formatAmount } from "@/lib/bas-accounts";
 import { cn } from "@/lib/utils";
