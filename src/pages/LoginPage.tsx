@@ -57,6 +57,12 @@ export default function LoginPage() {
           toast.error('Name is required');
           return;
         }
+        const pnDigits = personalNumber.replace(/-/g, '');
+        if (pnDigits.length !== 12) {
+          toast.error('Personal number must be exactly 12 digits (XXXXXXXX-XXXX)');
+          return;
+        }
+        localStorage.setItem('accountpro_pending_personal_number', personalNumber);
 
         beginSignup(email, password, name);
         toast.success('Nästa steg: välj eller skapa bolag');
