@@ -375,7 +375,7 @@ export default function SettingsPage() {
                             <Input id="postalCode" value={formData.postalCode} onChange={(e) => handleChange("postalCode", e.target.value)} placeholder="123 45" />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="city">City</Label>
+                            <Label htmlFor="city">City *</Label>
                             <Input id="city" value={formData.city} onChange={(e) => handleChange("city", e.target.value)} placeholder="Stockholm" />
                           </div>
                           <div className="space-y-2">
