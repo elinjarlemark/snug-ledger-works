@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BookOpen, FileSpreadsheet, ListChecks, Calculator, Lock, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useOutletContext, useLocation } from "react-router-dom";
