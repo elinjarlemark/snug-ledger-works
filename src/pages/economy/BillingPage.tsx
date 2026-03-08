@@ -734,13 +734,16 @@ export default function BillingPage() {
               onOpenChange={setShowCreateInvoice}
               inline
               documentType="invoice"
+              onInvoiceCreated={(inv) => setSelectedInvoice(inv)}
             />
           )}
 
-          {selectedInvoice && !showCreateInvoice && (
+          {selectedInvoice && !showCreateInvoice && (selectedInvoice.documentType || "invoice") === "invoice" && (
             <InvoiceDetailView
               invoice={selectedInvoice}
               onClose={() => setSelectedInvoice(null)}
+              onDelete={(id) => { deleteInvoice(id); toast.success("Invoice deleted"); }}
+              onEdit={() => toast.info("Edit functionality coming soon")}
             />
           )}
 
