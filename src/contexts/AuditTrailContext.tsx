@@ -43,7 +43,7 @@ export function AuditTrailProvider({ children }: { children: ReactNode }) {
     const entry: AuditEntry = {
       id: crypto.randomUUID(),
       timestamp: new Date().toISOString(),
-      userId: user.id,
+      userId: String(user.id),
       userName: user.name || user.email,
       companyId,
       description,
