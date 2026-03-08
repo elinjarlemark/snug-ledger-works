@@ -371,7 +371,7 @@ export default function SettingsPage() {
 
                         <div className="grid md:grid-cols-3 gap-4">
                           <div className="space-y-2">
-                            <Label htmlFor="postalCode">Postal Code</Label>
+                            <Label htmlFor="postalCode">Postal Code *</Label>
                             <Input id="postalCode" value={formData.postalCode} onChange={(e) => handleChange("postalCode", e.target.value)} placeholder="123 45" />
                           </div>
                           <div className="space-y-2">
