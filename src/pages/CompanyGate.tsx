@@ -11,6 +11,7 @@ import { Building, ArrowRight, Lock, LogOut, Plus, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { authService } from '@/services/auth';
 import { lockCompany, apiRequest, createTakeoverRequest } from '@/lib/api';
 
 type GateMode = 'choose' | 'add' | 'join';
@@ -93,6 +94,13 @@ export default function CompanyGate() {
 		setChoosingId(companyId);
 
 		try {
+      if (!authService.isDatabaseConnected()) {
+        setActiveCompany(companyId);
+        toast.success("Valt bolag: " + companyNameForToast);
+        navigate("/economy");
+        return;
+      }
+
 			// försök låsa företaget
 			const resRaw: any = await lockCompany(companyId, user.id);
 			const res: any = resRaw && resRaw.data ? resRaw.data : resRaw;
@@ -278,6 +286,24 @@ export default function CompanyGate() {
 			toast.error('Du måste vara inloggad');
 			return;
 		}
+
+      if (!authService.isDatabaseConnected()) {
+        addCompany({
+          companyName: `Lokalt testbolag ${joinOrgNumber}`,
+          organizationNumber: joinOrgNumber,
+          address: 'Testvägen 1',
+          postalCode: '11122',
+          city: 'Stockholm',
+          country: 'Sweden',
+          vatNumber: '',
+          fiscalYearStart: '01-01',
+          fiscalYearEnd: '12-31',
+          accountingStandard: 'K2',
+        });
+        toast.success('Lokalt testbolag skapat för join-test i Lovable-läge.');
+        setMode('choose');
+        return;
+      }
 
 		const res = await createJoinRequest(Number(user.id), joinOrgNumber);
 
