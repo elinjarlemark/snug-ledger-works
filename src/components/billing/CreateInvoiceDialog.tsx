@@ -378,7 +378,21 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
         <Label className="text-sm font-semibold">Line Items</Label>
 
         {lines.map((line, index) => (
-          <div key={index} className="border rounded-lg p-2 bg-muted/20 space-y-1">
+          <div key={index} className="border rounded-lg p-2 bg-muted/20 space-y-1 relative">
+            {canAddAsProduct(index) && (
+              <div className="absolute top-1 right-1">
+                <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] px-1.5" onClick={() => handleAddProductFromLine(index)}>
+                  <Plus className="h-3 w-3 mr-0.5" />Add Product
+                </Button>
+              </div>
+            )}
+            {isLineFromExistingProduct(index) && hasLinePriceChanged(index) && (
+              <div className="absolute top-1 right-1">
+                <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] px-1.5" onClick={() => handleUpdateProductFromLine(index)}>
+                  Update Product
+                </Button>
+              </div>
+            )}
             <div className="grid grid-cols-12 gap-2 items-end">
               <div className="col-span-3 space-y-1">
                 <Label className="text-xs">Name</Label>
