@@ -31,6 +31,10 @@ import AccountsPage from "./pages/economy/AccountsPage";
 import ReceiptsPage from "./pages/economy/ReceiptsPage";
 import AdminPage from "./pages/AdminPage";
 import AuditTrailPage from "./pages/AuditTrailPage";
+import PreviewPage from "./pages/PreviewPage";
+import AboutPage from "./pages/AboutPage";
+import PricingPage from "./pages/PricingPage";
+import ContactPage from "./pages/ContactPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
