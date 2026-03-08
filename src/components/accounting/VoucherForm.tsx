@@ -8,6 +8,7 @@ import { useAccounting, VoucherLine, Voucher } from "@/contexts/AccountingContex
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuditTrail } from "@/contexts/AuditTrailContext";
 import { useReceipts } from "@/contexts/ReceiptsContext";
+import { useFiscalLock } from "@/contexts/FiscalLockContext";
 import { formatAmount } from "@/lib/bas-accounts";
 import { getBASAccountsForDate } from "@/lib/bas-accounts";
 import { Plus, Trash2, Check, AlertCircle, X, Upload, FileText, Image, ChevronDown } from "lucide-react";
