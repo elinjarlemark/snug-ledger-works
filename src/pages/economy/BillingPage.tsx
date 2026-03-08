@@ -535,7 +535,7 @@ function InvoiceDetailView({
 
 export default function BillingPage() {
   const { user } = useAuth();
-  const { customers, products, invoices, addCustomer, updateCustomer, deleteCustomer, addProduct, updateProduct, deleteProduct, deleteInvoice } = useBilling();
+  const { customers, products, invoices, addCustomer, updateCustomer, deleteCustomer, addProduct, updateProduct, deleteProduct, deleteInvoice, updateInvoiceStatus, convertQuoteToInvoice } = useBilling();
   const location = useLocation();
   
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
