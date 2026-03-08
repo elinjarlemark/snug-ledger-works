@@ -296,20 +296,28 @@ export function AccountingPanel({
             </CardContent>
           </Card>
 
-          {/* Search */}
+          {/* Vouchers heading + Compare + Search */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <h2 className={cn("font-semibold text-foreground", compact ? "text-lg" : "text-2xl")}>
               Vouchers ({filteredVouchers.length})
             </h2>
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search by name or number..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
+            <div className="flex items-center gap-2">
+              {onToggleCompare && (
+                <Button variant="outline" size="sm" onClick={onToggleCompare}>
+                  <Columns2 className="h-4 w-4 mr-2" />
+                  Compare
+                </Button>
+              )}
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search by name or number..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
             </div>
           </div>
 
