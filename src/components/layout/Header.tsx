@@ -17,9 +17,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { User, LogOut, Check, ChevronDown, ClipboardList, Settings, Plus, FileText, BookOpen, Search } from "lucide-react";
 
-const navItems = [
-  { name: "Economy", href: "/economy" },
+const loggedInNavItems = [
   { name: "Settings", href: "/settings" },
+  { name: "Economy", href: "/economy" },
+];
+
+const loggedOutNavItems = [
+  { name: "Preview", href: "/preview" },
+  { name: "About", href: "/about" },
+  { name: "Pricing", href: "/pricing" },
+  { name: "Contact", href: "/contact" },
 ];
 
 const MAX_COMPANIES_SHOWN = 5;
@@ -80,7 +87,7 @@ export function Header() {
         </div>
 
         <nav className="flex items-center gap-8">
-          {navItems.map((item) => (
+          {(user ? loggedInNavItems : loggedOutNavItems).map((item) => (
             <Link
               key={item.href}
               to={item.href}
@@ -92,7 +99,7 @@ export function Header() {
               {item.name}
             </Link>
           ))}
-          
+
           {user ? (
             <HoverCard openDelay={100} closeDelay={200}>
               <HoverCardTrigger asChild>

@@ -31,6 +31,10 @@ import AccountsPage from "./pages/economy/AccountsPage";
 import ReceiptsPage from "./pages/economy/ReceiptsPage";
 import AdminPage from "./pages/AdminPage";
 import AuditTrailPage from "./pages/AuditTrailPage";
+import PreviewPage from "./pages/PreviewPage";
+import AboutPage from "./pages/AboutPage";
+import PricingPage from "./pages/PricingPage";
+import ContactPage from "./pages/ContactPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -53,7 +57,13 @@ const App = () => (
                       {/* Public pages with header/footer */}
                       <Route element={<PublicLayout />}>
                         <Route path="/" element={<Index />} />
+                        <Route path="/about" element={<AboutPage />} />
+                        <Route path="/pricing" element={<PricingPage />} />
+                        <Route path="/contact" element={<ContactPage />} />
                       </Route>
+
+                      {/* Preview */}
+                      <Route path="/preview" element={<PreviewPage />} />
 
                       {/* Economy section with sidebar */}
                       <Route path='/economy' element={<RequireCompany><EconomyLayout /></RequireCompany>}>
