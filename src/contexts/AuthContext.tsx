@@ -402,6 +402,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		localStorage.removeItem("accountpro_active_company");
 	};
 
+	const deleteAccount = async () => {
+		if (!user) return;
+		const userId = String(user.id);
+		
+		// Delete user from auth store
+		await authService.deleteUser(userId);
+		
+		// Clean up all user-related localStorage
+		const keysToRemove: string[] = [];
+		for (let i = 0; i < localStorage.length; i++) {
+			const key = localStorage.key(i);
+			if (key && (key.includes(userId) || key.startsWith('accountpro_'))) {
+				keysToRemove.push(key);
+			}
+		}
+		keysToRemove.forEach((key) => localStorage.removeItem(key));
+		
+		// Reset state
+		setUser(null);
+		setCompanies([]);
+		setActiveCompanyId(null);
+		setIsFirstTimeUser(false);
+	};
+
   const beginSignup = (email: string, password: string, name: string) => {
     const payload = { email: email.trim(), password, name: name.trim() };
     setPendingSignup(payload);
