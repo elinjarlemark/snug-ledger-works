@@ -620,14 +620,11 @@ export default function BillingPage() {
                 <div className="bg-card rounded-lg border border-border overflow-hidden">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="border-b border-border bg-muted/30">
+                     <tr className="border-b border-border bg-muted/30">
                         <th className="text-left py-2 px-3 font-medium">Invoice #</th>
                         <th className="text-left py-2 px-3 font-medium">Customer</th>
-                        <th className="text-left py-2 px-3 font-medium">Date</th>
-                        <th className="text-left py-2 px-3 font-medium">Due Date</th>
                         <th className="text-right py-2 px-3 font-medium">Total</th>
                         <th className="text-left py-2 px-3 font-medium">Status</th>
-                        <th className="text-center py-2 px-3 font-medium">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
