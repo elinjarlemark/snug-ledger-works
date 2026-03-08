@@ -92,24 +92,24 @@ export default function AccountingPage() {
   }
 
   return (
-    <div className="space-y-12 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="space-y-4">
+      <div>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg bg-secondary/10 flex items-center justify-center">
-              <BookOpen className="h-6 w-6 text-secondary" />
+            <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
+              <BookOpen className="h-5 w-5 text-secondary" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-foreground">Accounting</h1>
-              <p className="text-muted-foreground">
+              <h1 className="text-xl font-bold text-foreground">Accounting</h1>
+              <p className="text-sm text-muted-foreground">
                 Core bookkeeping with Swedish BAS compliance
               </p>
             </div>
           </div>
 
           {user && (
-            <Button variant="outline" onClick={handleToggleCompare}>
+            <Button variant="outline" size="sm" onClick={handleToggleCompare}>
               <Columns2 className="h-4 w-4 mr-2" />
               Compare
             </Button>
