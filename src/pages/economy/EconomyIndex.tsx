@@ -11,6 +11,8 @@ import {
   Wallet,
   ArrowRight,
   LogIn,
+  TrendingUp,
+  TrendingDown,
 } from "lucide-react";
 import {
   ChartContainer,
