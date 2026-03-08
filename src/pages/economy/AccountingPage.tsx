@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { BookOpen, FileSpreadsheet, ListChecks, Calculator, Lock, Columns2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Link, useOutletContext } from "react-router-dom";
+import { Link, useOutletContext, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccounting, Voucher } from "@/contexts/AccountingContext";
 import { AccountingPanel } from "@/components/accounting/AccountingPanel";
