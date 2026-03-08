@@ -41,6 +41,7 @@ interface CreateInvoiceDialogProps {
   onOpenChange: (open: boolean) => void;
   inline?: boolean;
   documentType?: DocumentType;
+  onInvoiceCreated?: (invoice: Invoice) => void;
 }
 
 // Helper: format postal code as XXX XX
