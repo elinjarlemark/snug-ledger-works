@@ -10,8 +10,6 @@ import {
   BarChart3,
   Wallet,
   ArrowRight,
-  TrendingUp,
-  TrendingDown,
   LogIn,
 } from "lucide-react";
 import {
