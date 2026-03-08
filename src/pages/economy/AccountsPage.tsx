@@ -190,14 +190,14 @@ export default function AccountsPage() {
           </table>
         </div>
 
-        <div className="mt-4 flex items-start gap-2 text-muted-foreground text-sm">
-          <Info className="h-4 w-4 shrink-0 mt-0.5" />
-          <span>
-            {user
-              ? "Click 'Statement' to view account transactions. Add new accounts using the button above."
-              : "Additional accounts can be added when logged in. All accounts must follow the BAS numbering standard."}
-          </span>
-        </div>
+        {!user && (
+          <div className="mt-4 flex items-start gap-2 text-muted-foreground text-sm">
+            <Info className="h-4 w-4 shrink-0 mt-0.5" />
+            <span>
+              Additional accounts can be added when logged in. All accounts must follow the BAS numbering standard.
+            </span>
+          </div>
+        )}
       </section>
 
       {/* Account Classes Reference */}
