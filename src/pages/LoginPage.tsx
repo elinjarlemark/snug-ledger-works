@@ -144,21 +144,44 @@ export default function LoginPage() {
             ) : (
               <>
                 {isSignUp && (
-                  <div className='space-y-2'>
-                    <Label htmlFor='name'>Full name</Label>
-                    <div className='relative'>
-                      <User className='absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground' />
+                  <>
+                    <div className='space-y-2'>
+                      <Label htmlFor='name'>Full name *</Label>
+                      <div className='relative'>
+                        <User className='absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground' />
+                        <Input
+                          id='name'
+                          type='text'
+                          placeholder='Your name'
+                          className='pl-10'
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          required={isSignUp}
+                        />
+                      </div>
+                    </div>
+                    <div className='space-y-2'>
+                      <Label htmlFor='personalNumber'>Personal Number (Personnummer) *</Label>
                       <Input
-                        id='name'
+                        id='personalNumber'
                         type='text'
-                        placeholder='Your name'
-                        className='pl-10'
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
+                        placeholder='XXXXXXXX-XXXX'
+                        value={personalNumber}
+                        onChange={(e) => {
+                          const digitsOnly = e.target.value.replace(/\D/g, '');
+                          const limited = digitsOnly.slice(0, 12);
+                          let formatted = limited;
+                          if (limited.length > 8) formatted = limited.slice(0, 8) + '-' + limited.slice(8);
+                          setPersonalNumber(formatted);
+                        }}
+                        maxLength={13}
                         required={isSignUp}
                       />
+                      <p className='text-xs text-muted-foreground'>
+                        {personalNumber.replace(/-/g, '').length}/12 digits
+                      </p>
                     </div>
-                  </div>
+                  </>
                 )}
 
                 <div className='space-y-2'>
