@@ -327,6 +327,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       ...invoiceData,
       id: crypto.randomUUID(),
       companyId,
+      documentType: invoiceData.documentType || "invoice",
       invoiceNumber: nextInvoiceNumber,
       createdAt: new Date().toISOString(),
     };
