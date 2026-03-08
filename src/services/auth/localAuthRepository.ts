@@ -115,6 +115,14 @@ export class LocalAuthRepository implements IAuthRepository {
     }
   }
 
+  async deleteUser(id: string): Promise<boolean> {
+    const users = this.getStoredUsers();
+    const filtered = users.filter((u) => u.id !== id);
+    if (filtered.length === users.length) return false;
+    this.saveUsers(filtered);
+    return true;
+  }
+
   private saveUsers(users: Array<{ id: string; email: string; password: string; name: string }>): void {
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(users));
   }

@@ -50,6 +50,13 @@ class AuthService {
     return this.repository.getUserById(id);
   }
 
+  async deleteUser(id: string): Promise<boolean> {
+    if (this.repository.deleteUser) {
+      return this.repository.deleteUser(id);
+    }
+    return false;
+  }
+
   // Method to check if database auth is configured
   isDatabaseConnected(): boolean {
     return isDatabaseAuthEnabled();
