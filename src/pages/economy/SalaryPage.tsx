@@ -294,7 +294,7 @@ export default function SalaryPage() {
                     </span>
                   </td>
                   <td className="py-2 px-3 text-right font-mono text-foreground">
-                    {emp.salary.toLocaleString("sv-SE")} SEK
+                    {emp.salary.toLocaleString("sv-SE")} {emp.employmentType === "hourly" ? "SEK/h" : "SEK/mån"}
                   </td>
                   <td className="py-2 px-3 text-right">
                     <div className="flex items-center justify-end gap-1">
