@@ -1,16 +1,13 @@
-import { useState, useEffect, useRef } from "react";
+// src/pages/CompanyPage.tsx
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { JoinRequestsPanel } from "@/components/company/JoinRequestsPanel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,36 +18,49 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useAuth, CompanyProfile } from "@/contexts/AuthContext";
+
+import { useAuth } from "@/contexts/AuthContext";
 import { useAccounting } from "@/contexts/AccountingContexts";
 import { authService } from "@/services/auth";
 import { toast } from "sonner";
-import { Building, Save, ArrowLeft, Plus, Trash2, Check, Upload, Download, AlertTriangle } from "lucide-react";
 
+import { Building, Save, ArrowLeft, Plus, Trash2, Check, Upload, Download } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { TakeoverPopup } from "@/components/company/TakeoverPopup";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 export default function CompanyPage() {
-  const { user, companies, activeCompany, addCompany, updateCompany, deleteCompany, setActiveCompany, isFirstTimeUser, markCompanySetupComplete } = useAuth();
+  const {
+    user,
+    companies,
+    activeCompany,
+    addCompany,
+    updateCompany,
+    deleteCompany,
+    setActiveCompany,
+    markCompanySetupComplete,
+  } = useAuth();
+
   const { importSIE, exportSIE, vouchers } = useAccounting();
   const navigate = useNavigate();
   const location = useLocation();
+
   const [isNewCompany, setIsNewCompany] = useState(false);
   const [originalCompanyId, setOriginalCompanyId] = useState<string | null>(null);
   const [showCompanyRequiredAlert, setShowCompanyRequiredAlert] = useState(false);
   const [showAccountingStandardConfirmAlert, setShowAccountingStandardConfirmAlert] = useState(false);
   const [pendingAccountingStandard, setPendingAccountingStandard] = useState<"K2" | "K3" | "" | null>(null);
-  
+
   // Check if we were redirected because company is required
   useEffect(() => {
-    if (location.state?.showCompanyRequiredAlert) {
+    if ((location.state as any)?.showCompanyRequiredAlert) {
       setShowCompanyRequiredAlert(true);
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
-  
+
   const [formData, setFormData] = useState({
     companyName: "",
     organizationNumber: "",
@@ -81,48 +91,43 @@ export default function CompanyPage() {
     }
   }, [activeCompany]);
 
-  if (!user) {
-    navigate("/login");
-    return null;
-  }
+  useEffect(() => {
+    if (!user) navigate("/login");
+  }, [user, navigate]);
+
+  if (!user) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeCompany) return;
-    
-    // Validate mandatory fields (all except VAT number)
+
     if (!formData.companyName.trim()) {
       toast.error("Company name is required");
       return;
     }
-    
-    // Validate organization number: must be exactly 10 digits (formatted as XXXXXX-XXXX)
+
     const orgNumDigits = formData.organizationNumber.replace(/-/g, "");
     if (orgNumDigits.length !== 10 || !/^\d{10}$/.test(orgNumDigits)) {
       toast.error("Organization number must be exactly 10 digits");
       return;
     }
-    
+
     if (!formData.address.trim()) {
       toast.error("Address is required");
       return;
     }
-    
     if (!formData.postalCode.trim()) {
       toast.error("Postal code is required");
       return;
     }
-    
     if (!formData.city.trim()) {
       toast.error("City is required");
       return;
     }
-    
     if (!formData.country.trim()) {
       toast.error("Country is required");
       return;
     }
-
     if (!formData.accountingStandard) {
       toast.error("Accounting standard (K2/K3) is required");
       return;
@@ -132,7 +137,8 @@ export default function CompanyPage() {
       ...formData,
       id: activeCompany.id,
       accountingStandard: formData.accountingStandard || undefined,
-    });
+    } as any);
+
     setIsNewCompany(false);
     setOriginalCompanyId(null);
     markCompanySetupComplete();
@@ -148,30 +154,24 @@ export default function CompanyPage() {
         return;
       }
     }
-
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleOrganizationNumberChange = (value: string) => {
-    // Remove all non-digits
     const digitsOnly = value.replace(/\D/g, "");
-    
-    // Limit to 10 digits
     const limited = digitsOnly.slice(0, 10);
-    
-    // Format with hyphen after 6 digits
     let formatted = limited;
     if (limited.length > 6) {
-      formatted = `${limited.slice(0, 6)}-${limited.slice(6)}`;
+      formatted = limited.slice(0, 6) + '-' + limited.slice(6);
     }
-    
-    setFormData(prev => ({ ...prev, organizationNumber: formatted }));
+    setFormData((prev) => ({ ...prev, organizationNumber: formatted }));
   };
 
   const handleAddCompany = () => {
-    if (isNewCompany) return; // Prevent adding another while one is unsaved
-    // Store original company so we can restore on cancel/navigate away
+    if (isNewCompany) return;
+
     const previousId = activeCompany?.id || null;
+
     const newCompany = addCompany({
       companyName: "",
       organizationNumber: "",
@@ -184,12 +184,12 @@ export default function CompanyPage() {
       fiscalYearEnd: "12-31",
       accountingStandard: "",
     });
+
     setActiveCompany(newCompany.id);
     setIsNewCompany(true);
     setOriginalCompanyId(previousId);
     toast.info("Fill in company details and save");
   };
-
 
   const handleSIEUpload = () => {
     const input = document.createElement("input");
@@ -197,40 +197,35 @@ export default function CompanyPage() {
     input.accept = ".se,.si,.sie";
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        try {
-          const content = await file.text();
-          const result = importSIE(content);
-          
-          if (result.success) {
-            if (authService.isDatabaseConnected() && user) {
-              fetch(`${API_BASE_URL}/sie-files`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  user_id: Number(user.id),
-                  filename: file.name,
-                  storage_path: `browser-upload:${file.name}`,
-                  period: new Date().getFullYear().toString(),
-                }),
-              }).catch(() => undefined);
-            }
-            if (result.imported > 0) {
-              toast.success(`Imported ${result.imported} voucher(s) from SIE file`);
-            }
-            if (result.skipped > 0) {
-              toast.info(`Skipped ${result.skipped} duplicate voucher(s)`);
-            }
-            if (result.errors.length > 0) {
-              result.errors.forEach(err => toast.warning(err));
-            }
-          } else {
-            toast.error("Failed to import SIE file");
-            result.errors.forEach(err => toast.error(err));
+      if (!file) return;
+
+      try {
+        const content = await file.text();
+        const result = importSIE(content);
+
+        if (result.success) {
+          if (authService.isDatabaseConnected() && user) {
+            fetch(API_BASE_URL + '/sie-files', {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                user_id: Number(user.id),
+                filename: file.name,
+                storage_path: 'browser-upload:' + file.name,
+                period: new Date().getFullYear().toString(),
+              }),
+            }).catch(() => undefined);
           }
-        } catch (error) {
-          toast.error("Failed to read SIE file");
+
+          if (result.imported > 0) toast.success("Imported " + result.imported + " voucher(s) from SIE file");
+          if (result.skipped > 0) toast.info("Skipped " + result.skipped + " duplicate voucher(s)");
+          if (result.errors.length > 0) result.errors.forEach((err) => toast.warning(err));
+        } else {
+          toast.error("Failed to import SIE file");
+          result.errors.forEach((err) => toast.error(err));
         }
+      } catch {
+        toast.error("Failed to read SIE file");
       }
     };
     input.click();
@@ -241,7 +236,6 @@ export default function CompanyPage() {
       toast.error("No company selected");
       return;
     }
-    
     if (vouchers.length === 0) {
       toast.error("No vouchers to export");
       return;
@@ -252,7 +246,7 @@ export default function CompanyPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${activeCompany.companyName || "company"}_${new Date().toISOString().split('T')[0]}.se`;
+    link.download = (activeCompany.companyName || "company") + "_" + new Date().toISOString().split("T")[0] + ".se";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -263,9 +257,7 @@ export default function CompanyPage() {
   const handleCancelNewCompany = () => {
     if (isNewCompany && activeCompany) {
       deleteCompany(activeCompany.id);
-      if (originalCompanyId) {
-        setActiveCompany(originalCompanyId);
-      }
+      if (originalCompanyId) setActiveCompany(originalCompanyId);
       setIsNewCompany(false);
       setOriginalCompanyId(null);
     }
@@ -277,14 +269,15 @@ export default function CompanyPage() {
       toast.error("You must have at least two saved companies before deleting one");
       return;
     }
-
     deleteCompany(activeCompany.id);
     toast.success("Company deleted");
   };
 
-  // Check if this is an existing saved company (has org number saved)
-  const isExistingCompany = activeCompany && activeCompany.organizationNumber.replace(/-/g, "").length === 10;
-  const savedCompaniesCount = companies.filter((company) => company.organizationNumber.replace(/-/g, "").length === 10).length;
+  const isExistingCompany =
+    !!activeCompany && activeCompany.organizationNumber.replace(/-/g, "").length === 10;
+  const savedCompaniesCount = companies.filter(
+    (company) => company.organizationNumber.replace(/-/g, "").length === 10
+  ).length;
   const canDeleteActiveCompany = !!activeCompany && !!isExistingCompany && savedCompaniesCount >= 2;
 
   return (
@@ -298,13 +291,10 @@ export default function CompanyPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setShowCompanyRequiredAlert(false)}>
-              OK
-            </AlertDialogAction>
+            <AlertDialogAction onClick={() => setShowCompanyRequiredAlert(false)}>OK</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
 
       <AlertDialog open={showAccountingStandardConfirmAlert} onOpenChange={setShowAccountingStandardConfirmAlert}>
         <AlertDialogContent>
@@ -337,8 +327,16 @@ export default function CompanyPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
       <div className="min-h-screen flex flex-col">
         <Header />
+				{activeCompany && user && (
+					<TakeoverListener
+						companyId={activeCompany.id}
+						userId={Number(user.id)}
+						pollMs={2000}
+					/>
+				)}
         <main className="flex-1 container py-8">
           <div className="max-w-2xl mx-auto space-y-6">
             <div className="flex items-center gap-4">
@@ -361,9 +359,7 @@ export default function CompanyPage() {
                     </div>
                     <div>
                       <CardTitle>Active Company</CardTitle>
-                      <CardDescription>
-                        Switch between your companies
-                      </CardDescription>
+                      <CardDescription>Switch between your companies</CardDescription>
                     </div>
                   </div>
                   <Button onClick={handleAddCompany} variant="outline" size="sm" disabled={isNewCompany}>
@@ -373,10 +369,7 @@ export default function CompanyPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <Select
-                  value={activeCompany?.id || ""}
-                  onValueChange={setActiveCompany}
-                >
+                <Select value={activeCompany?.id || ""} onValueChange={setActiveCompany}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a company" />
                   </SelectTrigger>
@@ -384,14 +377,10 @@ export default function CompanyPage() {
                     {companies.map((company) => (
                       <SelectItem key={company.id} value={company.id}>
                         <div className="flex items-center gap-2">
-                          {company.id === activeCompany?.id && (
-                            <Check className="h-4 w-4 text-secondary" />
-                          )}
+                          {company.id === activeCompany?.id && <Check className="h-4 w-4 text-secondary" />}
                           <span>{company.companyName || "Unnamed Company"}</span>
                           {company.organizationNumber && (
-                            <span className="text-muted-foreground text-sm">
-                              ({company.organizationNumber})
-                            </span>
+                            <span className="text-muted-foreground text-sm">({company.organizationNumber})</span>
                           )}
                         </div>
                       </SelectItem>
@@ -401,6 +390,15 @@ export default function CompanyPage() {
               </CardContent>
             </Card>
 
+            {/* Join requests (OWNER/ADMIN sees pending requests here) */}
+            {activeCompany && (
+              <JoinRequestsPanel companyId={activeCompany.id} userId={Number(user.id)} />
+            )}
+						
+						{activeCompany && (
+							<TakeoverPopup companyId={activeCompany.id} userId={Number(user.id)} />
+						)}
+
             {/* Company Details Form */}
             {activeCompany && (
               <Card>
@@ -408,22 +406,21 @@ export default function CompanyPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <CardTitle>Company Details</CardTitle>
-                      <CardDescription>
-                        This information will be used in reports and invoices
-                      </CardDescription>
+                      <CardDescription>This information will be used in reports and invoices</CardDescription>
                     </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="text-destructive hover:text-destructive"
-                    onClick={handleDeleteCompany}
-                    disabled={!canDeleteActiveCompany}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
-                  </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive hover:text-destructive"
+                      onClick={handleDeleteCompany}
+                      disabled={!canDeleteActiveCompany}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </Button>
                   </div>
                 </CardHeader>
+
                 <CardContent>
                   <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="grid md:grid-cols-2 gap-4">
@@ -436,6 +433,7 @@ export default function CompanyPage() {
                           placeholder="Your Company AB"
                         />
                       </div>
+
                       <div className="space-y-2">
                         <Label htmlFor="organizationNumber">Organization Number *</Label>
                         <Input
@@ -449,9 +447,7 @@ export default function CompanyPage() {
                           className={isExistingCompany ? "bg-muted cursor-not-allowed" : ""}
                         />
                         {isExistingCompany ? (
-                          <p className="text-xs text-muted-foreground">
-                            Organization number cannot be changed after creation
-                          </p>
+                          <p className="text-xs text-muted-foreground">Organization number cannot be changed after creation</p>
                         ) : (
                           <p className="text-xs text-muted-foreground">
                             {formData.organizationNumber.replace(/-/g, "").length}/10 digits
@@ -525,10 +521,9 @@ export default function CompanyPage() {
                           <SelectItem value="K3">K3</SelectItem>
                         </SelectContent>
                       </Select>
+
                       {!canDeleteActiveCompany && (
-                        <p className="text-xs text-muted-foreground">
-                          Save at least two companies before deleting one.
-                        </p>
+                        <p className="text-xs text-muted-foreground">Save at least two companies before deleting one.</p>
                       )}
                     </div>
 

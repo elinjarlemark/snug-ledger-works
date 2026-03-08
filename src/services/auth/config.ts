@@ -5,7 +5,7 @@ import { AuthConfig } from "./types";
 // For now, we use hardcoded values that can be easily replaced
 export const authConfig: AuthConfig = {
   // Test account configuration
-  enableTestAccount: true,
+  enableTestAccount: false,
   testAccountEmail: "test@test.com",
   testAccountPassword: "test",
   
