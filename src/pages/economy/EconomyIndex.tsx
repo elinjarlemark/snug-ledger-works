@@ -270,7 +270,23 @@ export default function EconomyIndex() {
         </CardContent>
       </Card>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Rolling 12-month Net Result */}
+      <div className="rounded-lg border border-border bg-card p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-muted-foreground">Net Result — Last 12 Months</p>
+            <p className={`text-xl font-bold mt-1 ${rolling12 >= 0 ? "text-green-600" : "text-destructive"}`}>
+              {rolling12 >= 0 ? "+" : ""}{rolling12.toLocaleString("sv-SE", { minimumFractionDigits: 2 })} SEK
+            </p>
+          </div>
+          {rolling12 >= 0 ? (
+            <TrendingUp className="h-5 w-5 text-green-600" />
+          ) : (
+            <TrendingDown className="h-5 w-5 text-destructive" />
+          )}
+        </div>
+      </div>
+
         {economyModules.map((module, index) => {
           const Icon = module.icon;
           return (
