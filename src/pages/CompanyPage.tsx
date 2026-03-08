@@ -530,6 +530,18 @@ export default function CompanyPage() {
                       )}
                     </div>
 
+                    <div className="space-y-2">
+                      <Label htmlFor="invoiceBookingAccount">Invoice Booking Account</Label>
+                      <Input
+                        id="invoiceBookingAccount"
+                        value={formData.invoiceBookingAccount}
+                        onChange={(e) => handleChange("invoiceBookingAccount", e.target.value.replace(/\D/g, ""))}
+                        placeholder="1930"
+                        maxLength={4}
+                      />
+                      <p className="text-xs text-muted-foreground">Account used for debit when booking paid invoices (default: 1930)</p>
+                    </div>
+
                     <div className="grid md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="fiscalYearStart">Fiscal Year Start</Label>
