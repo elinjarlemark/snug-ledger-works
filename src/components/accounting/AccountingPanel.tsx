@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
-import { Plus, Eye, Calendar, Search } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Plus, Eye, Calendar, Search, Lock, Unlock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccounting, Voucher } from "@/contexts/AccountingContext";
+import { useFiscalLock } from "@/contexts/FiscalLockContext";
 import { VoucherForm } from "./VoucherForm";
 import { VoucherDetails } from "./VoucherDetails";
 import { VoucherPagination } from "./VoucherPagination";
@@ -14,6 +15,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { YearSelector } from "@/components/ui/year-selector";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 const VOUCHERS_PER_PAGE = 10;
 
@@ -32,12 +34,14 @@ export function AccountingPanel({
 }: AccountingPanelProps) {
   const { user } = useAuth();
   const { vouchers } = useAccounting();
+  const { isYearLocked, lockYear, unlockYear } = useFiscalLock();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
   const [editingVoucher, setEditingVoucher] = useState<Voucher | null>(null);
   const [duplicatingVoucher, setDuplicatingVoucher] = useState<Voucher | null>(null);
 
-  const [selectedYear, setSelectedYear] = useState<number | undefined>(new Date().getFullYear());
+  const today = new Date();
+  const [selectedYear, setSelectedYear] = useState<number | undefined>(today.getFullYear());
   const [voucherStartDate, setVoucherStartDate] = useState<Date | undefined>(
     selectedYear ? new Date(selectedYear, 0, 1) : undefined
   );
@@ -46,6 +50,8 @@ export function AccountingPanel({
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+
+  const currentYearLocked = selectedYear !== undefined ? isYearLocked(selectedYear) : false;
 
   useEffect(() => {
     if (selectedYear !== undefined) {
@@ -58,7 +64,6 @@ export function AccountingPanel({
     setCurrentPage(1);
   }, [searchQuery, voucherStartDate, voucherEndDate]);
 
-  // Handle incoming duplicate from other panel
   useEffect(() => {
     if (incomingDuplicate) {
       setDuplicatingVoucher(incomingDuplicate);
@@ -107,19 +112,10 @@ export function AccountingPanel({
     setDuplicatingVoucher(null);
   };
 
-  const handleEditVoucher = () => {
-    if (selectedVoucher) {
-      setEditingVoucher(selectedVoucher);
-      setSelectedVoucher(null);
-    }
-  };
-
   const handleDuplicateVoucher = (voucher: Voucher) => {
     if (onDuplicateToOther) {
-      // In compare mode, duplicate to other panel
       onDuplicateToOther(voucher);
     } else {
-      // Normal mode - duplicate in place
       setDuplicatingVoucher(voucher);
       setShowCreateForm(true);
       setSelectedVoucher(null);
@@ -132,6 +128,17 @@ export function AccountingPanel({
     setVoucherEndDate(undefined);
     setSelectedYear(undefined);
     setSearchQuery("");
+  };
+
+  const handleToggleLock = () => {
+    if (selectedYear === undefined) return;
+    if (currentYearLocked) {
+      unlockYear(selectedYear);
+      toast.info(`Fiscal year ${selectedYear} unlocked`);
+    } else {
+      lockYear(selectedYear);
+      toast.success(`Fiscal year ${selectedYear} locked`);
+    }
   };
 
   if (!user) return null;
@@ -160,7 +167,6 @@ export function AccountingPanel({
         <VoucherDetails
           voucher={selectedVoucher}
           onClose={() => setSelectedVoucher(null)}
-          onEdit={handleEditVoucher}
           onDuplicate={handleDuplicateVoucher}
         />
       )}
@@ -178,8 +184,31 @@ export function AccountingPanel({
           {/* Filters */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className={compact ? "text-base" : "text-lg"}>Voucher Period</CardTitle>
-              <CardDescription>Filter vouchers by date range</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className={compact ? "text-base" : "text-lg"}>Voucher Period</CardTitle>
+                  <CardDescription>Filter vouchers by date range</CardDescription>
+                </div>
+                {selectedYear !== undefined && (
+                  <Button
+                    variant={currentYearLocked ? "destructive" : "outline"}
+                    size="sm"
+                    onClick={handleToggleLock}
+                  >
+                    {currentYearLocked ? (
+                      <>
+                        <Lock className="h-4 w-4 mr-1" />
+                        Unlock {selectedYear}
+                      </>
+                    ) : (
+                      <>
+                        <Unlock className="h-4 w-4 mr-1" />
+                        Lock {selectedYear}
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap items-center gap-2">
@@ -203,6 +232,7 @@ export function AccountingPanel({
                       mode="single"
                       selected={voucherStartDate}
                       onSelect={setVoucherStartDate}
+                      disabled={{ after: today }}
                       initialFocus
                       className="p-3 pointer-events-auto"
                     />
@@ -228,6 +258,7 @@ export function AccountingPanel({
                       mode="single"
                       selected={voucherEndDate}
                       onSelect={setVoucherEndDate}
+                      disabled={{ after: today }}
                       initialFocus
                       className="p-3 pointer-events-auto"
                     />
@@ -242,6 +273,11 @@ export function AccountingPanel({
                   Clear
                 </Button>
               </div>
+              {currentYearLocked && (
+                <p className="text-sm text-destructive mt-2 flex items-center gap-1">
+                  <Lock className="h-3 w-3" /> This fiscal year is locked. Vouchers cannot be reverted.
+                </p>
+              )}
             </CardContent>
           </Card>
 

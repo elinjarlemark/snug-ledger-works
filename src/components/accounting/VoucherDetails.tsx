@@ -1,8 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { Voucher, useAccounting } from "@/contexts/AccountingContext";
+import { useAuditTrail } from "@/contexts/AuditTrailContext";
+import { useFiscalLock } from "@/contexts/FiscalLockContext";
 import { formatAmount } from "@/lib/bas-accounts";
-import { X, RotateCcw, Trash2, Edit, FileText, Image, ExternalLink, Copy } from "lucide-react";
+import { X, RotateCcw, FileText, Image, ExternalLink, Copy, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { useRef } from "react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface VoucherDetailsProps {
   voucher: Voucher;
@@ -11,16 +15,23 @@ interface VoucherDetailsProps {
   onDuplicate?: (voucher: Voucher) => void;
 }
 
-export function VoucherDetails({ voucher, onClose, onEdit, onDuplicate }: VoucherDetailsProps) {
-  const { createVoucher, deleteVoucher } = useAccounting();
+export function VoucherDetails({ voucher, onClose, onDuplicate }: VoucherDetailsProps) {
+  const { createVoucher, updateVoucher } = useAccounting();
+  const { addEntry } = useAuditTrail();
+  const { isYearLocked } = useFiscalLock();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const voucherYear = new Date(voucher.date).getFullYear();
+  const yearLocked = isYearLocked(voucherYear);
 
   const handleRevert = () => {
-    // Create a reversal voucher with opposite debit/credit
+    if (yearLocked) return;
+
     const reversalLines = voucher.lines.map(line => ({
       id: crypto.randomUUID(),
       accountNumber: line.accountNumber,
       accountName: line.accountName,
-      debit: line.credit, // Swap debit and credit
+      debit: line.credit,
       credit: line.debit,
     }));
 
@@ -31,6 +42,7 @@ export function VoucherDetails({ voucher, onClose, onEdit, onDuplicate }: Vouche
     });
 
     if (reversalVoucher) {
+      addEntry(`Created voucher #${reversalVoucher.voucherNumber}, revert of voucher #${voucher.voucherNumber}`);
       toast.success(`Reversal voucher #${reversalVoucher.voucherNumber} created`);
       onClose();
     } else {
@@ -38,10 +50,42 @@ export function VoucherDetails({ voucher, onClose, onEdit, onDuplicate }: Vouche
     }
   };
 
-  const handleDelete = () => {
-    deleteVoucher(voucher.id);
-    toast.success(`Voucher #${voucher.voucherNumber} deleted`);
-    onClose();
+  const handleAddReceipt = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach(file => {
+      const isValid = file.type.startsWith("image/") || file.type === "application/pdf";
+      if (!isValid) {
+        toast.error(`Invalid file type: ${file.name}. Only images and PDFs are allowed.`);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const ext = file.name.split(".").pop() || "jpg";
+        const newName = `voucher_${voucher.voucherNumber}.${ext}`;
+        const newAttachment = {
+          id: crypto.randomUUID(),
+          name: newName,
+          type: file.type,
+          dataUrl: reader.result as string,
+        };
+        const updatedAttachments = [...(voucher.attachments || []), newAttachment];
+        const updated = updateVoucher(voucher.id, { attachments: updatedAttachments });
+        if (updated) {
+          addEntry(`Added receipt to voucher #${voucher.voucherNumber}`);
+          toast.success(`Receipt added to voucher #${voucher.voucherNumber}`);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const openAttachment = (dataUrl: string) => {
@@ -60,6 +104,8 @@ export function VoucherDetails({ voucher, onClose, onEdit, onDuplicate }: Vouche
 
   return (
     <div className="bg-card rounded-xl border border-border p-6 space-y-6">
+      <input ref={fileInputRef} type="file" accept="image/*,.pdf" multiple className="hidden" onChange={handleFileChange} />
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-foreground">
@@ -159,20 +205,27 @@ export function VoucherDetails({ voucher, onClose, onEdit, onDuplicate }: Vouche
             Copy
           </Button>
         )}
-        {onEdit && (
-          <Button variant="outline" onClick={onEdit}>
-            <Edit className="h-4 w-4 mr-2" />
-            Edit Voucher
-          </Button>
-        )}
-        <Button variant="outline" onClick={handleRevert}>
-          <RotateCcw className="h-4 w-4 mr-2" />
-          Revert Voucher
+        <Button variant="outline" onClick={handleAddReceipt}>
+          <Upload className="h-4 w-4 mr-2" />
+          Add Receipt
         </Button>
-        <Button variant="destructive" onClick={handleDelete}>
-          <Trash2 className="h-4 w-4 mr-2" />
-          Delete Voucher
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span>
+              <Button
+                variant="destructive"
+                onClick={handleRevert}
+                disabled={yearLocked}
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Revert Voucher
+              </Button>
+            </span>
+          </TooltipTrigger>
+          {yearLocked && (
+            <TooltipContent>Year is locked</TooltipContent>
+          )}
+        </Tooltip>
       </div>
     </div>
   );
