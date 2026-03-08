@@ -29,6 +29,7 @@ import FinancialStatementsPage from "./pages/economy/FinancialStatementsPage";
 import NewAnnualReportsPage from "./pages/economy/NewAnnualReportsPage";
 import AccountsPage from "./pages/economy/AccountsPage";
 import ReceiptsPage from "./pages/economy/ReceiptsPage";
+import VATReportPage from "./pages/economy/VATReportPage";
 import AdminPage from "./pages/AdminPage";
 import AuditTrailPage from "./pages/AuditTrailPage";
 import PreviewPage from "./pages/PreviewPage";
@@ -73,6 +74,7 @@ const App = () => (
                         <Route path="receipts" element={<ReceiptsPage />} />
                         <Route path="salary" element={<SalaryPage />} />
                         <Route path="declaration" element={<DeclarationPage />} />
+                        <Route path="vat-report" element={<VATReportPage />} />
                         <Route path="financial-statements" element={<FinancialStatementsPage />} />
                         <Route path="annual-reports" element={<NewAnnualReportsPage />} />
                         <Route path="accounts" element={<AccountsPage />} />

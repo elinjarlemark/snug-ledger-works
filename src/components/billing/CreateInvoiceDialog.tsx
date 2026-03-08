@@ -321,51 +321,51 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
 
   const formContent = (
     <div className="space-y-4">
-      {/* Customer + Dates row */}
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="flex-1 min-w-[200px] space-y-1">
+      {/* Customer + Dates */}
+      <div className="flex flex-wrap gap-3">
+        <div className="flex-1 min-w-[200px] space-y-1.5">
           <Label className="text-xs font-semibold">Customer</Label>
-          <div className="flex gap-2">
-            {customers.length > 0 && (
-              <Select value={selectedCustomerId} onValueChange={(v) => { setSelectedCustomerId(v); setInlineCustomer(null); }}>
-                <SelectTrigger className="flex-1 h-9 text-sm"><SelectValue placeholder="Select customer..." /></SelectTrigger>
-                <SelectContent>
-                  {customers.map(c => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            )}
-            <Button type="button" variant="outline" size="sm" className="h-9" onClick={() => setShowNewCustomerForm(true)}>
-              <UserPlus className="h-4 w-4 mr-1" />New
-            </Button>
+          {customers.length > 0 && (
+            <Select value={selectedCustomerId} onValueChange={(v) => { setSelectedCustomerId(v); setInlineCustomer(null); }}>
+              <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select customer..." /></SelectTrigger>
+              <SelectContent>
+                {customers.map(c => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}
+              </SelectContent>
+            </Select>
+          )}
+          <Button type="button" variant="outline" size="sm" className="h-9 w-full" onClick={() => setShowNewCustomerForm(true)}>
+            <UserPlus className="h-4 w-4 mr-1" />New Customer
+          </Button>
+        </div>
+        <div className="space-y-1.5">
+          <div className="space-y-1">
+            <Label className="text-xs">Issue Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 w-[140px] justify-start text-left font-normal text-sm">
+                  <CalendarIcon className="mr-1 h-3.5 w-3.5" />
+                  {format(issueDate, "yyyy-MM-dd")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={issueDate} onSelect={(d) => d && setIssueDate(d)} initialFocus className="p-3 pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
           </div>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Issue Date</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 w-[140px] justify-start text-left font-normal text-sm">
-                <CalendarIcon className="mr-1 h-3.5 w-3.5" />
-                {format(issueDate, "yyyy-MM-dd")}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={issueDate} onSelect={(d) => d && setIssueDate(d)} initialFocus className="p-3 pointer-events-auto" />
-            </PopoverContent>
-          </Popover>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Due Date</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 w-[140px] justify-start text-left font-normal text-sm">
-                <CalendarIcon className="mr-1 h-3.5 w-3.5" />
-                {format(dueDate, "yyyy-MM-dd")}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={dueDate} onSelect={(d) => d && setDueDate(d)} initialFocus className="p-3 pointer-events-auto" />
-            </PopoverContent>
-          </Popover>
+          <div className="space-y-1">
+            <Label className="text-xs">Due Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 w-[140px] justify-start text-left font-normal text-sm">
+                  <CalendarIcon className="mr-1 h-3.5 w-3.5" />
+                  {format(dueDate, "yyyy-MM-dd")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={dueDate} onSelect={(d) => d && setDueDate(d)} initialFocus className="p-3 pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
       </div>
 
@@ -378,7 +378,21 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
         <Label className="text-sm font-semibold">Line Items</Label>
 
         {lines.map((line, index) => (
-          <div key={index} className="border rounded-lg p-2 bg-muted/20 space-y-1">
+          <div key={index} className="border rounded-lg p-2 bg-muted/20 space-y-1 relative">
+            {canAddAsProduct(index) && (
+              <div className="absolute top-1 right-1">
+                <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] px-1.5" onClick={() => handleAddProductFromLine(index)}>
+                  <Plus className="h-3 w-3 mr-0.5" />Add Product
+                </Button>
+              </div>
+            )}
+            {isLineFromExistingProduct(index) && hasLinePriceChanged(index) && (
+              <div className="absolute top-1 right-1">
+                <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] px-1.5" onClick={() => handleUpdateProductFromLine(index)}>
+                  Update Product
+                </Button>
+              </div>
+            )}
             <div className="grid grid-cols-12 gap-2 items-end">
               <div className="col-span-3 space-y-1">
                 <Label className="text-xs">Name</Label>
@@ -440,19 +454,6 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </div>
-            </div>
-            {/* Add Product / Update Product buttons */}
-            <div className="flex gap-2">
-              {canAddAsProduct(index) && (
-                <Button type="button" variant="outline" size="sm" onClick={() => handleAddProductFromLine(index)}>
-                  <Plus className="h-3 w-3 mr-1" />Add Product
-                </Button>
-              )}
-              {isLineFromExistingProduct(index) && hasLinePriceChanged(index) && (
-                <Button type="button" variant="outline" size="sm" onClick={() => handleUpdateProductFromLine(index)}>
-                  Update Product
-                </Button>
-              )}
             </div>
           </div>
         ))}

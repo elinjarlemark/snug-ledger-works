@@ -40,7 +40,7 @@ interface Employee {
   city: string;
   salary: number;
   jobTitle: string;
-  employmentType: "full-time" | "part-time" | "seasonal";
+  employmentType: "full-time" | "part-time" | "seasonal" | "hourly";
 }
 
 function EmployeeForm({
@@ -54,18 +54,19 @@ function EmployeeForm({
 }) {
   const [name, setName] = useState(editEmployee?.name || "");
   const [personalNumber, setPersonalNumber] = useState(editEmployee?.personalNumber || "");
+  const [employmentType, setEmploymentType] = useState<Employee["employmentType"]>(
+    editEmployee?.employmentType || "full-time"
+  );
+  const isHourly = employmentType === "hourly";
   const [address, setAddress] = useState(editEmployee?.address || "");
   const [postalCode, setPostalCode] = useState(editEmployee?.postalCode || "");
   const [city, setCity] = useState(editEmployee?.city || "");
   const [salary, setSalary] = useState(editEmployee?.salary?.toString() || "");
   const [jobTitle, setJobTitle] = useState(editEmployee?.jobTitle || "");
-  const [employmentType, setEmploymentType] = useState<Employee["employmentType"]>(
-    editEmployee?.employmentType || "full-time"
-  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) { toast.error("Name is required"); return; }
+    if (!name.trim() || /[0-9]/.test(name)) { toast.error("Valid name is required (no numbers)"); return; }
     if (!personalNumber.trim() || personalNumber.replace(/\D/g, "").length !== 12) {
       toast.error("Valid personal number (12 digits) is required"); return;
     }
@@ -100,7 +101,7 @@ function EmployeeForm({
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="space-y-1.5">
         <Label className="text-xs">Name *</Label>
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className="h-9 text-sm" required />
+        <Input value={name} onChange={(e) => setName(e.target.value.replace(/[0-9]/g, ""))} placeholder="Full name" className="h-9 text-sm" required />
       </div>
       <div className="space-y-1.5">
         <Label className="text-xs">Personal Number *</Label>
@@ -117,7 +118,7 @@ function EmployeeForm({
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">City *</Label>
-          <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Stockholm" className="h-9 text-sm" required />
+          <Input value={city} onChange={(e) => setCity(e.target.value.replace(/[0-9]/g, ""))} placeholder="Stockholm" className="h-9 text-sm" required />
         </div>
       </div>
       <div className="space-y-1.5">
@@ -126,8 +127,8 @@ function EmployeeForm({
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label className="text-xs">Monthly Salary (SEK) *</Label>
-          <Input type="number" min="0" step="100" value={salary} onChange={(e) => setSalary(e.target.value)} placeholder="35000" className="h-9 text-sm" required />
+          <Label className="text-xs">{isHourly ? "Hourly Salary (SEK)" : "Monthly Salary (SEK)"} *</Label>
+          <Input type="number" min="0" step="1" value={salary} onChange={(e) => setSalary(e.target.value)} placeholder={isHourly ? "250" : "35000"} className="h-9 text-sm" required />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">Employment Type *</Label>
@@ -137,6 +138,7 @@ function EmployeeForm({
               <SelectItem value="full-time">Full-time</SelectItem>
               <SelectItem value="part-time">Part-time</SelectItem>
               <SelectItem value="seasonal">Seasonal</SelectItem>
+              <SelectItem value="hourly">Hourly</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -202,6 +204,7 @@ export default function SalaryPage() {
       case "full-time": return "Full-time";
       case "part-time": return "Part-time";
       case "seasonal": return "Seasonal";
+      case "hourly": return "Hourly";
       default: return t;
     }
   };
@@ -272,7 +275,7 @@ export default function SalaryPage() {
                 <th className="text-left py-2 px-3 font-medium text-foreground">Personal Number</th>
                 <th className="text-left py-2 px-3 font-medium text-foreground">Job Title</th>
                 <th className="text-left py-2 px-3 font-medium text-foreground">Type</th>
-                <th className="text-right py-2 px-3 font-medium text-foreground">Salary</th>
+                <th className="text-right py-2 px-3 font-medium text-foreground">Salary (SEK)</th>
                 <th className="text-right py-2 px-3 font-medium text-foreground">Actions</th>
               </tr>
             </thead>
@@ -291,7 +294,7 @@ export default function SalaryPage() {
                     </span>
                   </td>
                   <td className="py-2 px-3 text-right font-mono text-foreground">
-                    {emp.salary.toLocaleString("sv-SE")} SEK
+                    {emp.salary.toLocaleString("sv-SE")} {emp.employmentType === "hourly" ? "SEK/h" : "SEK/mån"}
                   </td>
                   <td className="py-2 px-3 text-right">
                     <div className="flex items-center justify-end gap-1">
