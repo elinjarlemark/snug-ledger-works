@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccounting } from "@/contexts/AccountingContexts";
+import { useAuditTrail } from "@/contexts/AuditTrailContext";
 import { authService } from "@/services/auth";
 import { toast } from "sonner";
 import { Building, Save, ArrowLeft, Plus, Trash2, Check, Upload, Download, User } from "lucide-react";
