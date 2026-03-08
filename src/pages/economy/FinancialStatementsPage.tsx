@@ -92,12 +92,11 @@ function ReportPanel({ compact }: ReportPanelProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Date Range Selector */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className={compact ? "text-base" : "text-lg"}>Report Period</CardTitle>
-          <CardDescription>Select the date range for your financial reports</CardDescription>
+        <CardHeader className="py-3 pb-2">
+          <CardTitle className={compact ? "text-base" : "text-base"}>Report Period</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap items-center gap-2">
