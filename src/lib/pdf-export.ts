@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { GeneralLedgerEntry } from "@/contexts/AccountingContext";
+import { Invoice } from "@/lib/billing/types";
 import { formatAmount } from "@/lib/bas-accounts";
 
 interface CompanyInfo {
