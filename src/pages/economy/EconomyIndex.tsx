@@ -168,7 +168,7 @@ export default function EconomyIndex() {
   }
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       <div className="space-y-1">
         <h1 className="text-xl font-bold text-foreground">Economy Overview</h1>
       </div>
