@@ -393,7 +393,7 @@ export default function CompanyPage() {
 
             {/* Join requests (OWNER/ADMIN sees pending requests here) */}
             {activeCompany && (
-              <JoinRequestsPanel companyId={activeCompany.id} userId={Number(user.id)} />
+              <JoinRequestsPanel companyId={activeCompany.id} userId={String(user.id)} />
             )}
 						
 						{activeCompany && (
