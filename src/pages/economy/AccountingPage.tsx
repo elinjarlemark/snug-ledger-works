@@ -29,6 +29,7 @@ export default function AccountingPage() {
   const [triggerCreate, setTriggerCreate] = useState(false);
 
   const autoOpenCreate = !!(location.state as any)?.openCreateVoucher || triggerCreate;
+  const prefillVoucher = (location.state as any)?.prefillVoucher || null;
 
   const layoutContext = useOutletContext<{ setSidebarCollapsed?: (v: boolean) => void } | null>();
 
