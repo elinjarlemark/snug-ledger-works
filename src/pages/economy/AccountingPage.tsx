@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { BookOpen, FileSpreadsheet, ListChecks, Calculator, Lock, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { BookOpen, FileSpreadsheet, ListChecks, Calculator, Lock, X, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useOutletContext, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -37,12 +37,18 @@ const accountRules = [
 export default function AccountingPage() {
   const { user } = useAuth();
   const { vouchers } = useAccounting();
+
+  // Always scroll to top when arriving at accounting page
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, []);
   const location = useLocation();
   const [compareMode, setCompareMode] = useState(false);
   const [duplicateToRight, setDuplicateToRight] = useState<Voucher | null>(null);
   const [duplicateToLeft, setDuplicateToLeft] = useState<Voucher | null>(null);
+  const [triggerCreate, setTriggerCreate] = useState(false);
 
-  const autoOpenCreate = !!(location.state as any)?.openCreateVoucher;
+  const autoOpenCreate = !!(location.state as any)?.openCreateVoucher || triggerCreate;
 
   // Get sidebar control from layout
   const layoutContext = useOutletContext<{ setSidebarCollapsed?: (v: boolean) => void } | null>();
@@ -94,7 +100,7 @@ export default function AccountingPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div>
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
             <BookOpen className="h-5 w-5 text-secondary" />
@@ -106,10 +112,16 @@ export default function AccountingPage() {
             </p>
           </div>
         </div>
+        {user && (
+          <Button size="sm" onClick={() => setTriggerCreate(true)}>
+            <Plus className="h-4 w-4 mr-1" />
+            Create Voucher
+          </Button>
+        )}
       </div>
 
       {/* Main Panel */}
-      {user && <AccountingPanel autoOpenCreate={autoOpenCreate} onToggleCompare={handleToggleCompare} />}
+      {user && <AccountingPanel autoOpenCreate={autoOpenCreate} onAutoOpenCreateConsumed={() => setTriggerCreate(false)} onToggleCompare={handleToggleCompare} />}
 
       {/* Introduction */}
       <>

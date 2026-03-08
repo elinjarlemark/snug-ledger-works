@@ -25,6 +25,7 @@ interface AccountingPanelProps {
   onClearIncomingDuplicate?: () => void;
   onDuplicateToOther?: (voucher: Voucher) => void;
   autoOpenCreate?: boolean;
+  onAutoOpenCreateConsumed?: () => void;
   onToggleCompare?: () => void;
 }
 
@@ -34,6 +35,7 @@ export function AccountingPanel({
   onClearIncomingDuplicate,
   onDuplicateToOther,
   autoOpenCreate,
+  onAutoOpenCreateConsumed,
   onToggleCompare,
 }: AccountingPanelProps) {
   const { user } = useAuth();
@@ -62,6 +64,7 @@ export function AccountingPanel({
   useEffect(() => {
     if (autoOpenCreate) {
       handleCreateClick();
+      onAutoOpenCreateConsumed?.();
     }
   }, [autoOpenCreate]);
 
@@ -188,13 +191,7 @@ export function AccountingPanel({
 
       {/* Voucher List */}
       {!showCreateForm && !selectedVoucher && !editingVoucher && (
-        <>
-          <div className="flex justify-end">
-            <Button onClick={handleCreateClick} size={compact ? "sm" : "default"}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Voucher
-            </Button>
-          </div>
+         <>
 
           {/* Filters */}
           <Card>
