@@ -889,6 +889,8 @@ export default function BillingPage() {
               onClose={() => setSelectedInvoice(null)}
               onDelete={(id) => { deleteInvoice(id); toast.success("Quote deleted"); }}
               onEdit={() => toast.info("Edit functionality coming soon")}
+              onStatusChange={(id, status) => { updateInvoiceStatus(id, status); setSelectedInvoice(prev => prev ? { ...prev, status } : null); }}
+              onConvertQuote={(id) => { const inv = convertQuoteToInvoice(id); if (inv) { setSelectedInvoice(inv); toast.success("Quote accepted and converted to invoice"); } }}
             />
           )}
 
