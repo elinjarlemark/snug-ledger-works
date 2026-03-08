@@ -427,7 +427,7 @@ export default function BillingPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="customers" className="w-full">
+      <Tabs defaultValue="invoices" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="customers" className="gap-2">
             <Users className="h-4 w-4" />
@@ -646,9 +646,9 @@ export default function BillingPage() {
                           </td>
                           <td className="py-2 px-3">
                             <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
-                              invoice.status === "paid" ? "bg-success/10 text-success" :
+                              invoice.status === "paid" ? "bg-green-500/10 text-green-600" :
                               invoice.status === "overdue" ? "bg-destructive/10 text-destructive" :
-                              invoice.status === "sent" ? "bg-secondary/10 text-secondary" :
+                              invoice.status === "sent" ? "bg-blue-500/10 text-blue-600" :
                               "bg-muted text-muted-foreground"
                             }`}>
                               {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
