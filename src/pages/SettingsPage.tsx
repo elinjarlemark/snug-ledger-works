@@ -46,7 +46,7 @@ export default function SettingsPage() {
   } = useAuth();
 
   const { importSIE, exportSIE, vouchers } = useAccounting();
-  const { lockedYears, isYearLocked, lockYear, unlockYear } = useFiscalLock();
+  const { lockedYears, isYearLocked, lockYear, unlockYear, canLockYear } = useFiscalLock();
   const { vouchers: mainVouchers } = useAccountingMain();
   const { entries: auditEntries } = useAuditTrail();
   const navigate = useNavigate();
