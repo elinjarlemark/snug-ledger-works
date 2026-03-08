@@ -276,30 +276,14 @@ export default function EconomyIndex() {
                   <Icon className="h-6 w-6 text-secondary" />
                 </div>
               </div>
-              
-              <h3 className="text-base font-semibold text-foreground mb-1">
+
+              <h3 className="text-base font-semibold text-foreground mb-6">
                 {module.name}
               </h3>
-              
-              <p className="text-muted-foreground text-sm mb-4">
-                {module.description}
-              </p>
-              
-              <ul className="space-y-2 mb-6">
-                {module.features.map((feature) => (
-                  <li
-                    key={feature}
-                    className="text-sm text-muted-foreground flex items-center gap-2"
-                  >
-                    <div className="w-1.5 h-1.5 rounded-full bg-secondary" />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-              
+
               <Button variant="outline" className="w-full" asChild>
                 <Link to={module.href}>
-                  Learn More
+                  Open
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
