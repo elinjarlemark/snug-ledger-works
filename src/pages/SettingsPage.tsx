@@ -89,11 +89,19 @@ export default function SettingsPage() {
     }
   }, [activeCompany]);
 
+  // Clean up unsaved company on unmount / navigate away
+  useEffect(() => {
+    return () => {
+      if (isNewCompany && activeCompany && !activeCompany.organizationNumber) {
+        deleteCompany(activeCompany.id);
+        if (originalCompanyId) setActiveCompany(originalCompanyId);
+      }
+    };
+  }, [isNewCompany, activeCompany, originalCompanyId]);
+
   useEffect(() => {
     if (!user) navigate("/login");
   }, [user, navigate]);
-
-  if (!user) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
