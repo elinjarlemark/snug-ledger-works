@@ -52,6 +52,14 @@ export default function SettingsPage() {
   const [showAccountingStandardConfirmAlert, setShowAccountingStandardConfirmAlert] = useState(false);
   const [pendingAccountingStandard, setPendingAccountingStandard] = useState<"K2" | "K3" | "" | null>(null);
 
+  // Delete company flow states
+  const [showDeleteCompanyConfirm, setShowDeleteCompanyConfirm] = useState(false);
+  const [showDeleteCompanyExport, setShowDeleteCompanyExport] = useState(false);
+
+  // Delete account flow states
+  const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
+  const [showDeleteAccountBye, setShowDeleteAccountBye] = useState(false);
+
   // Personal settings
   const [personalNumber, setPersonalNumber] = useState("");
 
