@@ -131,6 +131,7 @@ export default function AccountingPage() {
         autoOpenCreate={autoOpenCreate}
         onAutoOpenCreateConsumed={() => setTriggerCreate(false)}
         onToggleCompare={handleToggleCompare}
+        prefillVoucher={prefillVoucher}
       />
     </div>
   );
