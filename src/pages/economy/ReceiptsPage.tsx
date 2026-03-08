@@ -48,6 +48,7 @@ export default function ReceiptsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [relinkDialog, setRelinkDialog] = useState<string | null>(null);
   const [selectedVoucherId, setSelectedVoucherId] = useState("");
+  const [voucherPickerOpen, setVoucherPickerOpen] = useState(false);
 
   if (!user) {
     return (
