@@ -49,6 +49,7 @@ export interface AuthContextType {
 
   signup: (email: string, password: string, name: string) => Promise<void>;
   logout: () => void;
+  deleteAccount: () => Promise<void>;
 
   addCompany: (company: Omit<CompanyProfile, 'id'>) => CompanyProfile;
   updateCompany: (company: CompanyProfile) => void;
