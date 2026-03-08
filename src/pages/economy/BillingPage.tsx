@@ -280,21 +280,58 @@ function ProductForm({
 }
 
 // Invoice Detail View (inline)
-function InvoiceDetailView({ invoice, onClose }: { invoice: Invoice; onClose: () => void }) {
+function InvoiceDetailView({ 
+  invoice, 
+  onClose, 
+  onDelete, 
+  onEdit 
+}: { 
+  invoice: Invoice; 
+  onClose: () => void; 
+  onDelete: (id: string) => void;
+  onEdit: (invoice: Invoice) => void;
+}) {
+  const { activeCompany } = useAuth();
   const isQuote = invoice.documentType === "quote";
   const docLabel = isQuote ? "Quote" : "Invoice";
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showSendDialog, setShowSendDialog] = useState(false);
+  const [emailTo, setEmailTo] = useState("");
+  const [emailSubject, setEmailSubject] = useState(`${docLabel} #${invoice.invoiceNumber} from ${activeCompany?.companyName || "us"}`);
+  const [emailBody, setEmailBody] = useState(
+    `Hi,\n\nPlease find the attached ${docLabel.toLowerCase()} #${invoice.invoiceNumber}.\n\nTotal amount: ${formatAmount(invoice.total)} SEK\nDue date: ${invoice.dueDate}\n\nBest regards,\n${activeCompany?.companyName || ""}`
+  );
+
+  const handleSendManually = () => {
+    exportInvoicePDF(invoice, activeCompany ? {
+      companyName: activeCompany.companyName,
+      organizationNumber: activeCompany.organizationNumber,
+    } : undefined);
+    toast.success(`${docLabel} downloaded as PDF`);
+    setShowSendDialog(false);
+  };
+
   return (
     <div className="bg-card rounded-xl border border-border p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-foreground">{docLabel} #{invoice.invoiceNumber}</h2>
-          <p className="text-sm text-muted-foreground">
-            {invoice.customerName}
-          </p>
+          <p className="text-sm text-muted-foreground">{invoice.customerName}</p>
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose}>
-          <X className="h-5 w-5" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="destructive" size="sm" onClick={() => setShowDeleteConfirm(true)}>
+            <Trash2 className="h-4 w-4 mr-1" />Delete
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => onEdit(invoice)}>
+            <Edit className="h-4 w-4 mr-1" />Edit
+          </Button>
+          <Button size="sm" onClick={() => setShowSendDialog(true)}>
+            <Send className="h-4 w-4 mr-1" />Send
+          </Button>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg">
@@ -367,13 +404,77 @@ function InvoiceDetailView({ invoice, onClose }: { invoice: Invoice; onClose: ()
           </tfoot>
         </table>
       </div>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {docLabel}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {docLabel.toLowerCase()} #{invoice.invoiceNumber}. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { onDelete(invoice.id); onClose(); }}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Send Dialog */}
+      <Dialog open={showSendDialog} onOpenChange={setShowSendDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send {docLabel}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">Choose how to send this {docLabel.toLowerCase()}:</p>
+            
+            <Button variant="outline" className="w-full justify-start gap-3 h-auto py-3" onClick={handleSendManually}>
+              <Download className="h-5 w-5 shrink-0" />
+              <div className="text-left">
+                <p className="font-medium">Send Manually</p>
+                <p className="text-xs text-muted-foreground">Download as PDF and send it yourself</p>
+              </div>
+            </Button>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+              <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">or</span></div>
+            </div>
+
+            <div className="border rounded-lg p-4 space-y-3 opacity-80">
+              <div className="flex items-center gap-2 mb-2">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <p className="font-medium text-sm">Send Automatically via Email</p>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">Coming Soon</span>
+              </div>
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">To</Label>
+                  <Input value={emailTo} onChange={(e) => setEmailTo(e.target.value)} placeholder="customer@example.com" className="h-8 text-sm" disabled />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Subject</Label>
+                  <Input value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} className="h-8 text-sm" disabled />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Message</Label>
+                  <Textarea value={emailBody} onChange={(e) => setEmailBody(e.target.value)} rows={4} className="text-sm resize-none" disabled />
+                </div>
+                <p className="text-[10px] text-muted-foreground">The {docLabel.toLowerCase()} PDF will be attached automatically.</p>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
 export default function BillingPage() {
   const { user } = useAuth();
-  const { customers, products, invoices, addCustomer, updateCustomer, deleteCustomer, addProduct, updateProduct, deleteProduct } = useBilling();
+  const { customers, products, invoices, addCustomer, updateCustomer, deleteCustomer, addProduct, updateProduct, deleteProduct, deleteInvoice } = useBilling();
   const location = useLocation();
   
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
