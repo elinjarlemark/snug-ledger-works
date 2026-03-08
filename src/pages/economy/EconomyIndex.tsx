@@ -11,6 +11,8 @@ import {
   Wallet,
   ArrowRight,
   LogIn,
+  TrendingUp,
+  TrendingDown,
 } from "lucide-react";
 import {
   ChartContainer,
@@ -20,7 +22,7 @@ import {
 import { Area, AreaChart, XAxis, YAxis, ReferenceLine } from "recharts";
 import { useAccounting } from "@/contexts/AccountingContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { format, startOfMonth, endOfMonth } from "date-fns";
+import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 
 const economyModules = [
   {
@@ -106,6 +108,15 @@ export default function EconomyIndex() {
     const totalExpenses = expenses.reduce((sum, e) => sum + Math.abs(e.balance), 0);
     return { totalRevenue, totalExpenses, netResult };
   }, [getIncomeStatement, currentYear]);
+
+  // Rolling 12-month net result
+  const rolling12 = useMemo(() => {
+    const now = new Date();
+    const start = format(startOfMonth(subMonths(now, 11)), "yyyy-MM-dd");
+    const end = format(endOfMonth(now), "yyyy-MM-dd");
+    const { netResult } = getIncomeStatement(start, end);
+    return netResult;
+  }, [getIncomeStatement]);
 
   // Not logged in - show informational overview
   if (!user) {
@@ -258,6 +269,23 @@ export default function EconomyIndex() {
           )}
         </CardContent>
       </Card>
+
+      {/* Rolling 12-month Net Result */}
+      <div className="rounded-lg border border-border bg-card p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-muted-foreground">Net Result — Last 12 Months</p>
+            <p className={`text-xl font-bold mt-1 ${rolling12 >= 0 ? "text-green-600" : "text-destructive"}`}>
+              {rolling12 >= 0 ? "+" : ""}{rolling12.toLocaleString("sv-SE", { minimumFractionDigits: 2 })} SEK
+            </p>
+          </div>
+          {rolling12 >= 0 ? (
+            <TrendingUp className="h-5 w-5 text-green-600" />
+          ) : (
+            <TrendingDown className="h-5 w-5 text-destructive" />
+          )}
+        </div>
+      </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {economyModules.map((module, index) => {
