@@ -40,7 +40,7 @@ export function AccountingPanel({
 }: AccountingPanelProps) {
   const { user } = useAuth();
   const { vouchers } = useAccounting();
-  const { isYearLocked, lockYear, unlockYear } = useFiscalLock();
+  const { isYearLocked } = useFiscalLock();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
   const [editingVoucher, setEditingVoucher] = useState<Voucher | null>(null);
