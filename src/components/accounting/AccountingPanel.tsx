@@ -64,6 +64,7 @@ export function AccountingPanel({
   useEffect(() => {
     if (autoOpenCreate) {
       handleCreateClick();
+      onAutoOpenCreateConsumed?.();
     }
   }, [autoOpenCreate]);
 

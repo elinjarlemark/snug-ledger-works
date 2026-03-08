@@ -121,7 +121,7 @@ export default function AccountingPage() {
       </div>
 
       {/* Main Panel */}
-      {user && <AccountingPanel autoOpenCreate={autoOpenCreate} onToggleCompare={handleToggleCompare} />}
+      {user && <AccountingPanel autoOpenCreate={autoOpenCreate} onAutoOpenCreateConsumed={() => setTriggerCreate(false)} onToggleCompare={handleToggleCompare} />}
 
       {/* Introduction */}
       <>
