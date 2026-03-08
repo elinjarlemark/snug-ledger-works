@@ -35,6 +35,7 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
   const { activeCompany } = useAuth();
   const { addEntry } = useAuditTrail();
   const { addReceipt } = useReceipts();
+  const { isDateInLockedYear } = useFiscalLock();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const debitInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
   const creditInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
