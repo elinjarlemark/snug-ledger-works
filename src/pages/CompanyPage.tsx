@@ -73,6 +73,7 @@ export default function CompanyPage() {
     fiscalYearStart: "01-01",
     fiscalYearEnd: "12-31",
     accountingStandard: "" as "K2" | "K3" | "",
+    invoiceBookingAccount: "1930",
   });
 
   useEffect(() => {
