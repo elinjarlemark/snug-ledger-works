@@ -1,12 +1,20 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Voucher, useAccounting } from "@/contexts/AccountingContext";
 import { useAuditTrail } from "@/contexts/AuditTrailContext";
 import { useFiscalLock } from "@/contexts/FiscalLockContext";
+import { useReceipts } from "@/contexts/ReceiptsContext";
 import { formatAmount } from "@/lib/bas-accounts";
-import { X, RotateCcw, FileText, Image, ExternalLink, Copy, Upload } from "lucide-react";
+import { X, RotateCcw, FileText, Image, ExternalLink, Copy, Upload, Trash2, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { useRef } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface VoucherDetailsProps {
   voucher: Voucher;
@@ -16,13 +24,17 @@ interface VoucherDetailsProps {
 }
 
 export function VoucherDetails({ voucher, onClose, onDuplicate }: VoucherDetailsProps) {
-  const { createVoucher, updateVoucher } = useAccounting();
+  const { createVoucher } = useAccounting();
   const { addEntry } = useAuditTrail();
   const { isYearLocked } = useFiscalLock();
+  const { addReceipt, getReceiptsForVoucher, unlinkReceipt } = useReceipts();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showReceiptsDialog, setShowReceiptsDialog] = useState(false);
 
   const voucherYear = new Date(voucher.date).getFullYear();
   const yearLocked = isYearLocked(voucherYear);
+
+  const voucherReceipts = getReceiptsForVoucher(voucher.id);
 
   const handleRevert = () => {
     if (yearLocked) return;
@@ -69,23 +81,25 @@ export function VoucherDetails({ voucher, onClose, onDuplicate }: VoucherDetails
       reader.onload = () => {
         const ext = file.name.split(".").pop() || "jpg";
         const newName = `voucher_${voucher.voucherNumber}.${ext}`;
-        const newAttachment = {
-          id: crypto.randomUUID(),
+        addReceipt({
           name: newName,
           type: file.type,
           dataUrl: reader.result as string,
-        };
-        const updatedAttachments = [...(voucher.attachments || []), newAttachment];
-        const updated = updateVoucher(voucher.id, { attachments: updatedAttachments });
-        if (updated) {
-          addEntry(`Added receipt to voucher #${voucher.voucherNumber}`);
-          toast.success(`Receipt added to voucher #${voucher.voucherNumber}`);
-        }
+          voucherId: voucher.id,
+          voucherNumber: voucher.voucherNumber,
+        });
+        addEntry(`Added receipt to voucher #${voucher.voucherNumber}`);
+        toast.success(`Receipt added to voucher #${voucher.voucherNumber}`);
       };
       reader.readAsDataURL(file);
     });
 
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleRemoveReceipt = (receiptId: string) => {
+    unlinkReceipt(receiptId);
+    toast.info("Receipt removed from voucher (still available in Receipts page)");
   };
 
   const openAttachment = (dataUrl: string) => {
@@ -132,29 +146,16 @@ export function VoucherDetails({ voucher, onClose, onDuplicate }: VoucherDetails
         </div>
       </div>
 
-      {/* Attachments */}
-      {voucher.attachments && voucher.attachments.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-muted-foreground">Attachments</p>
-          <div className="flex flex-wrap gap-2">
-            {voucher.attachments.map((attachment) => (
-              <Button
-                key={attachment.id}
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() => openAttachment(attachment.dataUrl)}
-              >
-                {attachment.type.startsWith("image/") ? (
-                  <Image className="h-4 w-4" />
-                ) : (
-                  <FileText className="h-4 w-4" />
-                )}
-                <span className="max-w-32 truncate">{attachment.name}</span>
-                <ExternalLink className="h-3 w-3" />
-              </Button>
-            ))}
-          </div>
+      {/* Receipts indicator */}
+      {voucherReceipts.length > 0 && (
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-medium text-muted-foreground">
+            Receipts ({voucherReceipts.length})
+          </p>
+          <Button variant="outline" size="sm" onClick={() => setShowReceiptsDialog(true)}>
+            <Eye className="h-4 w-4 mr-1" />
+            View Receipts
+          </Button>
         </div>
       )}
 
@@ -186,12 +187,8 @@ export function VoucherDetails({ voucher, onClose, onDuplicate }: VoucherDetails
           <tfoot>
             <tr className="border-t border-border bg-muted/30">
               <td colSpan={2} className="p-3 font-semibold">Total</td>
-              <td className="p-3 text-right font-mono font-semibold">
-                {formatAmount(totalDebit)}
-              </td>
-              <td className="p-3 text-right font-mono font-semibold">
-                {formatAmount(totalCredit)}
-              </td>
+              <td className="p-3 text-right font-mono font-semibold">{formatAmount(totalDebit)}</td>
+              <td className="p-3 text-right font-mono font-semibold">{formatAmount(totalCredit)}</td>
             </tr>
           </tfoot>
         </table>
@@ -227,6 +224,40 @@ export function VoucherDetails({ voucher, onClose, onDuplicate }: VoucherDetails
           )}
         </Tooltip>
       </div>
+
+      {/* View Receipts Dialog */}
+      <Dialog open={showReceiptsDialog} onOpenChange={setShowReceiptsDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Receipts for Voucher #{voucher.voucherNumber}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 max-h-96 overflow-y-auto">
+            {voucherReceipts.map((receipt) => (
+              <div key={receipt.id} className="flex items-center justify-between p-3 rounded-lg border border-border">
+                <div className="flex items-center gap-2">
+                  {receipt.type.startsWith("image/") ? (
+                    <Image className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                  )}
+                  <span className="text-sm font-medium truncate max-w-48">{receipt.name}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="sm" onClick={() => openAttachment(receipt.dataUrl)}>
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleRemoveReceipt(receipt.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+            {voucherReceipts.length === 0 && (
+              <p className="text-center text-muted-foreground py-4">No receipts attached.</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -4,14 +4,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useAccounting, VoucherLine, VoucherAttachment, Voucher } from "@/contexts/AccountingContext";
+import { useAccounting, VoucherLine, Voucher } from "@/contexts/AccountingContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuditTrail } from "@/contexts/AuditTrailContext";
+import { useReceipts } from "@/contexts/ReceiptsContext";
 import { formatAmount } from "@/lib/bas-accounts";
 import { getBASAccountsForDate } from "@/lib/bas-accounts";
 import { Plus, Trash2, Check, AlertCircle, X, Upload, FileText, Image, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+interface PendingAttachment {
+  id: string;
+  name: string;
+  type: string;
+  dataUrl: string;
+}
 
 interface VoucherFormProps {
   onCancel: () => void;
@@ -25,6 +33,7 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
   const { accounts, nextVoucherNumber, createVoucher, updateVoucher, validateVoucher } = useAccounting();
   const { activeCompany } = useAuth();
   const { addEntry } = useAuditTrail();
+  const { addReceipt } = useReceipts();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const debitInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
   const creditInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
@@ -38,9 +47,7 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
       { id: crypto.randomUUID(), accountNumber: "", accountName: "", debit: 0, credit: 0 },
     ]
   );
-  const [attachments, setAttachments] = useState<VoucherAttachment[]>(
-    sourceVoucher?.attachments?.map(a => ({ ...a, id: crypto.randomUUID() })) || []
-  );
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const [openComboboxes, setOpenComboboxes] = useState<Record<string, boolean>>({});
   const [pendingFocusLineId, setPendingFocusLineId] = useState<string | null>(null);
   const [dateAccounts, setDateAccounts] = useState(accounts);
@@ -65,12 +72,10 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
     );
   }, [dateAccounts]);
 
-  // Focus debit input after account selection
   useEffect(() => {
     if (pendingFocusLineId) {
       const debitInput = debitInputRefs.current.get(pendingFocusLineId);
       if (debitInput) {
-        // Small delay to ensure the popover is fully closed
         setTimeout(() => {
           debitInput.focus();
           debitInput.select();
@@ -97,20 +102,16 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
   const updateLine = (id: string, field: keyof VoucherLine, value: string | number) => {
     setLines(lines.map(l => {
       if (l.id !== id) return l;
-      
       if (field === "accountNumber") {
         const account = dateAccounts.find(a => a.number === value);
         return { ...l, accountNumber: value as string, accountName: account?.name || "" };
       }
-      
-      // Ensure only one of debit/credit is filled
       if (field === "debit" && Number(value) > 0) {
         return { ...l, debit: value as number, credit: 0 };
       }
       if (field === "credit" && Number(value) > 0) {
         return { ...l, credit: value as number, debit: 0 };
       }
-      
       return { ...l, [field]: value };
     }));
   };
@@ -128,25 +129,22 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
 
       const reader = new FileReader();
       reader.onload = () => {
-        const newAttachment: VoucherAttachment = {
+        const newAttachment: PendingAttachment = {
           id: crypto.randomUUID(),
           name: file.name,
           type: file.type,
           dataUrl: reader.result as string,
         };
-        setAttachments(prev => [...prev, newAttachment]);
+        setPendingAttachments(prev => [...prev, newAttachment]);
       };
       reader.readAsDataURL(file);
     });
 
-    // Reset file input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const removeAttachment = (id: string) => {
-    setAttachments(prev => prev.filter(a => a.id !== id));
+    setPendingAttachments(prev => prev.filter(a => a.id !== id));
   };
 
   const handleSubmit = () => {
@@ -154,19 +152,15 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
       toast.error("Voucher must be balanced (debit = credit)");
       return;
     }
-    
     if (!date || !description.trim()) {
       toast.error("Please fill in date and description");
       return;
     }
-
-    // Prevent future dates
     const today = new Date().toISOString().split("T")[0];
     if (date > today) {
       toast.error("Date cannot be in the future");
       return;
     }
-    
     const validLines = lines.filter(l => l.accountNumber && (l.debit > 0 || l.credit > 0));
     if (validLines.length < 2) {
       toast.error("Voucher must have at least 2 valid lines");
@@ -178,7 +172,6 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
         date,
         description: description.trim(),
         lines: validLines,
-        attachments,
       });
       if (updated) {
         toast.success(`Voucher #${updated.voucherNumber} updated successfully`);
@@ -187,21 +180,25 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
         toast.error("Failed to update voucher");
       }
     } else {
-      // Rename attachments to use the voucher number
       const voucherNum = nextVoucherNumber;
-      const renamedAttachments = attachments.map((a) => {
-        const ext = a.name.split(".").pop() || "jpg";
-        return { ...a, name: `voucher_${voucherNum}.${ext}` };
-      });
-
       const voucher = createVoucher({
         date,
         description: description.trim(),
         lines: validLines,
-        attachments: renamedAttachments,
       });
 
       if (voucher) {
+        // Add receipts to the receipts store linked to this voucher
+        pendingAttachments.forEach(a => {
+          const ext = a.name.split(".").pop() || "jpg";
+          addReceipt({
+            name: `voucher_${voucher.voucherNumber}.${ext}`,
+            type: a.type,
+            dataUrl: a.dataUrl,
+            voucherId: voucher.id,
+            voucherNumber: voucher.voucherNumber,
+          });
+        });
         addEntry(`Created voucher #${voucher.voucherNumber}`);
         toast.success(`Voucher #${voucher.voucherNumber} created successfully`);
         onSuccess();
@@ -260,44 +257,23 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <Label>Receipts / Attachments</Label>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => fileInputRef.current?.click()}
-          >
+          <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
             <Upload className="h-4 w-4 mr-1" />
             Add Receipt
           </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*,.pdf"
-            multiple
-            className="hidden"
-            onChange={handleFileChange}
-          />
+          <input ref={fileInputRef} type="file" accept="image/*,.pdf" multiple className="hidden" onChange={handleFileChange} />
         </div>
-        {attachments.length > 0 && (
+        {pendingAttachments.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {attachments.map((attachment) => (
-              <div
-                key={attachment.id}
-                className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2 text-sm"
-              >
+            {pendingAttachments.map((attachment) => (
+              <div key={attachment.id} className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2 text-sm">
                 {attachment.type.startsWith("image/") ? (
                   <Image className="h-4 w-4 text-muted-foreground" />
                 ) : (
                   <FileText className="h-4 w-4 text-muted-foreground" />
                 )}
                 <span className="max-w-32 truncate">{attachment.name}</span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-5 w-5"
-                  onClick={() => removeAttachment(attachment.id)}
-                >
+                <Button type="button" variant="ghost" size="icon" className="h-5 w-5" onClick={() => removeAttachment(attachment.id)}>
                   <X className="h-3 w-3" />
                 </Button>
               </div>
@@ -336,9 +312,7 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
                     >
                       <PopoverTrigger asChild>
                         <Button
-                          ref={(el) => {
-                            if (el) accountButtonRefs.current.set(line.id, el);
-                          }}
+                          ref={(el) => { if (el) accountButtonRefs.current.set(line.id, el); }}
                           variant="outline"
                           role="combobox"
                           aria-expanded={openComboboxes[line.id] || false}
@@ -361,23 +335,17 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
                           <CommandList>
                             <CommandEmpty>No account found.</CommandEmpty>
                             <CommandGroup className="max-h-64 overflow-auto">
-                                  {dateAccounts.map((account) => (
+                              {dateAccounts.map((account) => (
                                 <CommandItem
                                   key={account.number}
                                   value={`${account.number} ${account.name}`}
                                   onSelect={() => {
                                     updateLine(line.id, "accountNumber", account.number);
                                     setOpenComboboxes(prev => ({ ...prev, [line.id]: false }));
-                                    // Focus debit input after account selection
                                     setPendingFocusLineId(line.id);
                                   }}
                                 >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      line.accountNumber === account.number ? "opacity-100" : "opacity-0"
-                                    )}
-                                  />
+                                  <Check className={cn("mr-2 h-4 w-4", line.accountNumber === account.number ? "opacity-100" : "opacity-0")} />
                                   <span className="font-mono">{account.number}</span>
                                   <span className="ml-2 text-muted-foreground">{account.name}</span>
                                 </CommandItem>
@@ -390,9 +358,7 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
                   </td>
                   <td className="p-2">
                     <Input
-                      ref={(el) => {
-                        if (el) debitInputRefs.current.set(line.id, el);
-                      }}
+                      ref={(el) => { if (el) debitInputRefs.current.set(line.id, el); }}
                       type="number"
                       min="0"
                       step="1"
@@ -403,14 +369,10 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
                         if (!/[\d.\-+eE]/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key) && !e.ctrlKey && !e.metaKey) {
                           e.preventDefault();
                         }
-                        // Tab from debit to credit
                         if (e.key === 'Tab' && !e.shiftKey) {
                           e.preventDefault();
                           const creditInput = creditInputRefs.current.get(line.id);
-                          if (creditInput) {
-                            creditInput.focus();
-                            creditInput.select();
-                          }
+                          if (creditInput) { creditInput.focus(); creditInput.select(); }
                         }
                       }}
                       placeholder="0.00"
@@ -418,9 +380,7 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
                   </td>
                   <td className="p-2">
                     <Input
-                      ref={(el) => {
-                        if (el) creditInputRefs.current.set(line.id, el);
-                      }}
+                      ref={(el) => { if (el) creditInputRefs.current.set(line.id, el); }}
                       type="number"
                       min="0"
                       step="1"
@@ -431,34 +391,22 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
                         if (!/[\d.\-+eE]/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key) && !e.ctrlKey && !e.metaKey) {
                           e.preventDefault();
                         }
-                        // Tab from credit to next row's account button
                         if (e.key === 'Tab' && !e.shiftKey) {
                           const nextLineIndex = lineIndex + 1;
                           if (nextLineIndex < lines.length) {
                             e.preventDefault();
                             const nextLine = lines[nextLineIndex];
                             const nextAccountButton = accountButtonRefs.current.get(nextLine.id);
-                            if (nextAccountButton) {
-                              nextAccountButton.focus();
-                            }
+                            if (nextAccountButton) nextAccountButton.focus();
                           }
-                          // If last row, let default tab behavior continue to Add Line button
                         }
                       }}
                       placeholder="0.00"
                     />
                   </td>
                   <td className="p-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeLine(line.id)}
-                      disabled={lines.length <= 2}
-                      className="h-8 w-8"
-                      tabIndex={-1}
-                    >
-                      <Trash2 className="h-4 w-4 text-muted-foreground" />
+                    <Button type="button" variant="ghost" size="icon" onClick={() => removeLine(line.id)} disabled={lines.length <= 2}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </td>
                 </tr>
@@ -466,52 +414,39 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
             </tbody>
             <tfoot>
               <tr className="border-t border-border bg-muted/30">
-                <td className="p-3 font-semibold">Total</td>
+                <td className="p-3 font-semibold">Balance</td>
                 <td className="p-3 text-right font-mono font-semibold">
-                  {formatAmount(validation.totalDebit)}
+                  {formatAmount(lines.reduce((s, l) => s + l.debit, 0))}
                 </td>
                 <td className="p-3 text-right font-mono font-semibold">
-                  {formatAmount(validation.totalCredit)}
+                  {formatAmount(lines.reduce((s, l) => s + l.credit, 0))}
                 </td>
-                <td></td>
+                <td className="p-3">
+                  {validation.isValid ? (
+                    <Check className="h-5 w-5 text-success mx-auto" />
+                  ) : (
+                    <AlertCircle className="h-5 w-5 text-destructive mx-auto" />
+                  )}
+                </td>
               </tr>
             </tfoot>
           </table>
         </div>
-
-        {/* Balance indicator */}
-        <div className={cn(
-          "flex items-center gap-2 p-3 rounded-lg",
-          validation.isValid 
-            ? "bg-success/10 text-success" 
-            : "bg-destructive/10 text-destructive"
-        )}>
-          {validation.isValid ? (
-            <>
-              <Check className="h-5 w-5" />
-              <span className="font-medium">Voucher is balanced</span>
-            </>
-          ) : (
-            <>
-              <AlertCircle className="h-5 w-5" />
-              <span className="font-medium">
-                Difference: {formatAmount(validation.difference)} SEK
-              </span>
-            </>
-          )}
-        </div>
       </div>
 
-      {/* Actions */}
+      {/* Validation */}
+      {!validation.isValid && (
+        <div className="flex items-center gap-2 text-destructive text-sm">
+          <AlertCircle className="h-4 w-4" />
+          <span>Difference: {formatAmount(validation.difference)} SEK — Voucher must be balanced.</span>
+        </div>
+      )}
+
+      {/* Submit */}
       <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button 
-          onClick={handleSubmit} 
-          disabled={!validation.isValid}
-        >
-          {editVoucher ? "Save Changes" : "Create Voucher"}
+        <Button variant="outline" onClick={onCancel}>Cancel</Button>
+        <Button onClick={handleSubmit} disabled={!validation.isValid}>
+          {editVoucher ? "Update Voucher" : "Save Voucher"}
         </Button>
       </div>
     </div>
