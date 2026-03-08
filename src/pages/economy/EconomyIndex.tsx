@@ -108,9 +108,6 @@ export default function EconomyIndex() {
       <div className="space-y-8 animate-fade-in">
         <div className="space-y-1">
           <h1 className="text-xl font-bold text-foreground">Economy Overview</h1>
-          <p className="text-sm text-muted-foreground">
-            A complete suite of tools for Swedish business accounting.
-          </p>
         </div>
 
         {/* Call to action for login */}
