@@ -183,30 +183,9 @@ export function AccountingPanel({
           {/* Filters */}
           <Card>
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div>
+              <div>
                   <CardTitle className={compact ? "text-base" : "text-lg"}>Voucher Period</CardTitle>
                   <CardDescription>Filter vouchers by date range</CardDescription>
-                </div>
-                {selectedYear !== undefined && (
-                  <Button
-                    variant={currentYearLocked ? "destructive" : "outline"}
-                    size="sm"
-                    onClick={handleToggleLock}
-                  >
-                    {currentYearLocked ? (
-                      <>
-                        <Lock className="h-4 w-4 mr-1" />
-                        Unlock {selectedYear}
-                      </>
-                    ) : (
-                      <>
-                        <Unlock className="h-4 w-4 mr-1" />
-                        Lock {selectedYear}
-                      </>
-                    )}
-                  </Button>
-                )}
               </div>
             </CardHeader>
             <CardContent>
