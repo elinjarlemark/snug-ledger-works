@@ -37,9 +37,12 @@ const accountRules = [
 export default function AccountingPage() {
   const { user } = useAuth();
   const { vouchers } = useAccounting();
+  const location = useLocation();
   const [compareMode, setCompareMode] = useState(false);
   const [duplicateToRight, setDuplicateToRight] = useState<Voucher | null>(null);
   const [duplicateToLeft, setDuplicateToLeft] = useState<Voucher | null>(null);
+
+  const autoOpenCreate = !!(location.state as any)?.openCreateVoucher;
 
   // Get sidebar control from layout
   const layoutContext = useOutletContext<{ setSidebarCollapsed?: (v: boolean) => void } | null>();
