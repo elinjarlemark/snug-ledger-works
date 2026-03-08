@@ -862,14 +862,19 @@ export default function BillingPage() {
                             {formatAmount(invoice.total)} SEK
                           </td>
                           <td className="py-2 px-3 text-right">
-                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
-                              invoice.status === "paid" ? "bg-green-500/10 text-green-600" :
-                              invoice.status === "overdue" ? "bg-destructive/10 text-destructive" :
-                              invoice.status === "sent" ? "bg-blue-500/10 text-blue-600" :
-                              "bg-muted text-muted-foreground"
-                            }`}>
-                              {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-                            </span>
+                            {(() => {
+                              const displayStatus = getDisplayStatus(invoice);
+                              return (
+                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                                  displayStatus === "paid" ? "bg-green-500/10 text-green-600" :
+                                  displayStatus === "overdue" ? "bg-destructive/10 text-destructive" :
+                                  displayStatus === "sent" ? "bg-blue-500/10 text-blue-600" :
+                                  "bg-muted text-muted-foreground"
+                                }`}>
+                                  {displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}
+                                </span>
+                              );
+                            })()}
                           </td>
                         </tr>
                       ))}
