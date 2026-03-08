@@ -85,15 +85,15 @@ export default function DeclarationPage() {
       <div className="border border-border rounded-md p-3 bg-muted/20 flex flex-wrap gap-x-8 gap-y-1 text-xs text-foreground">
         <div>
           <span className="text-muted-foreground">Organisationsnummer: </span>
-          <span className="font-medium">{companyProfile?.orgNumber || "—"}</span>
+          <span className="font-medium">{activeCompany?.organizationNumber || "—"}</span>
         </div>
         <div>
           <span className="text-muted-foreground">Namn: </span>
-          <span className="font-medium">{companyProfile?.name || "—"}</span>
+          <span className="font-medium">{activeCompany?.companyName || "—"}</span>
         </div>
         <div>
           <span className="text-muted-foreground">Räkenskapsår: </span>
-          <span className="font-medium">{companyProfile?.fiscalYear || "—"}</span>
+          <span className="font-medium">{activeCompany?.fiscalYearStart && activeCompany?.fiscalYearEnd ? `${activeCompany.fiscalYearStart} - ${activeCompany.fiscalYearEnd}` : "—"}</span>
         </div>
       </div>
 
