@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Receipt as ReceiptIcon, Trash2, Link2, Link2Off, Image, FileText, ExternalLink, Search } from "lucide-react";
+import { Receipt as ReceiptIcon, Trash2, Link2, Link2Off, Image, FileText, ExternalLink, Search, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,12 +14,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,6 +38,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Lock } from "lucide-react";
 import { Link } from "react-router-dom";
+import { cn } from "@/lib/utils";
 
 export default function ReceiptsPage() {
   const { user } = useAuth();
