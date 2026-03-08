@@ -241,6 +241,7 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
             id="date"
             type="date"
             value={date}
+            max={new Date().toISOString().split("T")[0]}
             onChange={(e) => setDate(e.target.value)}
           />
         </div>
