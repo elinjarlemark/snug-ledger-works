@@ -122,6 +122,7 @@ export function AccountingPanel({
     setShowCreateForm(false);
     setEditingVoucher(null);
     setDuplicatingVoucher(null);
+    window.scrollTo({ top: 0, behavior: "instant" });
   };
 
   const handleDuplicateVoucher = (voucher: Voucher) => {
