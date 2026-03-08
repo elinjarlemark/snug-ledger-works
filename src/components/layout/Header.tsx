@@ -18,8 +18,8 @@ import {
 import { User, LogOut, Check, ChevronDown, ClipboardList, Settings, Plus, FileText, BookOpen, Search } from "lucide-react";
 
 const loggedInNavItems = [
-  { name: "Settings", href: "/settings" },
   { name: "Economy", href: "/economy" },
+  { name: "Settings", href: "/settings" },
 ];
 
 const loggedOutNavItems = [

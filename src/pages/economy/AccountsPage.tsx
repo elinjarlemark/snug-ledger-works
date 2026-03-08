@@ -67,17 +67,17 @@ export default function AccountsPage() {
   const statementEndDate = selectedYear ? `${selectedYear}-12-31` : undefined;
 
   return (
-    <div className="space-y-12 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="space-y-4">
+      <div>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg bg-secondary/10 flex items-center justify-center">
-              <Wallet className="h-6 w-6 text-secondary" />
+            <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
+              <Wallet className="h-5 w-5 text-secondary" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-foreground">Accounts</h1>
-              <p className="text-muted-foreground">
+              <h1 className="text-xl font-bold text-foreground">Accounts</h1>
+              <p className="text-sm text-muted-foreground">
                 Chart of accounts based on Swedish BAS standard
               </p>
             </div>
@@ -88,7 +88,7 @@ export default function AccountsPage() {
       {/* Accounts List */}
       <section>
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-          <h2 className="text-2xl font-semibold text-foreground">
+          <h2 className="text-base font-semibold text-foreground">
             {user ? "Your Accounts" : "System Accounts"}
           </h2>
           <div className="flex items-center gap-2">
@@ -215,7 +215,7 @@ export default function AccountsPage() {
 
       {/* Account Classes Reference */}
       <section className="info-section">
-        <h2 className="text-xl font-semibold text-foreground mb-6">
+        <h2 className="text-base font-semibold text-foreground mb-4">
           Account Class Reference
         </h2>
         <div className="space-y-4">

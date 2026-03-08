@@ -64,38 +64,62 @@ export default function DeclarationPage() {
     }
   };
   return (
-    <div className="space-y-12 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-lg bg-secondary/10 flex items-center justify-center">
-            <FileCheck className="h-6 w-6 text-secondary" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Declaration</h1>
-            <p className="text-muted-foreground">
-              Tax declarations and regulatory compliance
-            </p>
-          </div>
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
+          <FileCheck className="h-5 w-5 text-secondary" />
+        </div>
+        <div>
+          <h1 className="text-xl font-bold text-foreground">Declaration</h1>
+          <p className="text-sm text-muted-foreground">
+            Tax declarations and regulatory compliance
+          </p>
         </div>
       </div>
 
+      {/* Create Declaration Section - Only show when logged in (moved to top) */}
+      {user && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Generate Declaration</CardTitle>
+            <CardDescription className="text-xs">
+              Create a tax declaration based on your bookkeeping data
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-3">
+              <p className="text-xs text-muted-foreground">
+                The declaration will be generated using data from your accounting records.
+                Make sure all transactions are recorded before generating.
+              </p>
+              <div>
+                <Button onClick={handleCreateDeclaration} size="sm" className="gap-2">
+                  <Play className="h-3.5 w-3.5" />
+                  Create Declaration
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Introduction */}
       <section className="info-section">
-        <h2 className="text-xl font-semibold text-foreground mb-4">
+        <h2 className="text-base font-semibold text-foreground mb-3">
           Simplified Tax Compliance
         </h2>
-        <p className="text-muted-foreground mb-4">
+        <p className="text-muted-foreground text-sm mb-3">
           The Declaration module helps you prepare and submit required tax declarations to Swedish authorities. All declaration data is derived directly from your bookkeeping records.
         </p>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground text-sm">
           Ensure accuracy with pre-submission validation and maintain a complete history of all submitted declarations for audit purposes.
         </p>
       </section>
 
       {/* Features Grid */}
       <section>
-        <h2 className="text-2xl font-semibold text-foreground mb-6">
+        <h2 className="text-base font-semibold text-foreground mb-4">
           Declaration Features
         </h2>
         <div className="grid md:grid-cols-2 gap-6">
@@ -118,7 +142,7 @@ export default function DeclarationPage() {
 
       {/* Declaration Types */}
       <section className="info-section">
-        <h2 className="text-xl font-semibold text-foreground mb-6">
+        <h2 className="text-base font-semibold text-foreground mb-4">
           Supported Declarations
         </h2>
         <div className="grid md:grid-cols-3 gap-6">
@@ -139,44 +163,21 @@ export default function DeclarationPage() {
         </div>
       </section>
 
-      {/* Create Declaration Section - Only show when logged in */}
-      {user ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Generate Declaration</CardTitle>
-            <CardDescription>
-              Create a tax declaration based on your bookkeeping data
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-4">
-              <p className="text-sm text-muted-foreground">
-                The declaration will be generated using data from your accounting records.
-                Make sure all transactions are recorded before generating.
-              </p>
-              <div>
-                <Button onClick={handleCreateDeclaration} className="gap-2">
-                  <Play className="h-4 w-4" />
-                  Create Declaration
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <section className="bg-primary/5 rounded-xl p-8 border border-primary/10">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-              <Lock className="h-6 w-6 text-primary" />
+      {/* Login Prompt - Only show when logged out */}
+      {!user && (
+        <section className="bg-primary/5 rounded-xl p-6 border border-primary/10">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <Lock className="h-5 w-5 text-primary" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-foreground mb-2">
+              <h3 className="text-sm font-semibold text-foreground mb-1">
                 Prepare Declarations
               </h3>
-              <p className="text-muted-foreground mb-4">
-                Sign in to prepare and review tax declarations. Generate accurate reports based on your bookkeeping data.
+              <p className="text-sm text-muted-foreground mb-3">
+                Sign in to prepare and review tax declarations.
               </p>
-              <Button asChild>
+              <Button size="sm" asChild>
                 <Link to="/login">Sign In</Link>
               </Button>
             </div>

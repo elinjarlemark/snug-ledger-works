@@ -124,10 +124,10 @@ export default function EconomyIndex() {
   if (!user) {
     return (
       <div className="space-y-8 animate-fade-in">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold text-foreground">Economy Overview</h1>
-          <p className="text-lg text-muted-foreground">
-            A complete suite of tools for Swedish business accounting. Explore what each module offers below.
+        <div className="space-y-1">
+          <h1 className="text-xl font-bold text-foreground">Economy Overview</h1>
+          <p className="text-sm text-muted-foreground">
+            A complete suite of tools for Swedish business accounting.
           </p>
         </div>
 
@@ -165,7 +165,7 @@ export default function EconomyIndex() {
                   </div>
                 </div>
                 
-                <h3 className="text-xl font-semibold text-foreground mb-2">
+                <h3 className="text-base font-semibold text-foreground mb-1">
                   {module.name}
                 </h3>
                 
@@ -194,10 +194,10 @@ export default function EconomyIndex() {
 
   return (
     <div className="space-y-8 animate-fade-in">
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold text-foreground">Economy Overview</h1>
-        <p className="text-lg text-muted-foreground">
-          A complete suite of tools for Swedish business accounting. Explore each module to learn more.
+      <div className="space-y-1">
+        <h1 className="text-xl font-bold text-foreground">Economy Overview</h1>
+        <p className="text-sm text-muted-foreground">
+          A complete suite of tools for Swedish business accounting.
         </p>
       </div>
 
@@ -310,7 +310,7 @@ export default function EconomyIndex() {
                 </div>
               </div>
               
-              <h3 className="text-xl font-semibold text-foreground mb-2">
+              <h3 className="text-base font-semibold text-foreground mb-1">
                 {module.name}
               </h3>
               

@@ -487,29 +487,27 @@ export default function FinancialStatementsPage() {
 
   if (!user) {
     return (
-      <div className="space-y-12 animate-fade-in">
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg bg-secondary/10 flex items-center justify-center">
-              <BarChart3 className="h-6 w-6 text-secondary" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">Financial Statements</h1>
-              <p className="text-muted-foreground">Financial statements and year-end procedures</p>
-            </div>
+      <div className="space-y-6 animate-fade-in">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
+            <BarChart3 className="h-5 w-5 text-secondary" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-foreground">Financial Statements</h1>
+            <p className="text-sm text-muted-foreground">Financial statements and year-end procedures</p>
           </div>
         </div>
-        <section className="bg-primary/5 rounded-xl p-8 border border-primary/10">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-              <Lock className="h-6 w-6 text-primary" />
+        <section className="bg-primary/5 rounded-xl p-6 border border-primary/10">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <Lock className="h-5 w-5 text-primary" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-foreground mb-2">Generate Reports</h3>
-              <p className="text-muted-foreground mb-4">
-                Sign in to generate financial statements and complete year-end closing procedures.
+              <h3 className="text-sm font-semibold text-foreground mb-1">Generate Reports</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Sign in to generate financial statements.
               </p>
-              <Button asChild>
+              <Button size="sm" asChild>
                 <Link to="/login">Sign In</Link>
               </Button>
             </div>
@@ -545,19 +543,19 @@ export default function FinancialStatementsPage() {
   }
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-lg bg-secondary/10 flex items-center justify-center">
-            <BarChart3 className="h-6 w-6 text-secondary" />
+          <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
+            <BarChart3 className="h-5 w-5 text-secondary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Financial Statements</h1>
-            <p className="text-muted-foreground">Financial statements for your business</p>
+            <h1 className="text-xl font-bold text-foreground">Financial Statements</h1>
+            <p className="text-sm text-muted-foreground">Financial statements for your business</p>
           </div>
         </div>
-        <Button variant="outline" onClick={handleToggleCompare}>
+        <Button variant="outline" size="sm" onClick={handleToggleCompare}>
           <Columns2 className="h-4 w-4 mr-2" />
           Compare
         </Button>
