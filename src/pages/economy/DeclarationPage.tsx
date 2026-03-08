@@ -142,7 +142,7 @@ export default function DeclarationPage() {
 
       {/* Declaration Types */}
       <section className="info-section">
-        <h2 className="text-xl font-semibold text-foreground mb-6">
+        <h2 className="text-base font-semibold text-foreground mb-4">
           Supported Declarations
         </h2>
         <div className="grid md:grid-cols-3 gap-6">
