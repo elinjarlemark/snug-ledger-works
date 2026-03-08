@@ -6,6 +6,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAccounting, VoucherLine, VoucherAttachment, Voucher } from "@/contexts/AccountingContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAuditTrail } from "@/contexts/AuditTrailContext";
 import { formatAmount } from "@/lib/bas-accounts";
 import { getBASAccountsForDate } from "@/lib/bas-accounts";
 import { Plus, Trash2, Check, AlertCircle, X, Upload, FileText, Image, ChevronDown } from "lucide-react";
@@ -23,6 +24,7 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
   const sourceVoucher = editVoucher || duplicateFrom;
   const { accounts, nextVoucherNumber, createVoucher, updateVoucher, validateVoucher } = useAccounting();
   const { activeCompany } = useAuth();
+  const { addEntry } = useAuditTrail();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const debitInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
   const creditInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
@@ -157,6 +159,13 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
       toast.error("Please fill in date and description");
       return;
     }
+
+    // Prevent future dates
+    const today = new Date().toISOString().split("T")[0];
+    if (date > today) {
+      toast.error("Date cannot be in the future");
+      return;
+    }
     
     const validLines = lines.filter(l => l.accountNumber && (l.debit > 0 || l.credit > 0));
     if (validLines.length < 2) {
@@ -178,14 +187,22 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
         toast.error("Failed to update voucher");
       }
     } else {
+      // Rename attachments to use the voucher number
+      const voucherNum = nextVoucherNumber;
+      const renamedAttachments = attachments.map((a) => {
+        const ext = a.name.split(".").pop() || "jpg";
+        return { ...a, name: `voucher_${voucherNum}.${ext}` };
+      });
+
       const voucher = createVoucher({
         date,
         description: description.trim(),
         lines: validLines,
-        attachments,
+        attachments: renamedAttachments,
       });
 
       if (voucher) {
+        addEntry(`Created voucher #${voucher.voucherNumber}`);
         toast.success(`Voucher #${voucher.voucherNumber} created successfully`);
         onSuccess();
       } else {
@@ -224,6 +241,7 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
             id="date"
             type="date"
             value={date}
+            max={new Date().toISOString().split("T")[0]}
             onChange={(e) => setDate(e.target.value)}
           />
         </div>

@@ -3,24 +3,15 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
-import { User, LogOut, Building, Check, ChevronDown } from "lucide-react";
+import { User, LogOut, Building, Check, ChevronDown, ClipboardList, Settings } from "lucide-react";
 
 const navItems = [
+  { name: "Settings", href: "/settings" },
   { name: "Economy", href: "/economy" },
-  { name: "Pricing", href: "/pricing" },
-  { name: "Support", href: "/support" },
-  { name: "About", href: "/about" },
 ];
 
 export function Header() {
@@ -46,22 +37,31 @@ export function Header() {
         </Link>
 
         <nav className="flex items-center gap-8">
-          {user && (
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              to={item.href}
+              className={cn(
+                "nav-link",
+                location.pathname.startsWith(item.href) && "active"
+              )}
+            >
+              {item.name}
+            </Link>
+          ))}
+          
+          {user ? (
             <HoverCard openDelay={100} closeDelay={200}>
               <HoverCardTrigger asChild>
-                <Link
-                  to="/company"
-                  className={cn(
-                    "nav-link flex items-center gap-1",
-                    location.pathname.startsWith("/company") && "active"
-                  )}
-                >
-                  Company
+                <Button variant="outline" size="sm" className="gap-2">
+                  <User className="h-4 w-4" />
+                  {user.name}
                   <ChevronDown className="h-3 w-3" />
-                </Link>
+                </Button>
               </HoverCardTrigger>
-              <HoverCardContent className="w-64 p-2 bg-popover border border-border shadow-lg z-50" align="start">
+              <HoverCardContent className="w-64 p-2 bg-popover border border-border shadow-lg z-50" align="end">
                 <div className="space-y-1">
+                  {/* Switch Company */}
                   <p className="text-xs text-muted-foreground px-2 py-1">Switch Company</p>
                   {companies.map((company) => (
                     <button
@@ -89,52 +89,36 @@ export function Header() {
                       </div>
                     </button>
                   ))}
-                  <div className="border-t border-border mt-2 pt-2">
-                    <Link
-                      to="/company"
+
+                  <div className="border-t border-border mt-2 pt-2 space-y-1">
+                    <button
+                      onClick={() => navigate("/audit-trail")}
                       className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm hover:bg-muted transition-colors"
                     >
-                      <Building className="h-4 w-4 ml-6" />
-                      Manage Companies
-                    </Link>
+                      <ClipboardList className="h-4 w-4 ml-6" />
+                      Audit Trail
+                    </button>
+                    <button
+                      onClick={() => navigate("/settings")}
+                      className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm hover:bg-muted transition-colors"
+                    >
+                      <Settings className="h-4 w-4 ml-6" />
+                      Settings
+                    </button>
+                  </div>
+
+                  <div className="border-t border-border mt-2 pt-2">
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm hover:bg-muted transition-colors text-destructive"
+                    >
+                      <LogOut className="h-4 w-4 ml-6" />
+                      Sign Out
+                    </button>
                   </div>
                 </div>
               </HoverCardContent>
             </HoverCard>
-          )}
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              to={item.href}
-              className={cn(
-                "nav-link",
-                location.pathname.startsWith(item.href) && "active"
-              )}
-            >
-              {item.name}
-            </Link>
-          ))}
-          
-          {user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <User className="h-4 w-4" />
-                  {user.name}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48 bg-popover border border-border z-50">
-                <DropdownMenuItem onClick={() => navigate("/company")}>
-                  <Building className="mr-2 h-4 w-4" />
-                  Company
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sign Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           ) : (
             <Button variant="default" size="sm" asChild>
               <Link to="/login">Sign In</Link>

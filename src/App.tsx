@@ -6,21 +6,19 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AccountingProvider } from "@/contexts/AccountingContext";
 import { BillingProvider } from "@/contexts/BillingContext";
+import { AuditTrailProvider } from "@/contexts/AuditTrailContext";
+import { FiscalLockProvider } from "@/contexts/FiscalLockContext";
 import { PublicLayout } from "@/components/layout/PublicLayout";
 import { EconomyLayout } from "@/components/layout/EconomyLayout";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { RequireCompany } from '@/components/RequireCompany';
 import { GlobalTakeoverListener } from "@/components/company/GlobalTakeoverListener";
 
-
 // Pages
 import Index from "./pages/Index";
-import PricingPage from "./pages/PricingPage";
-import SupportPage from "./pages/SupportPage";
-import AboutPage from "./pages/AboutPage";
 import LoginPage from "./pages/LoginPage";
 import CompanyGate from "./pages/CompanyGate";
-import CompanyPage from "./pages/CompanyPage";
+import SettingsPage from "./pages/SettingsPage";
 import EconomyIndex from "./pages/economy/EconomyIndex";
 import AccountingPage from "./pages/economy/AccountingPage";
 import BillingPage from "./pages/economy/BillingPage";
@@ -30,8 +28,8 @@ import FinancialStatementsPage from "./pages/economy/FinancialStatementsPage";
 import NewAnnualReportsPage from "./pages/economy/NewAnnualReportsPage";
 import AccountsPage from "./pages/economy/AccountsPage";
 import AdminPage from "./pages/AdminPage";
+import AuditTrailPage from "./pages/AuditTrailPage";
 import NotFound from "./pages/NotFound";
-
 
 const queryClient = new QueryClient();
 
@@ -40,48 +38,55 @@ const App = () => (
     <AuthProvider>
       <AccountingProvider>
         <BillingProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <ScrollToTop />
-							<GlobalTakeoverListener />
-              <Routes>
-                {/* Public pages with header/footer */}
-                <Route element={<PublicLayout />}>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/pricing" element={<PricingPage />} />
-                  <Route path="/support" element={<SupportPage />} />
-                  <Route path="/about" element={<AboutPage />} />
-                </Route>
+          <AuditTrailProvider>
+            <FiscalLockProvider>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner />
+                <BrowserRouter>
+                  <ScrollToTop />
+                  <GlobalTakeoverListener />
+                  <Routes>
+                    {/* Public pages with header/footer */}
+                    <Route element={<PublicLayout />}>
+                      <Route path="/" element={<Index />} />
+                    </Route>
 
-                {/* Economy section with sidebar */}
-                <Route path='/economy' element={<RequireCompany><EconomyLayout /></RequireCompany>}>
-                  <Route index element={<EconomyIndex />} />
-                  <Route path="accounting" element={<AccountingPage />} />
-                  <Route path="billing" element={<BillingPage />} />
-                  <Route path="salary" element={<SalaryPage />} />
-                  <Route path="declaration" element={<DeclarationPage />} />
-                  <Route path="financial-statements" element={<FinancialStatementsPage />} />
-                  <Route path="annual-reports" element={<NewAnnualReportsPage />} />
-                  <Route path="accounts" element={<AccountsPage />} />
-                </Route>
+                    {/* Economy section with sidebar */}
+                    <Route path='/economy' element={<RequireCompany><EconomyLayout /></RequireCompany>}>
+                      <Route index element={<EconomyIndex />} />
+                      <Route path="accounting" element={<AccountingPage />} />
+                      <Route path="billing" element={<BillingPage />} />
+                      <Route path="salary" element={<SalaryPage />} />
+                      <Route path="declaration" element={<DeclarationPage />} />
+                      <Route path="financial-statements" element={<FinancialStatementsPage />} />
+                      <Route path="annual-reports" element={<NewAnnualReportsPage />} />
+                      <Route path="accounts" element={<AccountsPage />} />
+                    </Route>
 
-                {/* Company */}
-                <Route path="/company" element={<CompanyPage />} />
+                    {/* Settings (replaces Company) */}
+                    <Route path="/settings" element={<SettingsPage />} />
 
-                {/* Admin */}
-                <Route path="/admin" element={<AdminPage />} />
+                    {/* Admin */}
+                    <Route path="/admin" element={<AdminPage />} />
 
-                {/* Auth */}
-                <Route path="/login" element={<LoginPage />} />
-				<Route path='/company-gate' element={<CompanyGate />} />
+                    {/* Audit Trail */}
+                    <Route path="/audit-trail" element={<AuditTrailPage />} />
 
-                {/* Catch-all */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
+                    {/* Auth */}
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path='/company-gate' element={<CompanyGate />} />
+
+                    {/* Legacy redirect */}
+                    <Route path="/company" element={<SettingsPage />} />
+
+                    {/* Catch-all */}
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </BrowserRouter>
+              </TooltipProvider>
+            </FiscalLockProvider>
+          </AuditTrailProvider>
         </BillingProvider>
       </AccountingProvider>
     </AuthProvider>
