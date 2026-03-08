@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+
 import { useAuth } from "@/contexts/AuthContext";
 import { useBilling } from "@/contexts/BillingContext";
 import { Customer, Product, Invoice, DocumentType, calculateProductPrice } from "@/lib/billing/types";
