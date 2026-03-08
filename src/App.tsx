@@ -29,6 +29,7 @@ import FinancialStatementsPage from "./pages/economy/FinancialStatementsPage";
 import NewAnnualReportsPage from "./pages/economy/NewAnnualReportsPage";
 import AccountsPage from "./pages/economy/AccountsPage";
 import ReceiptsPage from "./pages/economy/ReceiptsPage";
+import VATReportPage from "./pages/economy/VATReportPage";
 import AdminPage from "./pages/AdminPage";
 import AuditTrailPage from "./pages/AuditTrailPage";
 import PreviewPage from "./pages/PreviewPage";
