@@ -38,11 +38,12 @@ export default function AccountingPage() {
   const { user } = useAuth();
   const { vouchers } = useAccounting();
 
+  const location = useLocation();
+
   // Always scroll to top when arriving at accounting page
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
-  }, []);
-  const location = useLocation();
+  }, [location.pathname]);
   const [compareMode, setCompareMode] = useState(false);
   const [duplicateToRight, setDuplicateToRight] = useState<Voucher | null>(null);
   const [duplicateToLeft, setDuplicateToLeft] = useState<Voucher | null>(null);

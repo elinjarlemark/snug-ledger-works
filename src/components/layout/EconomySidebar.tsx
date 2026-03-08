@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
@@ -38,8 +37,6 @@ const sidebarItems = [
 export function EconomySidebar({ collapsed, onToggle }: EconomySidebarProps) {
   const location = useLocation();
   const { user } = useAuth();
-  const [pinned, setPinned] = useState(!collapsed);
-  const [hovered, setHovered] = useState(false);
 
   const navItems = user?.role === "admin"
     ? [...sidebarItems, { name: "Admin Panel", href: "/admin", icon: Shield, description: "Manage users" }]
@@ -51,19 +48,7 @@ export function EconomySidebar({ collapsed, onToggle }: EconomySidebarProps) {
     }
   };
 
-  const handleToggle = () => {
-    if (collapsed) {
-      // Expanding: pin it open
-      setPinned(true);
-      onToggle();
-    } else {
-      // Collapsing: unpin
-      setPinned(false);
-      onToggle();
-    }
-  };
-
-  const isExpanded = !collapsed || hovered;
+  const isExpanded = !collapsed;
 
   // Not logged in
   if (!user) {
@@ -73,16 +58,13 @@ export function EconomySidebar({ collapsed, onToggle }: EconomySidebarProps) {
           "fixed left-0 top-header h-[calc(100vh-var(--header-height))] bg-sidebar border-r border-sidebar-border z-40 transition-all duration-300 ease-in-out flex flex-col",
           collapsed ? "w-sidebar-collapsed" : "w-sidebar"
         )}
-        onMouseEnter={() => !pinned && collapsed && setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        style={{ width: isExpanded ? 'var(--sidebar-width)' : undefined }}
       >
         <div className="flex items-center justify-between p-4 border-b border-sidebar-border shrink-0">
           <span className={cn("font-semibold text-sidebar-foreground transition-opacity duration-200", !isExpanded && "opacity-0 w-0 overflow-hidden")}>
             Economy
           </span>
-          <Button variant="ghost" size="icon" onClick={handleToggle} className="text-sidebar-foreground hover:bg-sidebar-accent shrink-0">
-            {collapsed && !hovered ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          <Button variant="ghost" size="icon" onClick={onToggle} className="text-sidebar-foreground hover:bg-sidebar-accent shrink-0">
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </Button>
         </div>
         <div className={cn("flex-1 p-4 overflow-y-auto scrollbar-hide transition-opacity duration-200", !isExpanded && "opacity-0")}>
@@ -107,17 +89,15 @@ export function EconomySidebar({ collapsed, onToggle }: EconomySidebarProps) {
     <aside
       className={cn(
         "fixed left-0 top-header h-[calc(100vh-var(--header-height))] bg-sidebar border-r border-sidebar-border z-40 transition-all duration-300 ease-in-out flex flex-col",
-        collapsed && !hovered ? "w-sidebar-collapsed" : "w-sidebar"
+        collapsed ? "w-sidebar-collapsed" : "w-sidebar"
       )}
-      onMouseEnter={() => !pinned && collapsed && setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
     >
       <div className="flex items-center justify-between p-4 border-b border-sidebar-border shrink-0">
         <span className={cn("font-semibold text-sidebar-foreground transition-opacity duration-200 whitespace-nowrap", !isExpanded && "opacity-0 w-0 overflow-hidden")}>
           Economy
         </span>
-        <Button variant="ghost" size="icon" onClick={handleToggle} className="text-sidebar-foreground hover:bg-sidebar-accent shrink-0">
-          {collapsed && !hovered ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+        <Button variant="ghost" size="icon" onClick={onToggle} className="text-sidebar-foreground hover:bg-sidebar-accent shrink-0">
+          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </Button>
       </div>
 
@@ -132,7 +112,7 @@ export function EconomySidebar({ collapsed, onToggle }: EconomySidebarProps) {
               to={item.href}
               onClick={() => handleNavClick(item.href)}
               className={cn("economy-sidebar-link", isActive && "active")}
-              title={!isExpanded ? item.name : undefined}
+              title={collapsed ? item.name : undefined}
             >
               <Icon className="h-5 w-5 shrink-0" />
               <div className={cn("flex flex-col transition-opacity duration-200 whitespace-nowrap", !isExpanded && "opacity-0 w-0 overflow-hidden")}>
@@ -142,7 +122,6 @@ export function EconomySidebar({ collapsed, onToggle }: EconomySidebarProps) {
             </Link>
           );
         })}
-        <div className="h-16"></div>
       </nav>
 
       <div className={cn("p-3 border-t border-sidebar-border transition-opacity duration-200 shrink-0", !isExpanded && "opacity-0 pointer-events-none")}>
