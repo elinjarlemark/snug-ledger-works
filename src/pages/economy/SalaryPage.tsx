@@ -204,6 +204,7 @@ export default function SalaryPage() {
       case "full-time": return "Full-time";
       case "part-time": return "Part-time";
       case "seasonal": return "Seasonal";
+      case "hourly": return "Hourly";
       default: return t;
     }
   };
