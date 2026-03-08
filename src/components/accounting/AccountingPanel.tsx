@@ -146,17 +146,6 @@ export function AccountingPanel({
     setSearchQuery("");
   };
 
-  const handleToggleLock = () => {
-    if (selectedYear === undefined) return;
-    if (currentYearLocked) {
-      unlockYear(selectedYear);
-      toast.info(`Fiscal year ${selectedYear} unlocked`);
-    } else {
-      lockYear(selectedYear);
-      toast.success(`Fiscal year ${selectedYear} locked`);
-    }
-  };
-
   if (!user) return null;
 
   const totalPages = Math.ceil(filteredVouchers.length / VOUCHERS_PER_PAGE);
