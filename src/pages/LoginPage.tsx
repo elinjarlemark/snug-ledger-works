@@ -118,7 +118,7 @@ export default function LoginPage() {
             {isReset ? (
               <>
                 <div className='space-y-2'>
-                  <Label htmlFor='resetEmail'>Email address</Label>
+                  <Label htmlFor='resetEmail'>Email address *</Label>
                   <Input
                     id='resetEmail'
                     type='email'
