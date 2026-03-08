@@ -4,8 +4,13 @@ import { Header } from "./Header";
 import { EconomySidebar } from "./EconomySidebar";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { useInactivityLogout } from "@/hooks/useInactivityLogout";
+import { useUnlockOnTabClose } from "@/hooks/useUnlockOnTabClose";
+
 
 export function EconomyLayout() {
+	useInactivityLogout();
+	useUnlockOnTabClose();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { user, hasValidCompany, isLoading } = useAuth();
   const navigate = useNavigate();
