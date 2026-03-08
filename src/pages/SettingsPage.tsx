@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -88,6 +88,16 @@ export default function SettingsPage() {
       });
     }
   }, [activeCompany]);
+
+  // Clean up unsaved company on unmount / navigate away
+  useEffect(() => {
+    return () => {
+      if (isNewCompany && activeCompany && !activeCompany.organizationNumber) {
+        deleteCompany(activeCompany.id);
+        if (originalCompanyId) setActiveCompany(originalCompanyId);
+      }
+    };
+  }, [isNewCompany, activeCompany, originalCompanyId]);
 
   useEffect(() => {
     if (!user) navigate("/login");

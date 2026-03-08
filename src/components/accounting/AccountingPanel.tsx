@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Plus, Eye, Calendar, Search, Lock, Unlock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,7 @@ interface AccountingPanelProps {
   incomingDuplicate?: Voucher | null;
   onClearIncomingDuplicate?: () => void;
   onDuplicateToOther?: (voucher: Voucher) => void;
+  autoOpenCreate?: boolean;
 }
 
 export function AccountingPanel({
@@ -31,6 +32,7 @@ export function AccountingPanel({
   incomingDuplicate,
   onClearIncomingDuplicate,
   onDuplicateToOther,
+  autoOpenCreate,
 }: AccountingPanelProps) {
   const { user } = useAuth();
   const { vouchers } = useAccounting();
@@ -39,6 +41,7 @@ export function AccountingPanel({
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
   const [editingVoucher, setEditingVoucher] = useState<Voucher | null>(null);
   const [duplicatingVoucher, setDuplicatingVoucher] = useState<Voucher | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const today = new Date();
   const [selectedYear, setSelectedYear] = useState<number | undefined>(today.getFullYear());
@@ -53,6 +56,13 @@ export function AccountingPanel({
 
   const currentYearLocked = selectedYear !== undefined ? isYearLocked(selectedYear) : false;
 
+  // Auto-open create form from header shortcut
+  useEffect(() => {
+    if (autoOpenCreate) {
+      handleCreateClick();
+    }
+  }, [autoOpenCreate]);
+
   useEffect(() => {
     if (selectedYear !== undefined) {
       setVoucherStartDate(new Date(selectedYear, 0, 1));
@@ -62,6 +72,8 @@ export function AccountingPanel({
 
   useEffect(() => {
     setCurrentPage(1);
+    // Scroll list to top when search changes
+    listRef.current?.scrollIntoView({ behavior: "instant", block: "start" });
   }, [searchQuery, voucherStartDate, voucherEndDate]);
 
   useEffect(() => {
@@ -151,7 +163,7 @@ export function AccountingPanel({
     .slice(startIndex, startIndex + VOUCHERS_PER_PAGE);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" ref={listRef}>
       {/* Create/Edit/Duplicate Form */}
       {(showCreateForm || editingVoucher) && (
         <VoucherForm

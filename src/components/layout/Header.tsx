@@ -1,40 +1,83 @@
+import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
-import { User, LogOut, Building, Check, ChevronDown, ClipboardList, Settings } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { User, LogOut, Check, ChevronDown, ClipboardList, Settings, Plus, FileText, BookOpen, Search } from "lucide-react";
 
 const navItems = [
-  { name: "Settings", href: "/settings" },
   { name: "Economy", href: "/economy" },
+  { name: "Settings", href: "/settings" },
 ];
+
+const MAX_COMPANIES_SHOWN = 5;
 
 export function Header() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, companies, activeCompany, setActiveCompany } = useAuth();
+  const [companySearch, setCompanySearch] = useState("");
 
   const handleLogout = () => {
     logout();
     navigate("/");
   };
 
+  const filteredCompanies = companies.filter(c => {
+    if (!companySearch.trim()) return true;
+    const q = companySearch.toLowerCase();
+    return (c.companyName || "").toLowerCase().includes(q) || (c.organizationNumber || "").includes(q);
+  });
+
+  const showCompanySearch = companies.length > MAX_COMPANIES_SHOWN;
+  const displayedCompanies = showCompanySearch ? filteredCompanies : companies.slice(0, MAX_COMPANIES_SHOWN);
+
   return (
     <header className="sticky top-0 z-50 w-full h-header border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
       <div className="container flex h-full items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary">
-            <span className="text-primary-foreground font-bold text-lg">A</span>
-          </div>
-          <span className="text-xl font-bold text-foreground">
-            Account<span className="text-secondary">Pro</span>
-          </span>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2">
+            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary">
+              <span className="text-primary-foreground font-bold text-lg">A</span>
+            </div>
+            <span className="text-xl font-bold text-foreground">
+              Account<span className="text-secondary">Pro</span>
+            </span>
+          </Link>
+
+          {/* Quick Actions Dropdown */}
+          {user && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="ml-1 h-8 w-8">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={() => navigate("/economy/accounting", { state: { openCreateVoucher: true } })}>
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Create Voucher
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/economy/billing", { state: { openCreateInvoice: true } })}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Create Invoice
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
 
         <nav className="flex items-center gap-8">
           {navItems.map((item) => (
@@ -63,7 +106,20 @@ export function Header() {
                 <div className="space-y-1">
                   {/* Switch Company */}
                   <p className="text-xs text-muted-foreground px-2 py-1">Switch Company</p>
-                  {companies.map((company) => (
+                  {showCompanySearch && (
+                    <div className="px-2 pb-1">
+                      <div className="relative">
+                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                        <Input
+                          placeholder="Search companies..."
+                          value={companySearch}
+                          onChange={(e) => setCompanySearch(e.target.value)}
+                          className="h-7 pl-7 text-xs"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {displayedCompanies.map((company) => (
                     <button
                       key={company.id}
                       onClick={() => setActiveCompany(company.id)}

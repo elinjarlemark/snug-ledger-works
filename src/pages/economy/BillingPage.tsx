@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FileText, Users, Package, Plus, Trash2, Edit, Receipt, Eye, X, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +25,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBilling } from "@/contexts/BillingContext";
 import { Customer, Product, Invoice, calculateProductPrice } from "@/lib/billing/types";
 import { toast } from "sonner";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Lock } from "lucide-react";
 import { formatAmount } from "@/lib/bas-accounts";
 import { cn } from "@/lib/utils";
@@ -336,6 +336,7 @@ function InvoiceDetailView({ invoice, onClose }: { invoice: Invoice; onClose: ()
 export default function BillingPage() {
   const { user } = useAuth();
   const { customers, products, invoices, addCustomer, updateCustomer, deleteCustomer, addProduct, updateProduct, deleteProduct } = useBilling();
+  const location = useLocation();
   
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
   const [productDialogOpen, setProductDialogOpen] = useState(false);
@@ -343,6 +344,12 @@ export default function BillingPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>();
   const [editingProduct, setEditingProduct] = useState<Product | undefined>();
+
+  useEffect(() => {
+    if ((location.state as any)?.openCreateInvoice) {
+      setShowCreateInvoice(true);
+    }
+  }, [location.state]);
 
   const handleAddCustomer = (data: Omit<Customer, "id" | "companyId" | "createdAt">) => {
     if (editingCustomer) {
