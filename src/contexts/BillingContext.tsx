@@ -19,6 +19,7 @@ interface BillingContextType {
   getProductById: (productId: string) => Product | undefined;
   createInvoice: (invoice: Omit<Invoice, "id" | "companyId" | "invoiceNumber" | "createdAt">) => Invoice;
   updateInvoiceStatus: (invoiceId: string, status: Invoice["status"], paidDate?: string) => void;
+  convertQuoteToInvoice: (quoteId: string) => Invoice | null;
   deleteInvoice: (invoiceId: string) => void;
   getInvoiceById: (invoiceId: string) => Invoice | undefined;
 }
