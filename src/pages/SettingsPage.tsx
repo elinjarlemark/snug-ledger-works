@@ -365,7 +365,7 @@ export default function SettingsPage() {
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="address">Street Address</Label>
+                          <Label htmlFor="address">Street Address *</Label>
                           <Input id="address" value={formData.address} onChange={(e) => handleChange("address", e.target.value)} placeholder="Storgatan 1" />
                         </div>
 
