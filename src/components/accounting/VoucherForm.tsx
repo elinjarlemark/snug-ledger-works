@@ -159,6 +159,13 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
       toast.error("Please fill in date and description");
       return;
     }
+
+    // Prevent future dates
+    const today = new Date().toISOString().split("T")[0];
+    if (date > today) {
+      toast.error("Date cannot be in the future");
+      return;
+    }
     
     const validLines = lines.filter(l => l.accountNumber && (l.debit > 0 || l.credit > 0));
     if (validLines.length < 2) {
@@ -180,14 +187,22 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
         toast.error("Failed to update voucher");
       }
     } else {
+      // Rename attachments to use the voucher number
+      const voucherNum = nextVoucherNumber;
+      const renamedAttachments = attachments.map((a) => {
+        const ext = a.name.split(".").pop() || "jpg";
+        return { ...a, name: `voucher_${voucherNum}.${ext}` };
+      });
+
       const voucher = createVoucher({
         date,
         description: description.trim(),
         lines: validLines,
-        attachments,
+        attachments: renamedAttachments,
       });
 
       if (voucher) {
+        addEntry(`Created voucher #${voucher.voucherNumber}`);
         toast.success(`Voucher #${voucher.voucherNumber} created successfully`);
         onSuccess();
       } else {
