@@ -317,21 +317,21 @@ export function AccountingPanel({
           </div>
 
           {/* Table */}
-          <div className="bg-card rounded-xl border border-border overflow-hidden">
-            <table className="w-full">
+          <div className="bg-card rounded-lg border border-border overflow-hidden">
+            <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
-                  <th className="text-left py-3 px-4 font-semibold text-foreground">#</th>
-                  <th className="text-left py-3 px-4 font-semibold text-foreground">Date</th>
-                  <th className="text-left py-3 px-4 font-semibold text-foreground">Description</th>
-                  <th className="text-right py-3 px-4 font-semibold text-foreground">Amount</th>
-                  <th className="text-center py-3 px-4 font-semibold text-foreground">Actions</th>
+                  <th className="text-left py-2 px-3 font-medium text-foreground">#</th>
+                  <th className="text-left py-2 px-3 font-medium text-foreground">Date</th>
+                  <th className="text-left py-2 px-3 font-medium text-foreground">Description</th>
+                  <th className="text-right py-2 px-3 font-medium text-foreground">Amount</th>
+                  <th className="text-center py-2 px-3 font-medium text-foreground">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedVouchers.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                    <td colSpan={5} className="py-6 text-center text-muted-foreground">
                       No vouchers found matching your search.
                     </td>
                   </tr>
@@ -344,24 +344,25 @@ export function AccountingPanel({
                         className="border-b border-border/50 hover:bg-muted/20 cursor-pointer transition-colors"
                         onClick={() => handleVoucherClick(voucher)}
                       >
-                        <td className="py-3 px-4 font-mono text-secondary">
+                        <td className="py-2 px-3 font-mono text-secondary">
                           {voucher.voucherNumber}
                         </td>
-                        <td className="py-3 px-4">{voucher.date}</td>
-                        <td className="py-3 px-4 text-muted-foreground">{voucher.description}</td>
-                        <td className="py-3 px-4 text-right font-mono">
+                        <td className="py-2 px-3 text-muted-foreground">{voucher.date}</td>
+                        <td className="py-2 px-3 text-foreground">{voucher.description}</td>
+                        <td className="py-2 px-3 text-right font-mono font-medium">
                           {formatAmount(total)} SEK
                         </td>
-                        <td className="py-3 px-4 text-center">
+                        <td className="py-2 px-3 text-center">
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="h-6 text-xs px-2"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleVoucherClick(voucher);
                             }}
                           >
-                            <Eye className="h-4 w-4 mr-1" />
+                            <Eye className="h-3 w-3 mr-1" />
                             View
                           </Button>
                         </td>
