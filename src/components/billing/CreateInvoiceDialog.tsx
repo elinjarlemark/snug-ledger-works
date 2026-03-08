@@ -73,7 +73,7 @@ function filterCity(value: string): string {
   return value.replace(/[0-9]/g, "");
 }
 
-export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType = "invoice" }: CreateInvoiceDialogProps) {
+export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType = "invoice", onInvoiceCreated }: CreateInvoiceDialogProps) {
   const { customers, products, addCustomer, addProduct, updateProduct, createInvoice } = useBilling();
   
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
