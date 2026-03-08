@@ -182,11 +182,8 @@ export function AccountingPanel({
 
           {/* Filters */}
           <Card>
-            <CardHeader className="pb-3">
-              <div>
-                  <CardTitle className={compact ? "text-base" : "text-lg"}>Voucher Period</CardTitle>
-                  <CardDescription>Filter vouchers by date range</CardDescription>
-              </div>
+            <CardHeader className="py-3 pb-2">
+              <CardTitle className="text-base">Voucher Period</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap items-center gap-2">

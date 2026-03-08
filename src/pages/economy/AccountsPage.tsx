@@ -53,27 +53,20 @@ export default function AccountsPage() {
   const statementEndDate = selectedYear ? `${selectedYear}-12-31` : undefined;
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       {/* Header */}
-      <div>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
-              <Wallet className="h-5 w-5 text-secondary" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">Accounts</h1>
-              <p className="text-sm text-muted-foreground">
-                Chart of accounts based on Swedish BAS standard
-              </p>
-            </div>
-          </div>
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
+          <Wallet className="h-5 w-5 text-secondary" />
+        </div>
+        <div>
+          <h1 className="text-xl font-bold text-foreground">Accounts</h1>
         </div>
       </div>
 
       {/* Accounts List */}
       <section>
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <h2 className="text-base font-semibold text-foreground">
             {user ? "Your Accounts" : "System Accounts"}
           </h2>

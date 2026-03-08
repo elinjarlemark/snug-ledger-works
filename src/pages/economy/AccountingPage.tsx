@@ -105,22 +105,26 @@ export default function AccountingPage() {
     );
   }
 
+  const isFormOpen = autoOpenCreate || triggerCreate;
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
-            <BookOpen className="h-5 w-5 text-secondary" />
+    <div className="space-y-4 animate-fade-in">
+      {!isFormOpen && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
+              <BookOpen className="h-5 w-5 text-secondary" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-foreground">Accounting</h1>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">Accounting</h1>
-          </div>
+          <Button size="sm" onClick={() => setTriggerCreate(true)}>
+            <Plus className="h-4 w-4 mr-1" />
+            Create Voucher
+          </Button>
         </div>
-        <Button size="sm" onClick={() => setTriggerCreate(true)}>
-          <Plus className="h-4 w-4 mr-1" />
-          Create Voucher
-        </Button>
-      </div>
+      )}
 
       <AccountingPanel
         autoOpenCreate={autoOpenCreate}

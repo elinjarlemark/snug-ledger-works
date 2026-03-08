@@ -8,6 +8,7 @@ import { useAccounting, VoucherLine, Voucher } from "@/contexts/AccountingContex
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuditTrail } from "@/contexts/AuditTrailContext";
 import { useReceipts } from "@/contexts/ReceiptsContext";
+import { useFiscalLock } from "@/contexts/FiscalLockContext";
 import { formatAmount } from "@/lib/bas-accounts";
 import { getBASAccountsForDate } from "@/lib/bas-accounts";
 import { Plus, Trash2, Check, AlertCircle, X, Upload, FileText, Image, ChevronDown } from "lucide-react";
@@ -34,6 +35,7 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
   const { activeCompany } = useAuth();
   const { addEntry } = useAuditTrail();
   const { addReceipt } = useReceipts();
+  const { isDateInLockedYear } = useFiscalLock();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const debitInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
   const creditInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
@@ -161,6 +163,10 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
       toast.error("Date cannot be in the future");
       return;
     }
+    if (isDateInLockedYear(date)) {
+      toast.error("Cannot create vouchers for a locked fiscal year");
+      return;
+    }
     const validLines = lines.filter(l => l.accountNumber && (l.debit > 0 || l.credit > 0));
     if (validLines.length < 2) {
       toast.error("Voucher must have at least 2 valid lines");
@@ -240,7 +246,14 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
             value={date}
             max={new Date().toISOString().split("T")[0]}
             onChange={(e) => setDate(e.target.value)}
+            className={isDateInLockedYear(date) ? "border-destructive" : ""}
           />
+          {isDateInLockedYear(date) && (
+            <p className="text-xs text-destructive flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              This date falls in a locked fiscal year. You cannot create vouchers for locked years.
+            </p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="description">Description</Label>

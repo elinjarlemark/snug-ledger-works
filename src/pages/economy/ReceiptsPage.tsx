@@ -115,14 +115,13 @@ export default function ReceiptsPage() {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
           <ReceiptIcon className="h-5 w-5 text-secondary" />
         </div>
         <div>
           <h1 className="text-xl font-bold text-foreground">Receipts</h1>
-          <p className="text-sm text-muted-foreground">All uploaded receipts across vouchers</p>
         </div>
       </div>
 

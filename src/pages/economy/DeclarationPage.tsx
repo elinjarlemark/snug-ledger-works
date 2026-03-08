@@ -60,13 +60,10 @@ export default function DeclarationPage() {
       </div>
 
       <Card>
-        <CardHeader className="pb-2">
+        <CardHeader className="py-3 pb-2">
           <CardTitle className="text-base">Generate Declaration</CardTitle>
-          <CardDescription className="text-xs">
-            Create declaration from bookkeeping data
-          </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pb-3">
           <Button onClick={handleCreateDeclaration} size="sm" className="gap-2">
             <Play className="h-3.5 w-3.5" />
             Create Declaration

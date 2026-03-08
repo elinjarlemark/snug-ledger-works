@@ -46,7 +46,7 @@ export default function SettingsPage() {
   } = useAuth();
 
   const { importSIE, exportSIE, vouchers } = useAccounting();
-  const { lockedYears, isYearLocked, lockYear, unlockYear } = useFiscalLock();
+  const { lockedYears, isYearLocked, lockYear, unlockYear, canLockYear } = useFiscalLock();
   const { vouchers: mainVouchers } = useAccountingMain();
   const { entries: auditEntries } = useAuditTrail();
   const navigate = useNavigate();
@@ -554,22 +554,40 @@ export default function SettingsPage() {
                                         )}
                                       </td>
                                       <td className="py-2 px-3 text-right">
-                                        <Button
-                                          variant={locked ? "outline" : "destructive"}
-                                          size="sm"
-                                          className="h-6 text-xs px-2"
-                                          onClick={() => {
-                                            if (locked) {
+                                        {locked ? (
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-6 text-xs px-2"
+                                            onClick={() => {
                                               unlockYear(year);
                                               toast.info(`Räkenskapsår ${year} upplåst`);
-                                            } else {
-                                              lockYear(year);
-                                              toast.success(`Räkenskapsår ${year} låst`);
-                                            }
-                                          }}
-                                        >
-                                          {locked ? "Lås upp" : "Lås"}
-                                        </Button>
+                                            }}
+                                          >
+                                            Lås upp
+                                          </Button>
+                                        ) : (() => {
+                                          const check = canLockYear(year);
+                                          return (
+                                            <Button
+                                              variant="destructive"
+                                              size="sm"
+                                              className="h-6 text-xs px-2"
+                                              disabled={!check.allowed}
+                                              title={check.reason || ""}
+                                              onClick={() => {
+                                                if (check.allowed) {
+                                                  lockYear(year);
+                                                  toast.success(`Räkenskapsår ${year} låst`);
+                                                } else {
+                                                  toast.error(check.reason);
+                                                }
+                                              }}
+                                            >
+                                              Lås
+                                            </Button>
+                                          );
+                                        })()}
                                       </td>
                                     </tr>
                                   );

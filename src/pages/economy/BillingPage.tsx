@@ -414,7 +414,7 @@ export default function BillingPage() {
   }
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
@@ -422,7 +422,6 @@ export default function BillingPage() {
         </div>
         <div>
           <h1 className="text-xl font-bold text-foreground">Billing</h1>
-          <p className="text-sm text-muted-foreground">Manage customers, products, and invoices</p>
         </div>
       </div>
 
@@ -620,14 +619,11 @@ export default function BillingPage() {
                 <div className="bg-card rounded-lg border border-border overflow-hidden">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="border-b border-border bg-muted/30">
+                     <tr className="border-b border-border bg-muted/30">
                         <th className="text-left py-2 px-3 font-medium">Invoice #</th>
                         <th className="text-left py-2 px-3 font-medium">Customer</th>
-                        <th className="text-left py-2 px-3 font-medium">Date</th>
-                        <th className="text-left py-2 px-3 font-medium">Due Date</th>
                         <th className="text-right py-2 px-3 font-medium">Total</th>
                         <th className="text-left py-2 px-3 font-medium">Status</th>
-                        <th className="text-center py-2 px-3 font-medium">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -639,8 +635,6 @@ export default function BillingPage() {
                         >
                           <td className="py-2 px-3 font-mono text-secondary">#{invoice.invoiceNumber}</td>
                           <td className="py-2 px-3 text-foreground">{invoice.customerName}</td>
-                          <td className="py-2 px-3 text-muted-foreground">{invoice.issueDate}</td>
-                          <td className="py-2 px-3 text-muted-foreground">{invoice.dueDate}</td>
                           <td className="py-2 px-3 text-right font-mono font-medium">
                             {formatAmount(invoice.total)} SEK
                           </td>
@@ -653,17 +647,6 @@ export default function BillingPage() {
                             }`}>
                               {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
                             </span>
-                          </td>
-                          <td className="py-2 px-3 text-center">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 text-xs px-2"
-                              onClick={(e) => { e.stopPropagation(); setSelectedInvoice(invoice); }}
-                            >
-                              <Eye className="h-3 w-3 mr-1" />
-                              View
-                            </Button>
                           </td>
                         </tr>
                       ))}
