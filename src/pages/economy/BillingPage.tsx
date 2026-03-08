@@ -816,6 +816,7 @@ export default function BillingPage() {
               onOpenChange={setShowCreateQuote}
               inline
               documentType="quote"
+              onInvoiceCreated={(inv) => setSelectedInvoice(inv)}
             />
           )}
 
@@ -823,6 +824,8 @@ export default function BillingPage() {
             <InvoiceDetailView
               invoice={selectedInvoice}
               onClose={() => setSelectedInvoice(null)}
+              onDelete={(id) => { deleteInvoice(id); toast.success("Quote deleted"); }}
+              onEdit={() => toast.info("Edit functionality coming soon")}
             />
           )}
 
