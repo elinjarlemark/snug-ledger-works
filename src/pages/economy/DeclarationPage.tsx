@@ -142,7 +142,9 @@ export default function DeclarationPage() {
             <DeclarationField label="1.13 Industrienhet och elproduktionsenhet: värmekraftverk" id="f1_13" />
             <DeclarationField label="1.14 Elproduktionsenhet: vattenkraftverk" id="f1_14" />
             <DeclarationField label="1.15 Elproduktionsenhet: vindkraftverk" id="f1_15" />
-            <DeclarationField label="1.16 Elproduktionsenhet: kärnkraftverk" id="f1_16" />
+          </SectionCard>
+          <SectionCard title="Underlag för skattereduktion">
+            <DeclarationField label="1.16 Förnybar el (kilowattimmar)" id="f1_16" />
           </SectionCard>
         </div>
       </div>
