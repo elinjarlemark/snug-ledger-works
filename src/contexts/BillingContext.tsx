@@ -385,6 +385,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       getProductById,
       createInvoice,
       updateInvoiceStatus,
+      convertQuoteToInvoice,
       deleteInvoice,
       getInvoiceById,
     }}>
