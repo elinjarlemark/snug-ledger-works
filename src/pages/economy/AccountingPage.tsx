@@ -118,7 +118,7 @@ export default function AccountingPage() {
       </div>
 
       {/* Main Panel */}
-      {user && <AccountingPanel />}
+      {user && <AccountingPanel autoOpenCreate={autoOpenCreate} />}
 
       {/* Introduction */}
       <>
