@@ -313,24 +313,24 @@ export default function SalaryPage() {
       {/* Summary */}
       {employees.length > 0 && (
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="py-3 pb-2">
             <CardTitle className="text-sm">Payroll Summary</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-4 text-sm">
+          <CardContent className="pb-3">
+            <div className="grid grid-cols-3 gap-3 text-sm">
               <div>
                 <p className="text-xs text-muted-foreground">Total Employees</p>
-                <p className="text-lg font-bold text-foreground">{employees.length}</p>
+                <p className="text-base font-bold text-foreground">{employees.length}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Monthly Payroll</p>
-                <p className="text-lg font-bold text-foreground">
+                <p className="text-base font-bold text-foreground">
                   {employees.reduce((s, e) => s + e.salary, 0).toLocaleString("sv-SE")} SEK
                 </p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Est. Employer Cost (31.42%)</p>
-                <p className="text-lg font-bold text-foreground">
+                <p className="text-base font-bold text-foreground">
                   {Math.round(employees.reduce((s, e) => s + e.salary, 0) * 0.3142).toLocaleString("sv-SE")} SEK
                 </p>
               </div>

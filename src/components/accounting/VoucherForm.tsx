@@ -163,6 +163,10 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
       toast.error("Date cannot be in the future");
       return;
     }
+    if (isDateInLockedYear(date)) {
+      toast.error("Cannot create vouchers for a locked fiscal year");
+      return;
+    }
     const validLines = lines.filter(l => l.accountNumber && (l.debit > 0 || l.credit > 0));
     if (validLines.length < 2) {
       toast.error("Voucher must have at least 2 valid lines");

@@ -66,7 +66,7 @@ export default function AccountsPage() {
 
       {/* Accounts List */}
       <section>
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <h2 className="text-base font-semibold text-foreground">
             {user ? "Your Accounts" : "System Accounts"}
           </h2>

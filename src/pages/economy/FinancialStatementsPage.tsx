@@ -542,7 +542,7 @@ export default function FinancialStatementsPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -551,7 +551,6 @@ export default function FinancialStatementsPage() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-foreground">Financial Statements</h1>
-            <p className="text-sm text-muted-foreground">Financial statements for your business</p>
           </div>
         </div>
         <Button variant="outline" size="sm" onClick={handleToggleCompare}>

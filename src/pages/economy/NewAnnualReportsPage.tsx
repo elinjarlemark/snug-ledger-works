@@ -62,15 +62,12 @@ export default function NewAnnualReportsPage() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Generate Annual Report</CardTitle>
-          <CardDescription>
-            Create annual report from your financial statements
-          </CardDescription>
+        <CardHeader className="py-3 pb-2">
+          <CardTitle className="text-base">Generate Annual Report</CardTitle>
         </CardHeader>
-        <CardContent>
-          <Button onClick={handleCreateAnnualReport} className="gap-2">
-            <Play className="h-4 w-4" />
+        <CardContent className="pb-3">
+          <Button onClick={handleCreateAnnualReport} size="sm" className="gap-2">
+            <Play className="h-3.5 w-3.5" />
             Create Annual Report
           </Button>
         </CardContent>
