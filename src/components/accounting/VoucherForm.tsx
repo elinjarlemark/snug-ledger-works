@@ -242,7 +242,14 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
             value={date}
             max={new Date().toISOString().split("T")[0]}
             onChange={(e) => setDate(e.target.value)}
+            className={isDateInLockedYear(date) ? "border-destructive" : ""}
           />
+          {isDateInLockedYear(date) && (
+            <p className="text-xs text-destructive flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              This date falls in a locked fiscal year. You cannot create vouchers for locked years.
+            </p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="description">Description</Label>
