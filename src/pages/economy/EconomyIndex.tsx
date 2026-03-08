@@ -22,7 +22,7 @@ import {
 import { Area, AreaChart, XAxis, YAxis, ReferenceLine } from "recharts";
 import { useAccounting } from "@/contexts/AccountingContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { format, startOfMonth, endOfMonth } from "date-fns";
+import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 
 const economyModules = [
   {
