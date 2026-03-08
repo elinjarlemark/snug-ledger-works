@@ -27,6 +27,7 @@ export interface IAuthRepository {
   authenticate(credentials: AuthCredentials): Promise<AuthResult>;
   createUser(data: SignupData): Promise<AuthResult>;
   getUserById(id: string): Promise<User | null>;
+  deleteUser?(id: string): Promise<boolean>;
 }
 
 // Configuration interface

@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccounting } from "@/contexts/AccountingContexts";
+import { useAuditTrail } from "@/contexts/AuditTrailContext";
 import { authService } from "@/services/auth";
 import { toast } from "sonner";
 import { Building, Save, ArrowLeft, Plus, Trash2, Check, Upload, Download, User } from "lucide-react";
@@ -39,15 +40,25 @@ export default function SettingsPage() {
     deleteCompany,
     setActiveCompany,
     markCompanySetupComplete,
+    deleteAccount,
   } = useAuth();
 
   const { importSIE, exportSIE, vouchers } = useAccounting();
+  const { entries: auditEntries } = useAuditTrail();
   const navigate = useNavigate();
 
   const [isNewCompany, setIsNewCompany] = useState(false);
   const [originalCompanyId, setOriginalCompanyId] = useState<string | null>(null);
   const [showAccountingStandardConfirmAlert, setShowAccountingStandardConfirmAlert] = useState(false);
   const [pendingAccountingStandard, setPendingAccountingStandard] = useState<"K2" | "K3" | "" | null>(null);
+
+  // Delete company flow states
+  const [showDeleteCompanyConfirm, setShowDeleteCompanyConfirm] = useState(false);
+  const [showDeleteCompanyExport, setShowDeleteCompanyExport] = useState(false);
+
+  // Delete account flow states
+  const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
+  const [showDeleteAccountBye, setShowDeleteAccountBye] = useState(false);
 
   // Personal settings
   const [personalNumber, setPersonalNumber] = useState("");
@@ -224,18 +235,62 @@ export default function SettingsPage() {
     }
   };
 
-  const handleDeleteCompany = () => {
-    if (!activeCompany || !canDeleteActiveCompany) {
-      toast.error("You must have at least two saved companies before deleting one");
-      return;
+  const handleDeleteCompanyConfirm = () => {
+    setShowDeleteCompanyConfirm(false);
+    setShowDeleteCompanyExport(true);
+  };
+
+  const handleDeleteCompanyExportAndComplete = () => {
+    if (!activeCompany) return;
+
+    // Export SIE file
+    if (vouchers.length > 0) {
+      const sieContent = exportSIE();
+      const sieBlob = new Blob([sieContent], { type: "text/plain;charset=utf-8" });
+      const sieUrl = URL.createObjectURL(sieBlob);
+      const sieLink = document.createElement("a");
+      sieLink.href = sieUrl;
+      sieLink.download = (activeCompany.companyName || "company") + "_" + new Date().toISOString().split("T")[0] + ".se";
+      document.body.appendChild(sieLink);
+      sieLink.click();
+      document.body.removeChild(sieLink);
+      URL.revokeObjectURL(sieUrl);
     }
+
+    // Export audit trail as text file
+    if (auditEntries.length > 0) {
+      const auditContent = auditEntries
+        .map((e) => `[${new Date(e.timestamp).toLocaleString()}] ${e.userName}: ${e.description}`)
+        .join("\n");
+      const auditBlob = new Blob([auditContent], { type: "text/plain;charset=utf-8" });
+      const auditUrl = URL.createObjectURL(auditBlob);
+      const auditLink = document.createElement("a");
+      auditLink.href = auditUrl;
+      auditLink.download = (activeCompany.companyName || "company") + "_audit_trail_" + new Date().toISOString().split("T")[0] + ".txt";
+      document.body.appendChild(auditLink);
+      auditLink.click();
+      document.body.removeChild(auditLink);
+      URL.revokeObjectURL(auditUrl);
+    }
+
     deleteCompany(activeCompany.id);
+    setShowDeleteCompanyExport(false);
     toast.success("Company deleted");
   };
 
+  const handleDeleteAccountConfirm = () => {
+    setShowDeleteAccountConfirm(false);
+    setShowDeleteAccountBye(true);
+  };
+
+  const handleDeleteAccountBye = async () => {
+    setShowDeleteAccountBye(false);
+    await deleteAccount();
+    navigate("/");
+  };
+
   const isExistingCompany = !!activeCompany && activeCompany.organizationNumber.replace(/-/g, "").length === 10;
-  const savedCompaniesCount = companies.filter((c) => c.organizationNumber.replace(/-/g, "").length === 10).length;
-  const canDeleteActiveCompany = !!activeCompany && !!isExistingCompany && savedCompaniesCount >= 2;
+  
 
   return (
     <>
@@ -335,16 +390,10 @@ export default function SettingsPage() {
                 {activeCompany && (
                   <Card>
                     <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <div>
+                      <div>
                           <CardTitle>Company Details</CardTitle>
                           <CardDescription>This information will be used in reports and invoices</CardDescription>
                         </div>
-                        <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={handleDeleteCompany} disabled={!canDeleteActiveCompany}>
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </Button>
-                      </div>
                     </CardHeader>
                     <CardContent>
                       <form onSubmit={handleSubmit} className="space-y-6">
@@ -438,6 +487,22 @@ export default function SettingsPage() {
                     </CardContent>
                   </Card>
                 )}
+
+                {/* Delete Company */}
+                {activeCompany && isExistingCompany && (
+                  <Card className="border-destructive/30">
+                    <CardHeader>
+                      <CardTitle className="text-destructive">Delete Company</CardTitle>
+                      <CardDescription>Permanently delete this company and all its data</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Button variant="destructive" onClick={() => setShowDeleteCompanyConfirm(true)}>
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Company
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
               </TabsContent>
 
               <TabsContent value="personal" className="space-y-6 mt-6">
@@ -485,12 +550,88 @@ export default function SettingsPage() {
                     </Button>
                   </CardContent>
                 </Card>
+
+                {/* Delete Account */}
+                <Card className="border-destructive/30">
+                  <CardHeader>
+                    <CardTitle className="text-destructive">Delete Account</CardTitle>
+                    <CardDescription>Permanently delete your personal account and all associated data</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button variant="destructive" onClick={() => setShowDeleteAccountConfirm(true)}>
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Personal Account
+                    </Button>
+                  </CardContent>
+                </Card>
               </TabsContent>
             </Tabs>
           </div>
         </main>
         <Footer />
       </div>
+
+      {/* Delete Company - Confirm Dialog */}
+      <AlertDialog open={showDeleteCompanyConfirm} onOpenChange={setShowDeleteCompanyConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this company?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The company "{activeCompany?.companyName}" and all its data will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteCompanyConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Yes</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Company - Export Dialog */}
+      <AlertDialog open={showDeleteCompanyExport} onOpenChange={setShowDeleteCompanyExport}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Export your data</AlertDialogTitle>
+            <AlertDialogDescription>
+              You will now get an export of your bookings in an SIE4 file and audit trail text file. The download will start when you press Complete.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={handleDeleteCompanyExportAndComplete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Complete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Account - Confirm Dialog */}
+      <AlertDialog open={showDeleteAccountConfirm} onOpenChange={setShowDeleteAccountConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete your account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. Your personal account and all associated data will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteAccountConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Yes</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Account - Bye Dialog */}
+      <AlertDialog open={showDeleteAccountBye} onOpenChange={setShowDeleteAccountBye}>
+        <AlertDialogContent className="text-center">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-2xl">We hope you come back! 👋</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your account has been prepared for deletion. Click the button below to finalize.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="justify-center sm:justify-center">
+            <AlertDialogAction onClick={handleDeleteAccountBye}>BYE</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
