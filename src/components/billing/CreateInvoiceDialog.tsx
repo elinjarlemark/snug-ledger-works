@@ -492,7 +492,7 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
     <>
       {/* New Customer Form Dialog */}
       <Dialog open={showNewCustomerForm} onOpenChange={setShowNewCustomerForm}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>New Customer for {docLabel}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
