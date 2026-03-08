@@ -113,7 +113,7 @@ export default function AccountingPage() {
           </div>
         </div>
         {user && (
-          <Button size="sm" onClick={() => {/* handled via autoOpenCreate or panel */}}>
+          <Button size="sm" onClick={() => setTriggerCreate(true)}>
             <Plus className="h-4 w-4 mr-1" />
             Create Voucher
           </Button>
