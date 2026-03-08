@@ -109,6 +109,15 @@ export default function EconomyIndex() {
     return { totalRevenue, totalExpenses, netResult };
   }, [getIncomeStatement, currentYear]);
 
+  // Rolling 12-month net result
+  const rolling12 = useMemo(() => {
+    const now = new Date();
+    const start = format(startOfMonth(subMonths(now, 11)), "yyyy-MM-dd");
+    const end = format(endOfMonth(now), "yyyy-MM-dd");
+    const { netResult } = getIncomeStatement(start, end);
+    return netResult;
+  }, [getIncomeStatement]);
+
   // Not logged in - show informational overview
   if (!user) {
     return (
