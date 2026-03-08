@@ -636,8 +636,6 @@ export default function BillingPage() {
                         >
                           <td className="py-2 px-3 font-mono text-secondary">#{invoice.invoiceNumber}</td>
                           <td className="py-2 px-3 text-foreground">{invoice.customerName}</td>
-                          <td className="py-2 px-3 text-muted-foreground">{invoice.issueDate}</td>
-                          <td className="py-2 px-3 text-muted-foreground">{invoice.dueDate}</td>
                           <td className="py-2 px-3 text-right font-mono font-medium">
                             {formatAmount(invoice.total)} SEK
                           </td>
@@ -650,17 +648,6 @@ export default function BillingPage() {
                             }`}>
                               {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
                             </span>
-                          </td>
-                          <td className="py-2 px-3 text-center">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 text-xs px-2"
-                              onClick={(e) => { e.stopPropagation(); setSelectedInvoice(invoice); }}
-                            >
-                              <Eye className="h-3 w-3 mr-1" />
-                              View
-                            </Button>
                           </td>
                         </tr>
                       ))}
