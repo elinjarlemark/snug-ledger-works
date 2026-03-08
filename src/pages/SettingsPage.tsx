@@ -40,9 +40,11 @@ export default function SettingsPage() {
     deleteCompany,
     setActiveCompany,
     markCompanySetupComplete,
+    deleteAccount,
   } = useAuth();
 
   const { importSIE, exportSIE, vouchers } = useAccounting();
+  const { entries: auditEntries } = useAuditTrail();
   const navigate = useNavigate();
 
   const [isNewCompany, setIsNewCompany] = useState(false);
