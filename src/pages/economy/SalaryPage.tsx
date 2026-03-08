@@ -101,7 +101,7 @@ function EmployeeForm({
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="space-y-1.5">
         <Label className="text-xs">Name *</Label>
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className="h-9 text-sm" required />
+        <Input value={name} onChange={(e) => setName(e.target.value.replace(/[0-9]/g, ""))} placeholder="Full name" className="h-9 text-sm" required />
       </div>
       <div className="space-y-1.5">
         <Label className="text-xs">Personal Number *</Label>
