@@ -43,7 +43,7 @@ export default function CompanyGate() {
   const [companyCity, setCompanyCity] = useState('');
   const [companyCountry, setCompanyCountry] = useState('Sweden');
   const [companyVatNumber, setCompanyVatNumber] = useState('');
-  const [accountingStandard, setAccountingStandard] = useState<'' | 'K2' | 'K3'>('');
+  const [accountingStandard, setAccountingStandard] = useState<'' | 'K2' | 'K3'>('K2');
 
   // Join form
   const [joinOrgNumber, setJoinOrgNumber] = useState('');
@@ -176,7 +176,7 @@ export default function CompanyGate() {
     setCompanyCity('');
     setCompanyCountry('Sweden');
     setCompanyVatNumber('');
-    setAccountingStandard('');
+    setAccountingStandard('K2');
     setJoinOrgNumber('');
   }
 
