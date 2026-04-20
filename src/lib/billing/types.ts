@@ -33,6 +33,7 @@ export interface InvoiceLine {
   quantity: number;
   unitPrice: number;
   vatRate: number;
+  vatCodeId?: string;
   totalExclVat: number;
   vatAmount: number;
   totalInclVat: number;
