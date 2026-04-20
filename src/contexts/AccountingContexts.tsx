@@ -10,6 +10,7 @@ export interface VoucherLine {
   accountName: string;
   debit: number;
   credit: number;
+  vatCodeId?: string;
 }
 
 export interface VoucherAttachment {

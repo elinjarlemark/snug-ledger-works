@@ -13,6 +13,7 @@ import {
   Info,
   Shield,
   Receipt,
+  Calculator,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -29,7 +30,8 @@ const sidebarItems = [
   { name: "Receipts", href: "/economy/receipts", icon: Receipt, description: "Manage receipts" },
   { name: "Salary", href: "/economy/salary", icon: Users, description: "Payroll management" },
   { name: "Declaration", href: "/economy/declaration", icon: FileCheck, description: "Tax declarations" },
-  { name: "VAT Report", href: "/economy/vat-report", icon: FileCheck, description: "Momsredovisning" },
+  { name: "Moms", href: "/economy/moms", icon: Calculator, description: "Momsmodul (K2)" },
+  { name: "VAT Report", href: "/economy/vat-report", icon: FileCheck, description: "Momsredovisning (klassisk)" },
   { name: "Financial Statements", href: "/economy/financial-statements", icon: BarChart3, description: "Reports & analysis" },
   { name: "Annual Reports", href: "/economy/annual-reports", icon: FileText, description: "Årsredovisning" },
   { name: "Accounts", href: "/economy/accounts", icon: Wallet, description: "Chart of accounts" },

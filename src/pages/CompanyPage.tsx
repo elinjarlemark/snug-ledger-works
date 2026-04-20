@@ -88,7 +88,7 @@ export default function CompanyPage() {
         vatNumber: activeCompany.vatNumber,
         fiscalYearStart: activeCompany.fiscalYearStart,
         fiscalYearEnd: activeCompany.fiscalYearEnd,
-        accountingStandard: activeCompany.accountingStandard,
+        accountingStandard: "K2", // K2-only system
         invoiceBookingAccount: activeCompany.invoiceBookingAccount || "1930",
       });
     }
@@ -510,21 +510,11 @@ export default function CompanyPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="accountingStandard">Accounting Standard (K2/K3) *</Label>
-                      <Select
-                        value={formData.accountingStandard || "none"}
-                        onValueChange={(value) => handleChange("accountingStandard", value === "none" ? "" : value)}
-                      >
-                        <SelectTrigger id="accountingStandard">
-                          <SelectValue placeholder="Choose K2 or K3" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Choose K2 or K3</SelectItem>
-                          <SelectItem value="K2">K2</SelectItem>
-                          <SelectItem value="K3">K3</SelectItem>
-                        </SelectContent>
-                      </Select>
-
+                      <Label>Redovisningsstandard</Label>
+                      <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm">
+                        <span className="font-semibold">K2</span>
+                        <span className="text-muted-foreground">— Systemet stöder K2 (mindre företag)</span>
+                      </div>
                       {!canDeleteActiveCompany && (
                         <p className="text-xs text-muted-foreground">Save at least two companies before deleting one.</p>
                       )}

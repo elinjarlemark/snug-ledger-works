@@ -43,7 +43,7 @@ export default function CompanyGate() {
   const [companyCity, setCompanyCity] = useState('');
   const [companyCountry, setCompanyCountry] = useState('Sweden');
   const [companyVatNumber, setCompanyVatNumber] = useState('');
-  const [accountingStandard, setAccountingStandard] = useState<'' | 'K2' | 'K3'>('');
+  const [accountingStandard, setAccountingStandard] = useState<'' | 'K2' | 'K3'>('K2');
 
   // Join form
   const [joinOrgNumber, setJoinOrgNumber] = useState('');
@@ -176,7 +176,7 @@ export default function CompanyGate() {
     setCompanyCity('');
     setCompanyCountry('Sweden');
     setCompanyVatNumber('');
-    setAccountingStandard('');
+    setAccountingStandard('K2');
     setJoinOrgNumber('');
   }
 
@@ -539,17 +539,11 @@ export default function CompanyGate() {
           </div>
 
           <div className='space-y-2'>
-            <Label>Accounting Standard *</Label>
-            <Select value={accountingStandard} onValueChange={(v) => setAccountingStandard(v as 'K2' | 'K3')}>
-              <SelectTrigger>
-                <SelectValue placeholder='Välj K2 eller K3...' />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value='K2'>K2</SelectItem>
-                <SelectItem value='K3'>K3</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className='text-xs text-muted-foreground'>K2 är för mindre bolag, K3 är för större bolag</p>
+            <Label>Redovisningsstandard</Label>
+            <div className='flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm'>
+              <span className='font-semibold'>K2</span>
+              <span className='text-muted-foreground'>— Systemet stöder K2 (mindre företag)</span>
+            </div>
           </div>
 
           <div className='flex gap-3'>
