@@ -88,7 +88,7 @@ export default function CompanyPage() {
         vatNumber: activeCompany.vatNumber,
         fiscalYearStart: activeCompany.fiscalYearStart,
         fiscalYearEnd: activeCompany.fiscalYearEnd,
-        accountingStandard: activeCompany.accountingStandard,
+        accountingStandard: "K2", // K2-only system
         invoiceBookingAccount: activeCompany.invoiceBookingAccount || "1930",
       });
     }
