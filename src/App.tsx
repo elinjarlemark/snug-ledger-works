@@ -9,6 +9,8 @@ import { BillingProvider } from "@/contexts/BillingContext";
 import { AuditTrailProvider } from "@/contexts/AuditTrailContext";
 import { FiscalLockProvider } from "@/contexts/FiscalLockContext";
 import { ReceiptsProvider } from "@/contexts/ReceiptsContext";
+import { VatProvider } from "@/contexts/VatContext";
+import { VatPeriodLockProvider } from "@/contexts/VatPeriodLockContext";
 import { PublicLayout } from "@/components/layout/PublicLayout";
 import { EconomyLayout } from "@/components/layout/EconomyLayout";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -30,6 +32,7 @@ import NewAnnualReportsPage from "./pages/economy/NewAnnualReportsPage";
 import AccountsPage from "./pages/economy/AccountsPage";
 import ReceiptsPage from "./pages/economy/ReceiptsPage";
 import VATReportPage from "./pages/economy/VATReportPage";
+import MomsPage from "./pages/economy/MomsPage";
 import AdminPage from "./pages/AdminPage";
 import AuditTrailPage from "./pages/AuditTrailPage";
 import PreviewPage from "./pages/PreviewPage";
@@ -48,6 +51,8 @@ const App = () => (
           <AuditTrailProvider>
             <FiscalLockProvider>
               <ReceiptsProvider>
+                <VatProvider>
+                  <VatPeriodLockProvider>
                 <TooltipProvider>
                   <Toaster />
                   <Sonner />
@@ -75,6 +80,7 @@ const App = () => (
                         <Route path="salary" element={<SalaryPage />} />
                         <Route path="declaration" element={<DeclarationPage />} />
                         <Route path="vat-report" element={<VATReportPage />} />
+                        <Route path="moms" element={<MomsPage />} />
                         <Route path="financial-statements" element={<FinancialStatementsPage />} />
                         <Route path="annual-reports" element={<NewAnnualReportsPage />} />
                         <Route path="accounts" element={<AccountsPage />} />
@@ -101,6 +107,8 @@ const App = () => (
                     </Routes>
                   </BrowserRouter>
                 </TooltipProvider>
+                  </VatPeriodLockProvider>
+                </VatProvider>
               </ReceiptsProvider>
             </FiscalLockProvider>
           </AuditTrailProvider>
