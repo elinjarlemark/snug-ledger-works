@@ -265,6 +265,12 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
               This date falls in a locked fiscal year. You cannot create vouchers for locked years.
             </p>
           )}
+          {!isDateInLockedYear(date) && date && isDateInLockedPeriod(date) && (
+            <p className="text-xs text-destructive flex items-center gap-1">
+              <Lock className="h-3 w-3" />
+              Momsperioden är låst. Använd en rättelseverifikation istället.
+            </p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="description">Description</Label>
@@ -477,6 +483,33 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
           </div>
         )}
       </div>
+
+      {/* Momspåverkan-preview */}
+      {lines.some((l) => l.vatCodeId) && (
+        <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1.5">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <AlertCircle className="h-4 w-4 text-primary" />
+            Momspåverkan
+          </div>
+          <ul className="text-xs space-y-1">
+            {lines.filter((l) => l.vatCodeId).map((l) => {
+              const code = getVatCodeById(vatCodes, l.vatCodeId);
+              if (!code) return null;
+              const amount = (l.debit || 0) + (l.credit || 0);
+              return (
+                <li key={l.id} className="flex justify-between">
+                  <span>
+                    <span className="font-mono">{l.accountNumber || "—"}</span>{" "}
+                    <span className="text-muted-foreground">{code.code} ({code.sats}%)</span>
+                    <span className="text-muted-foreground"> → ruta {code.rapportRutor.join(", ")}</span>
+                  </span>
+                  <span className="font-mono">{formatAmount(amount)}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       {/* Validation */}
       {!validation.isValid && (
