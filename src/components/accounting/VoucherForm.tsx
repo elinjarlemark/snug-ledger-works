@@ -9,9 +9,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAuditTrail } from "@/contexts/AuditTrailContext";
 import { useReceipts } from "@/contexts/ReceiptsContext";
 import { useFiscalLock } from "@/contexts/FiscalLockContext";
+import { useVat } from "@/contexts/VatContext";
+import { useVatPeriodLock } from "@/contexts/VatPeriodLockContext";
+import { getActiveVatCodes, getVatCodeById } from "@/lib/vat/codes";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatAmount } from "@/lib/bas-accounts";
 import { getBASAccountsForDate } from "@/lib/bas-accounts";
-import { Plus, Trash2, Check, AlertCircle, X, Upload, FileText, Image, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Check, AlertCircle, X, Upload, FileText, Image, ChevronDown, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +40,9 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
   const { addEntry } = useAuditTrail();
   const { addReceipt } = useReceipts();
   const { isDateInLockedYear } = useFiscalLock();
+  const { vatCodes } = useVat();
+  const { isDateInLockedPeriod } = useVatPeriodLock();
+  const activeVatCodes = getActiveVatCodes(vatCodes);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const debitInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
   const creditInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
@@ -165,6 +172,10 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
     }
     if (isDateInLockedYear(date)) {
       toast.error("Cannot create vouchers for a locked fiscal year");
+      return;
+    }
+    if (isDateInLockedPeriod(date)) {
+      toast.error("Momsperioden är låst. Skapa en rättelseverifikation istället.");
       return;
     }
     const validLines = lines.filter(l => l.accountNumber && (l.debit > 0 || l.credit > 0));
