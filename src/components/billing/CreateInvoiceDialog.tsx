@@ -294,15 +294,19 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
   };
 
   const addEmptyLine = () => {
-    setLines(prev => [...prev, { productName: "", description: "", quantity: 1, unitPrice: 0, vatRate: 25 }]);
+    setLines(prev => [...prev, { productName: "", description: "", quantity: 1, unitPrice: 0, vatRate: 25, vatCodeId: defaultSalesCodeId }]);
   };
 
   const invoiceLines: InvoiceLine[] = lines.filter(l => l.productName).map((l) => {
-    const calc = calculateInvoiceLine(l.quantity, l.unitPrice, l.vatRate);
+    // I "incl"-läge tolkar vi unitPrice som inkl. moms och räknar tillbaka till exkl.
+    const effectiveExcl = priceMode === "incl" && l.vatRate > 0
+      ? l.unitPrice / (1 + l.vatRate / 100)
+      : l.unitPrice;
+    const calc = calculateInvoiceLine(l.quantity, effectiveExcl, l.vatRate);
     return {
       id: crypto.randomUUID(), productId: "", productName: l.productName,
-      description: l.description, quantity: l.quantity, unitPrice: l.unitPrice,
-      vatRate: l.vatRate, ...calc,
+      description: l.description, quantity: l.quantity, unitPrice: effectiveExcl,
+      vatRate: l.vatRate, vatCodeId: l.vatCodeId, ...calc,
     };
   });
 
@@ -314,11 +318,24 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
     const customer = getCustomerData();
     if (!customer) { toast.error("Please select or create a customer"); return; }
     if (invoiceLines.length === 0) { toast.error("Please add at least one line item"); return; }
+    const issueIso = format(issueDate, "yyyy-MM-dd");
+    if (isDateInLockedPeriod(issueIso)) {
+      toast.error("Momsperioden är låst. Skapa en kreditfaktura istället.");
+      return;
+    }
+    if (vatSettings.registered === false && invoiceLines.some(l => l.vatAmount > 0)) {
+      toast.error("Företaget är inte momsregistrerat — moms får inte debiteras.");
+      return;
+    }
+    const missingCode = invoiceLines.some(l => !l.vatCodeId);
+    if (missingCode) {
+      toast.warning("En eller flera fakturarader saknar momskod.");
+    }
 
     const created = createInvoice({
       documentType,
       customerId: customer.id, customerName: customer.name, customerAddress: customer.address,
-      issueDate: format(issueDate, "yyyy-MM-dd"), dueDate: format(dueDate, "yyyy-MM-dd"),
+      issueDate: issueIso, dueDate: format(dueDate, "yyyy-MM-dd"),
       lines: invoiceLines, subtotal, totalVat, total, status: "draft",
     });
 
@@ -327,7 +344,7 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
     window.scrollTo({ top: 0, behavior: "smooth" });
     setSelectedCustomerId("");
     setInlineCustomer(null);
-    setLines([{ productName: "", description: "", quantity: 1, unitPrice: 0, vatRate: 25 }]);
+    setLines([{ productName: "", description: "", quantity: 1, unitPrice: 0, vatRate: 25, vatCodeId: defaultSalesCodeId }]);
     onInvoiceCreated?.(created);
   };
 
