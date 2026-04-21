@@ -78,7 +78,12 @@ function filterCity(value: string): string {
 
 export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType = "invoice", onInvoiceCreated }: CreateInvoiceDialogProps) {
   const { customers, products, addCustomer, addProduct, updateProduct, createInvoice } = useBilling();
-  
+  const { vatCodes, vatSettings } = useVat();
+  const { isDateInLockedPeriod } = useVatPeriodLock();
+  const outgoingCodes = getOutgoingCodes(vatCodes);
+  const defaultSalesCodeId = vatSettings.defaultSalesCodeId || (outgoingCodes[0]?.id ?? "SE25");
+
+  const [priceMode, setPriceMode] = useState<"excl" | "incl">("excl");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
   const [inlineCustomer, setInlineCustomer] = useState<Omit<Customer, "id" | "companyId" | "createdAt"> | null>(null);
   const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
@@ -97,8 +102,9 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
     quantity: number;
     unitPrice: number;
     vatRate: number;
+    vatCodeId?: string;
     sourceProductId?: string;
-  }>>([{ productName: "", description: "", quantity: 1, unitPrice: 0, vatRate: 25 }]);
+  }>>([{ productName: "", description: "", quantity: 1, unitPrice: 0, vatRate: 25, vatCodeId: defaultSalesCodeId }]);
 
   // Customer form state
   const [custType, setCustType] = useState<"private" | "company">("company");
