@@ -286,8 +286,9 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
             <thead>
               <tr className="bg-muted/50 text-sm">
                 <th className="text-left p-3 font-medium">Account</th>
-                <th className="text-right p-3 font-medium w-32">Debit</th>
-                <th className="text-right p-3 font-medium w-32">Credit</th>
+                <th className="text-right p-3 font-medium w-28">Debit</th>
+                <th className="text-right p-3 font-medium w-28">Credit</th>
+                <th className="text-left p-3 font-medium w-36">Momskod</th>
                 <th className="p-3 w-12"></th>
               </tr>
             </thead>
