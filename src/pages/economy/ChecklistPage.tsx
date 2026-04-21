@@ -179,29 +179,41 @@ interface RowProps {
 
 function Row({ item, onToggle, onUpdate, onDelete }: RowProps) {
   const [pendingToggle, setPendingToggle] = useState(false);
+  const [countdown, setCountdown] = useState(5);
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(item.text);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const clearTimers = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    timerRef.current = null;
+    intervalRef.current = null;
+  };
 
   useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
+    return () => clearTimers();
   }, []);
 
   const handleCheckClick = () => {
     if (pendingToggle) {
       // Cancel pending toggle (undo)
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = null;
+      clearTimers();
       setPendingToggle(false);
+      setCountdown(5);
       return;
     }
     setPendingToggle(true);
+    setCountdown(5);
+    intervalRef.current = setInterval(() => {
+      setCountdown((c) => (c > 1 ? c - 1 : c));
+    }, 1000);
     timerRef.current = setTimeout(() => {
       onToggle(!item.done);
+      clearTimers();
       setPendingToggle(false);
-      timerRef.current = null;
+      setCountdown(5);
     }, FADE_DELAY_MS);
   };
 
@@ -214,8 +226,7 @@ function Row({ item, onToggle, onUpdate, onDelete }: RowProps) {
   return (
     <div
       className={cn(
-        "group flex items-center gap-3 p-3 rounded-md border border-border bg-background transition-all duration-[5000ms]",
-        pendingToggle && "opacity-30"
+        "group flex items-center gap-3 p-3 rounded-md border border-border bg-background transition-colors"
       )}
     >
       <div className="flex-1 min-w-0">
@@ -282,6 +293,16 @@ function Row({ item, onToggle, onUpdate, onDelete }: RowProps) {
       >
         {(item.done || pendingToggle) && <Check className="h-4 w-4" />}
       </button>
+
+      {pendingToggle && (
+        <button
+          onClick={handleCheckClick}
+          className="h-6 w-6 rounded-md border-2 border-secondary bg-secondary/10 flex items-center justify-center text-xs font-bold text-secondary shrink-0 animate-fade-in"
+          title="Klicka för att ångra"
+        >
+          {countdown}
+        </button>
+      )}
     </div>
   );
 }
