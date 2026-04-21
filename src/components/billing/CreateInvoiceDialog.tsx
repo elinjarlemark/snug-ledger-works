@@ -408,7 +408,19 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
 
       {/* Line Items */}
       <div className="space-y-2">
-        <Label className="text-sm font-semibold">Line Items</Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-semibold">Line Items</Label>
+          <div className="flex items-center gap-1 text-xs">
+            <span className="text-muted-foreground">Pris:</span>
+            <Select value={priceMode} onValueChange={(v) => setPriceMode(v as "excl" | "incl")}>
+              <SelectTrigger className="h-7 text-xs w-[140px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="excl">Exkl. moms</SelectItem>
+                <SelectItem value="incl">Inkl. moms</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
         {lines.map((line, index) => (
           <div key={index} className="border rounded-lg p-2 bg-muted/20 space-y-1 relative">
@@ -467,18 +479,29 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
                 <Input type="number" min="1" value={line.quantity} onChange={e => updateLine(index, "quantity", parseInt(e.target.value) || 1)} className="h-9 text-sm" />
               </div>
               <div className="col-span-2 space-y-1">
-                <Label className="text-xs">Price (excl VAT)</Label>
+                <Label className="text-xs">{priceMode === "incl" ? "Pris (inkl. moms)" : "Pris (exkl. moms)"}</Label>
                 <Input type="number" min="0" step="1" value={line.unitPrice || ""} onChange={e => updateLine(index, "unitPrice", parseFloat(e.target.value) || 0)} onFocus={e => { if (e.target.value === "0") e.target.value = ""; }} placeholder="0" className="h-9 text-sm" />
               </div>
               <div className="col-span-2 space-y-1">
-                <Label className="text-xs">VAT %</Label>
-                <Select value={line.vatRate.toString()} onValueChange={v => updateLine(index, "vatRate", parseFloat(v))}>
-                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                <Label className="text-xs">Momskod</Label>
+                <Select
+                  value={line.vatCodeId || "__none__"}
+                  onValueChange={(v) => {
+                    const codeId = v === "__none__" ? undefined : v;
+                    updateLine(index, "vatCodeId", codeId as any);
+                    const code = getVatCodeById(vatCodes, codeId);
+                    if (code) updateLine(index, "vatRate", code.sats);
+                  }}
+                >
+                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Välj..." /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="0">0%</SelectItem>
-                    <SelectItem value="6">6%</SelectItem>
-                    <SelectItem value="12">12%</SelectItem>
-                    <SelectItem value="25">25%</SelectItem>
+                    <SelectItem value="__none__">Ingen momskod</SelectItem>
+                    {outgoingCodes.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        <span className="font-mono mr-1">{c.code}</span>
+                        <span className="text-muted-foreground">({c.sats}%)</span>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
