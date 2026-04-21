@@ -11,6 +11,7 @@ import { FiscalLockProvider } from "@/contexts/FiscalLockContext";
 import { ReceiptsProvider } from "@/contexts/ReceiptsContext";
 import { VatProvider } from "@/contexts/VatContext";
 import { VatPeriodLockProvider } from "@/contexts/VatPeriodLockContext";
+import { ChecklistProvider } from "@/contexts/ChecklistContext";
 import { PublicLayout } from "@/components/layout/PublicLayout";
 import { EconomyLayout } from "@/components/layout/EconomyLayout";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -33,6 +34,7 @@ import AccountsPage from "./pages/economy/AccountsPage";
 import ReceiptsPage from "./pages/economy/ReceiptsPage";
 import VATReportPage from "./pages/economy/VATReportPage";
 import MomsPage from "./pages/economy/MomsPage";
+import ChecklistPage from "./pages/economy/ChecklistPage";
 import AdminPage from "./pages/AdminPage";
 import AuditTrailPage from "./pages/AuditTrailPage";
 import PreviewPage from "./pages/PreviewPage";
@@ -52,7 +54,8 @@ const App = () => (
             <FiscalLockProvider>
               <ReceiptsProvider>
                 <VatProvider>
-                  <VatPeriodLockProvider>
+                <VatPeriodLockProvider>
+                <ChecklistProvider>
                 <TooltipProvider>
                   <Toaster />
                   <Sonner />
@@ -84,6 +87,7 @@ const App = () => (
                         <Route path="financial-statements" element={<FinancialStatementsPage />} />
                         <Route path="annual-reports" element={<NewAnnualReportsPage />} />
                         <Route path="accounts" element={<AccountsPage />} />
+                        <Route path="checklist" element={<ChecklistPage />} />
                       </Route>
 
                       {/* Settings */}
@@ -107,6 +111,7 @@ const App = () => (
                     </Routes>
                   </BrowserRouter>
                 </TooltipProvider>
+                </ChecklistProvider>
                   </VatPeriodLockProvider>
                 </VatProvider>
               </ReceiptsProvider>
