@@ -29,6 +29,7 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { TakeoverPopup } from "@/components/company/TakeoverPopup";
 import { TakeoverListener } from "@/components/company/TakeoverListener";
+import { MomsSettingsCard } from "@/components/vat/MomsSettingsCard";
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8000";
 
@@ -131,15 +132,10 @@ export default function CompanyPage() {
       toast.error("Country is required");
       return;
     }
-    if (!formData.accountingStandard) {
-      toast.error("Accounting standard (K2/K3) is required");
-      return;
-    }
-
     updateCompany({
       ...formData,
       id: activeCompany.id,
-      accountingStandard: formData.accountingStandard || undefined,
+      accountingStandard: "K2",
     } as any);
 
     setIsNewCompany(false);
@@ -578,6 +574,10 @@ export default function CompanyPage() {
                   </form>
                 </CardContent>
               </Card>
+            )}
+
+            {activeCompany && !isNewCompany && (
+              <MomsSettingsCard />
             )}
           </div>
         </main>
