@@ -9,9 +9,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAuditTrail } from "@/contexts/AuditTrailContext";
 import { useReceipts } from "@/contexts/ReceiptsContext";
 import { useFiscalLock } from "@/contexts/FiscalLockContext";
+import { useVat } from "@/contexts/VatContext";
+import { useVatPeriodLock } from "@/contexts/VatPeriodLockContext";
+import { getActiveVatCodes, getVatCodeById } from "@/lib/vat/codes";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatAmount } from "@/lib/bas-accounts";
 import { getBASAccountsForDate } from "@/lib/bas-accounts";
-import { Plus, Trash2, Check, AlertCircle, X, Upload, FileText, Image, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Check, AlertCircle, X, Upload, FileText, Image, ChevronDown, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +40,9 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
   const { addEntry } = useAuditTrail();
   const { addReceipt } = useReceipts();
   const { isDateInLockedYear } = useFiscalLock();
+  const { vatCodes } = useVat();
+  const { isDateInLockedPeriod } = useVatPeriodLock();
+  const activeVatCodes = getActiveVatCodes(vatCodes);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const debitInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
   const creditInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
@@ -167,6 +174,10 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
       toast.error("Cannot create vouchers for a locked fiscal year");
       return;
     }
+    if (isDateInLockedPeriod(date)) {
+      toast.error("Momsperioden är låst. Skapa en rättelseverifikation istället.");
+      return;
+    }
     const validLines = lines.filter(l => l.accountNumber && (l.debit > 0 || l.credit > 0));
     if (validLines.length < 2) {
       toast.error("Voucher must have at least 2 valid lines");
@@ -254,6 +265,12 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
               This date falls in a locked fiscal year. You cannot create vouchers for locked years.
             </p>
           )}
+          {!isDateInLockedYear(date) && date && isDateInLockedPeriod(date) && (
+            <p className="text-xs text-destructive flex items-center gap-1">
+              <Lock className="h-3 w-3" />
+              Momsperioden är låst. Använd en rättelseverifikation istället.
+            </p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="description">Description</Label>
@@ -275,8 +292,9 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
             <thead>
               <tr className="bg-muted/50 text-sm">
                 <th className="text-left p-3 font-medium">Account</th>
-                <th className="text-right p-3 font-medium w-32">Debit</th>
-                <th className="text-right p-3 font-medium w-32">Credit</th>
+                <th className="text-right p-3 font-medium w-28">Debit</th>
+                <th className="text-right p-3 font-medium w-28">Credit</th>
+                <th className="text-left p-3 font-medium w-36">Momskod</th>
                 <th className="p-3 w-12"></th>
               </tr>
             </thead>
@@ -383,6 +401,25 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
                     />
                   </td>
                   <td className="p-2">
+                    <Select
+                      value={line.vatCodeId || "__none__"}
+                      onValueChange={(v) => updateLine(line.id, "vatCodeId" as any, v === "__none__" ? "" : v)}
+                    >
+                      <SelectTrigger className="h-9 text-xs">
+                        <SelectValue placeholder="—" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Ingen</SelectItem>
+                        {activeVatCodes.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            <span className="font-mono mr-1">{c.code}</span>
+                            <span className="text-muted-foreground">({c.sats}%)</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </td>
+                  <td className="p-2">
                     <Button type="button" variant="ghost" size="icon" onClick={() => removeLine(line.id)} disabled={lines.length <= 2}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
@@ -399,6 +436,7 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
                 <td className="p-3 text-right font-mono font-semibold">
                   {formatAmount(lines.reduce((s, l) => s + l.credit, 0))}
                 </td>
+                <td className="p-3"></td>
                 <td className="p-3">
                   {validation.isValid ? (
                     <Check className="h-5 w-5 text-success mx-auto" />
@@ -445,6 +483,33 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
           </div>
         )}
       </div>
+
+      {/* Momspåverkan-preview */}
+      {lines.some((l) => l.vatCodeId) && (
+        <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1.5">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <AlertCircle className="h-4 w-4 text-primary" />
+            Momspåverkan
+          </div>
+          <ul className="text-xs space-y-1">
+            {lines.filter((l) => l.vatCodeId).map((l) => {
+              const code = getVatCodeById(vatCodes, l.vatCodeId);
+              if (!code) return null;
+              const amount = (l.debit || 0) + (l.credit || 0);
+              return (
+                <li key={l.id} className="flex justify-between">
+                  <span>
+                    <span className="font-mono">{l.accountNumber || "—"}</span>{" "}
+                    <span className="text-muted-foreground">{code.code} ({code.sats}%)</span>
+                    <span className="text-muted-foreground"> → ruta {code.rapportRutor.join(", ")}</span>
+                  </span>
+                  <span className="font-mono">{formatAmount(amount)}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       {/* Validation */}
       {!validation.isValid && (

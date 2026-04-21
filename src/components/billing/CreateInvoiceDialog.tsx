@@ -28,9 +28,12 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Plus, Trash2, UserPlus, Package, X, CalendarIcon } from "lucide-react";
+import { Plus, Trash2, UserPlus, Package, X, CalendarIcon, AlertCircle } from "lucide-react";
 import { Customer, Product, InvoiceLine, Invoice, DocumentType, calculateInvoiceLine, calculateProductPrice } from "@/lib/billing/types";
 import { useBilling } from "@/contexts/BillingContext";
+import { useVat } from "@/contexts/VatContext";
+import { useVatPeriodLock } from "@/contexts/VatPeriodLockContext";
+import { getActiveVatCodes, getOutgoingCodes, getVatCodeById } from "@/lib/vat/codes";
 import { formatAmount } from "@/lib/bas-accounts";
 import { toast } from "sonner";
 import { format, addDays } from "date-fns";
@@ -75,7 +78,12 @@ function filterCity(value: string): string {
 
 export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType = "invoice", onInvoiceCreated }: CreateInvoiceDialogProps) {
   const { customers, products, addCustomer, addProduct, updateProduct, createInvoice } = useBilling();
-  
+  const { vatCodes, vatSettings } = useVat();
+  const { isDateInLockedPeriod } = useVatPeriodLock();
+  const outgoingCodes = getOutgoingCodes(vatCodes);
+  const defaultSalesCodeId = vatSettings.defaultSalesCodeId || (outgoingCodes[0]?.id ?? "SE25");
+
+  const [priceMode, setPriceMode] = useState<"excl" | "incl">("excl");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
   const [inlineCustomer, setInlineCustomer] = useState<Omit<Customer, "id" | "companyId" | "createdAt"> | null>(null);
   const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
@@ -94,8 +102,9 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
     quantity: number;
     unitPrice: number;
     vatRate: number;
+    vatCodeId?: string;
     sourceProductId?: string;
-  }>>([{ productName: "", description: "", quantity: 1, unitPrice: 0, vatRate: 25 }]);
+  }>>([{ productName: "", description: "", quantity: 1, unitPrice: 0, vatRate: 25, vatCodeId: defaultSalesCodeId }]);
 
   // Customer form state
   const [custType, setCustType] = useState<"private" | "company">("company");
@@ -285,15 +294,19 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
   };
 
   const addEmptyLine = () => {
-    setLines(prev => [...prev, { productName: "", description: "", quantity: 1, unitPrice: 0, vatRate: 25 }]);
+    setLines(prev => [...prev, { productName: "", description: "", quantity: 1, unitPrice: 0, vatRate: 25, vatCodeId: defaultSalesCodeId }]);
   };
 
   const invoiceLines: InvoiceLine[] = lines.filter(l => l.productName).map((l) => {
-    const calc = calculateInvoiceLine(l.quantity, l.unitPrice, l.vatRate);
+    // I "incl"-läge tolkar vi unitPrice som inkl. moms och räknar tillbaka till exkl.
+    const effectiveExcl = priceMode === "incl" && l.vatRate > 0
+      ? l.unitPrice / (1 + l.vatRate / 100)
+      : l.unitPrice;
+    const calc = calculateInvoiceLine(l.quantity, effectiveExcl, l.vatRate);
     return {
       id: crypto.randomUUID(), productId: "", productName: l.productName,
-      description: l.description, quantity: l.quantity, unitPrice: l.unitPrice,
-      vatRate: l.vatRate, ...calc,
+      description: l.description, quantity: l.quantity, unitPrice: effectiveExcl,
+      vatRate: l.vatRate, vatCodeId: l.vatCodeId, ...calc,
     };
   });
 
@@ -305,11 +318,24 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
     const customer = getCustomerData();
     if (!customer) { toast.error("Please select or create a customer"); return; }
     if (invoiceLines.length === 0) { toast.error("Please add at least one line item"); return; }
+    const issueIso = format(issueDate, "yyyy-MM-dd");
+    if (isDateInLockedPeriod(issueIso)) {
+      toast.error("Momsperioden är låst. Skapa en kreditfaktura istället.");
+      return;
+    }
+    if (vatSettings.registered === false && invoiceLines.some(l => l.vatAmount > 0)) {
+      toast.error("Företaget är inte momsregistrerat — moms får inte debiteras.");
+      return;
+    }
+    const missingCode = invoiceLines.some(l => !l.vatCodeId);
+    if (missingCode) {
+      toast.warning("En eller flera fakturarader saknar momskod.");
+    }
 
     const created = createInvoice({
       documentType,
       customerId: customer.id, customerName: customer.name, customerAddress: customer.address,
-      issueDate: format(issueDate, "yyyy-MM-dd"), dueDate: format(dueDate, "yyyy-MM-dd"),
+      issueDate: issueIso, dueDate: format(dueDate, "yyyy-MM-dd"),
       lines: invoiceLines, subtotal, totalVat, total, status: "draft",
     });
 
@@ -318,7 +344,7 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
     window.scrollTo({ top: 0, behavior: "smooth" });
     setSelectedCustomerId("");
     setInlineCustomer(null);
-    setLines([{ productName: "", description: "", quantity: 1, unitPrice: 0, vatRate: 25 }]);
+    setLines([{ productName: "", description: "", quantity: 1, unitPrice: 0, vatRate: 25, vatCodeId: defaultSalesCodeId }]);
     onInvoiceCreated?.(created);
   };
 
@@ -382,7 +408,19 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
 
       {/* Line Items */}
       <div className="space-y-2">
-        <Label className="text-sm font-semibold">Line Items</Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-semibold">Line Items</Label>
+          <div className="flex items-center gap-1 text-xs">
+            <span className="text-muted-foreground">Pris:</span>
+            <Select value={priceMode} onValueChange={(v) => setPriceMode(v as "excl" | "incl")}>
+              <SelectTrigger className="h-7 text-xs w-[140px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="excl">Exkl. moms</SelectItem>
+                <SelectItem value="incl">Inkl. moms</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
         {lines.map((line, index) => (
           <div key={index} className="border rounded-lg p-2 bg-muted/20 space-y-1 relative">
@@ -441,18 +479,29 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
                 <Input type="number" min="1" value={line.quantity} onChange={e => updateLine(index, "quantity", parseInt(e.target.value) || 1)} className="h-9 text-sm" />
               </div>
               <div className="col-span-2 space-y-1">
-                <Label className="text-xs">Price (excl VAT)</Label>
+                <Label className="text-xs">{priceMode === "incl" ? "Pris (inkl. moms)" : "Pris (exkl. moms)"}</Label>
                 <Input type="number" min="0" step="1" value={line.unitPrice || ""} onChange={e => updateLine(index, "unitPrice", parseFloat(e.target.value) || 0)} onFocus={e => { if (e.target.value === "0") e.target.value = ""; }} placeholder="0" className="h-9 text-sm" />
               </div>
               <div className="col-span-2 space-y-1">
-                <Label className="text-xs">VAT %</Label>
-                <Select value={line.vatRate.toString()} onValueChange={v => updateLine(index, "vatRate", parseFloat(v))}>
-                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                <Label className="text-xs">Momskod</Label>
+                <Select
+                  value={line.vatCodeId || "__none__"}
+                  onValueChange={(v) => {
+                    const codeId = v === "__none__" ? undefined : v;
+                    updateLine(index, "vatCodeId", codeId as any);
+                    const code = getVatCodeById(vatCodes, codeId);
+                    if (code) updateLine(index, "vatRate", code.sats);
+                  }}
+                >
+                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Välj..." /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="0">0%</SelectItem>
-                    <SelectItem value="6">6%</SelectItem>
-                    <SelectItem value="12">12%</SelectItem>
-                    <SelectItem value="25">25%</SelectItem>
+                    <SelectItem value="__none__">Ingen momskod</SelectItem>
+                    {outgoingCodes.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        <span className="font-mono mr-1">{c.code}</span>
+                        <span className="text-muted-foreground">({c.sats}%)</span>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
