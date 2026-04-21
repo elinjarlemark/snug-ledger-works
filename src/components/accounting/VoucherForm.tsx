@@ -395,6 +395,25 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
                     />
                   </td>
                   <td className="p-2">
+                    <Select
+                      value={line.vatCodeId || "__none__"}
+                      onValueChange={(v) => updateLine(line.id, "vatCodeId" as any, v === "__none__" ? "" : v)}
+                    >
+                      <SelectTrigger className="h-9 text-xs">
+                        <SelectValue placeholder="—" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Ingen</SelectItem>
+                        {activeVatCodes.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            <span className="font-mono mr-1">{c.code}</span>
+                            <span className="text-muted-foreground">({c.sats}%)</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </td>
+                  <td className="p-2">
                     <Button type="button" variant="ghost" size="icon" onClick={() => removeLine(line.id)} disabled={lines.length <= 2}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
@@ -411,6 +430,7 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
                 <td className="p-3 text-right font-mono font-semibold">
                   {formatAmount(lines.reduce((s, l) => s + l.credit, 0))}
                 </td>
+                <td className="p-3"></td>
                 <td className="p-3">
                   {validation.isValid ? (
                     <Check className="h-5 w-5 text-success mx-auto" />
