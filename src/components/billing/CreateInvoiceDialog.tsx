@@ -28,9 +28,12 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Plus, Trash2, UserPlus, Package, X, CalendarIcon } from "lucide-react";
+import { Plus, Trash2, UserPlus, Package, X, CalendarIcon, AlertCircle } from "lucide-react";
 import { Customer, Product, InvoiceLine, Invoice, DocumentType, calculateInvoiceLine, calculateProductPrice } from "@/lib/billing/types";
 import { useBilling } from "@/contexts/BillingContext";
+import { useVat } from "@/contexts/VatContext";
+import { useVatPeriodLock } from "@/contexts/VatPeriodLockContext";
+import { getActiveVatCodes, getOutgoingCodes, getVatCodeById } from "@/lib/vat/codes";
 import { formatAmount } from "@/lib/bas-accounts";
 import { toast } from "sonner";
 import { format, addDays } from "date-fns";
