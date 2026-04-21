@@ -118,7 +118,8 @@ export function getBASAccountsForDate(date: string, accountingStandard: Accounti
   }
 
   const years = getAvailableBASYears();
-  const fallbackYear = years.filter((availableYear) => availableYear <= year).at(-1) ?? getLatestBASYear();
+  const filteredYears = years.filter((availableYear) => availableYear <= year);
+  const fallbackYear = filteredYears.length > 0 ? filteredYears[filteredYears.length - 1] : getLatestBASYear();
   if (!fallbackYear) return DEFAULT_BAS_ACCOUNTS;
 
   const fallbackAccounts = getBASAccountsForYear(fallbackYear, accountingStandard);
