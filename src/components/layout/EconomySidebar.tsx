@@ -14,6 +14,7 @@ import {
   Shield,
   Receipt,
   Calculator,
+  ListChecks,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,6 +26,7 @@ interface EconomySidebarProps {
 
 const sidebarItems = [
   { name: "Economy Overview", href: "/economy", icon: LayoutDashboard, description: "Dashboard & summary" },
+  { name: "Checklist", href: "/economy/checklist", icon: ListChecks, description: "Saker att göra" },
   { name: "Accounting", href: "/economy/accounting", icon: BookOpen, description: "Core bookkeeping" },
   { name: "Billing", href: "/economy/billing", icon: FileText, description: "Invoices & payments" },
   { name: "Receipts", href: "/economy/receipts", icon: Receipt, description: "Manage receipts" },

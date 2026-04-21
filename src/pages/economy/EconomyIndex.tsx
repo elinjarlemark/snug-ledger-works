@@ -9,6 +9,7 @@ import {
   FileCheck,
   BarChart3,
   Wallet,
+  ListChecks,
   ArrowRight,
   LogIn,
   TrendingUp,
@@ -25,6 +26,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 
 const economyModules = [
+  {
+    icon: ListChecks,
+    name: "Checklist",
+    href: "/economy/checklist",
+  },
   {
     icon: BookOpen,
     name: "Accounting",
