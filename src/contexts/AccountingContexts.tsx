@@ -147,17 +147,54 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     setAccounts(mergedAccounts);
     localStorage.setItem(`accountpro_accounts_${companyId}`, JSON.stringify(mergedAccounts));
 
-    if (storedVouchers) {
-      setVouchers(JSON.parse(storedVouchers));
-    } else {
-      setVouchers([]);
+    let initialVouchers: Voucher[] = storedVouchers ? (JSON.parse(storedVouchers) as Voucher[]) : [];
+    let initialNextNumber = storedNextNumber ? parseInt(storedNextNumber) : 1;
+
+    // Seed demo data for the hardcoded test account so all reports populate.
+    const isTestUser = user?.email?.toLowerCase() === "test@test.com";
+    if (isTestUser && initialVouchers.length === 0) {
+      const today = new Date().toISOString().split("T")[0];
+      const seedAccount = mergedAccounts.find((a) => a.number === "1930");
+      if (seedAccount) {
+        const seeded: Voucher[] = [];
+        let voucherNo = 1;
+        mergedAccounts.forEach((acc) => {
+          if (acc.number === "1930") return;
+          seeded.push({
+            id: crypto.randomUUID(),
+            companyId,
+            voucherNumber: voucherNo,
+            date: today,
+            description: `Demo: ${acc.number} ${acc.name}`,
+            createdAt: new Date().toISOString(),
+            lines: [
+              {
+                id: crypto.randomUUID(),
+                accountNumber: "1930",
+                accountName: seedAccount.name,
+                debit: 1,
+                credit: 0,
+              },
+              {
+                id: crypto.randomUUID(),
+                accountNumber: acc.number,
+                accountName: acc.name,
+                debit: 0,
+                credit: 1,
+              },
+            ],
+          });
+          voucherNo += 1;
+        });
+        initialVouchers = seeded;
+        initialNextNumber = voucherNo;
+        localStorage.setItem(`accountpro_vouchers_${companyId}`, JSON.stringify(seeded));
+        localStorage.setItem(`accountpro_next_voucher_${companyId}`, String(voucherNo));
+      }
     }
 
-    if (storedNextNumber) {
-      setNextVoucherNumber(parseInt(storedNextNumber));
-    } else {
-      setNextVoucherNumber(1);
-    }
+    setVouchers(initialVouchers);
+    setNextVoucherNumber(initialNextNumber);
 
     const numericUserId = Number(user?.id);
     const numericCompanyId = Number(companyId);

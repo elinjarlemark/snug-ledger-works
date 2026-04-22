@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { Customer, Product, Invoice } from "@/lib/billing/types";
+import { Customer, Product, Invoice, VoucherTemplate } from "@/lib/billing/types";
 import { useAuth } from "./AuthContext";
 import { authService } from "@/services/auth";
 import { shouldUseLocalStorageMode } from "@/lib/runtimeMode";
@@ -8,6 +8,7 @@ interface BillingContextType {
   customers: Customer[];
   products: Product[];
   invoices: Invoice[];
+  templates: VoucherTemplate[];
   nextInvoiceNumber: number;
   addCustomer: (customer: Omit<Customer, "id" | "companyId" | "createdAt">) => Customer;
   updateCustomer: (customer: Customer) => void;
@@ -22,6 +23,10 @@ interface BillingContextType {
   convertQuoteToInvoice: (quoteId: string) => Invoice | null;
   deleteInvoice: (invoiceId: string) => void;
   getInvoiceById: (invoiceId: string) => Invoice | undefined;
+  addTemplate: (template: Omit<VoucherTemplate, "id" | "companyId" | "createdAt">) => VoucherTemplate;
+  updateTemplate: (template: VoucherTemplate) => void;
+  deleteTemplate: (templateId: string) => void;
+  setDefaultTemplate: (templateId: string) => void;
 }
 
 const BillingContext = createContext<BillingContextType | undefined>(undefined);
@@ -59,6 +64,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [templates, setTemplates] = useState<VoucherTemplate[]>([]);
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState(1);
 
   const companyId = activeCompany?.id || "";
@@ -74,15 +80,20 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       setCustomers([]);
       setProducts([]);
       setInvoices([]);
+      setTemplates([]);
       setNextInvoiceNumber(1);
       return;
     }
 
     const storedInvoices = localStorage.getItem(`billing_invoices_${companyId}`);
     const storedNextNumber = localStorage.getItem(`billing_next_invoice_${companyId}`);
+    const storedTemplates = localStorage.getItem(`billing_templates_${companyId}`);
 
     if (storedInvoices) setInvoices(JSON.parse(storedInvoices));
     else setInvoices([]);
+
+    if (storedTemplates) setTemplates(JSON.parse(storedTemplates));
+    else setTemplates([]);
 
     if (storedNextNumber) setNextInvoiceNumber(parseInt(storedNextNumber));
     else setNextInvoiceNumber(1);
@@ -369,11 +380,59 @@ export function BillingProvider({ children }: { children: ReactNode }) {
 
   const getInvoiceById = (invoiceId: string) => invoices.find(inv => inv.id === invoiceId);
 
+  const saveTemplates = (newTemplates: VoucherTemplate[]) => {
+    setTemplates(newTemplates);
+    if (companyId) {
+      localStorage.setItem(`billing_templates_${companyId}`, JSON.stringify(newTemplates));
+    }
+  };
+
+  const addTemplate = (data: Omit<VoucherTemplate, "id" | "companyId" | "createdAt">) => {
+    const newTemplate: VoucherTemplate = {
+      ...data,
+      id: crypto.randomUUID(),
+      companyId,
+      createdAt: new Date().toISOString(),
+    };
+    let next = [...templates, newTemplate];
+    if (newTemplate.isDefault) {
+      next = next.map(t => t.id === newTemplate.id ? t : { ...t, isDefault: false });
+    } else if (templates.length === 0) {
+      // First template becomes default automatically
+      next = next.map(t => t.id === newTemplate.id ? { ...t, isDefault: true } : t);
+    }
+    saveTemplates(next);
+    return newTemplate;
+  };
+
+  const updateTemplate = (template: VoucherTemplate) => {
+    let next = templates.map(t => t.id === template.id ? template : t);
+    if (template.isDefault) {
+      next = next.map(t => t.id === template.id ? t : { ...t, isDefault: false });
+    }
+    saveTemplates(next);
+  };
+
+  const deleteTemplate = (templateId: string) => {
+    const next = templates.filter(t => t.id !== templateId);
+    // If we removed the default, promote the first remaining
+    if (next.length > 0 && !next.some(t => t.isDefault)) {
+      next[0] = { ...next[0], isDefault: true };
+    }
+    saveTemplates(next);
+  };
+
+  const setDefaultTemplate = (templateId: string) => {
+    const next = templates.map(t => ({ ...t, isDefault: t.id === templateId }));
+    saveTemplates(next);
+  };
+
   return (
     <BillingContext.Provider value={{
       customers,
       products,
       invoices,
+      templates,
       nextInvoiceNumber,
       addCustomer,
       updateCustomer,
@@ -388,6 +447,10 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       convertQuoteToInvoice,
       deleteInvoice,
       getInvoiceById,
+      addTemplate,
+      updateTemplate,
+      deleteTemplate,
+      setDefaultTemplate,
     }}>
       {children}
     </BillingContext.Provider>

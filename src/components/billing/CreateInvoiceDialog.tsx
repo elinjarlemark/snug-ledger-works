@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Plus, Trash2, UserPlus, Package, X, CalendarIcon, AlertCircle } from "lucide-react";
+import { Plus, Trash2, UserPlus, Package, X, CalendarIcon, AlertCircle, FileCog } from "lucide-react";
 import { Customer, Product, InvoiceLine, Invoice, DocumentType, calculateInvoiceLine, calculateProductPrice } from "@/lib/billing/types";
 import { useBilling } from "@/contexts/BillingContext";
 import { useVat } from "@/contexts/VatContext";
@@ -77,11 +77,14 @@ function filterCity(value: string): string {
 }
 
 export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType = "invoice", onInvoiceCreated }: CreateInvoiceDialogProps) {
-  const { customers, products, addCustomer, addProduct, updateProduct, createInvoice } = useBilling();
+  const { customers, products, templates, addCustomer, addProduct, updateProduct, createInvoice } = useBilling();
   const { vatCodes, vatSettings } = useVat();
   const { isDateInLockedPeriod } = useVatPeriodLock();
   const outgoingCodes = getOutgoingCodes(vatCodes);
   const defaultSalesCodeId = vatSettings.defaultSalesCodeId || (outgoingCodes[0]?.id ?? "SE25");
+
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("__none__");
+  const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
 
   const [priceMode, setPriceMode] = useState<"excl" | "incl">("excl");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
@@ -337,6 +340,7 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
       customerId: customer.id, customerName: customer.name, customerAddress: customer.address,
       issueDate: issueIso, dueDate: format(dueDate, "yyyy-MM-dd"),
       lines: invoiceLines, subtotal, totalVat, total, status: "draft",
+      templateId: selectedTemplateId !== "__none__" ? selectedTemplateId : undefined,
     });
 
     toast.success(`${docLabel} created`);
@@ -350,6 +354,25 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
 
   const formContent = (
     <div className="space-y-4">
+      {/* Template selector */}
+      {templates.length > 0 && (
+        <div className="flex items-center gap-2">
+          <Label className="text-xs font-semibold">Voucher template</Label>
+          <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+            <SelectTrigger className="h-8 text-xs w-[260px]">
+              <FileCog className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+              <SelectValue placeholder="Don't use template" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">Don't use template</SelectItem>
+              {templates.map((t) => (
+                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       {/* Customer + Dates */}
       <div className="flex gap-3">
         <div className="max-w-[180px] space-y-1.5">
@@ -685,7 +708,15 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
         <Card>
           <CardHeader className="py-3 px-4">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Create {docLabel}</CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-base">Create {docLabel}</CardTitle>
+                {selectedTemplate && (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-secondary/15 text-secondary px-2 py-0.5 text-xs font-medium border border-secondary/30">
+                    <FileCog className="h-3 w-3" />
+                    {selectedTemplate.name}
+                  </span>
+                )}
+              </div>
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onOpenChange(false)}>
                 <X className="h-4 w-4" />
               </Button>
