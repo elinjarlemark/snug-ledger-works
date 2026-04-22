@@ -197,6 +197,14 @@ function Row({ item, onToggle, onUpdate, onDelete }: RowProps) {
   }, []);
 
   const handleCheckClick = () => {
+    // If item is already done (in Finished section), move it back to Active immediately — no timer.
+    if (item.done) {
+      clearTimers();
+      setPendingToggle(false);
+      setCountdown(5);
+      onToggle(false);
+      return;
+    }
     if (pendingToggle) {
       // Cancel pending toggle (undo)
       clearTimers();
@@ -284,25 +292,19 @@ function Row({ item, onToggle, onUpdate, onDelete }: RowProps) {
         onClick={handleCheckClick}
         className={cn(
           "h-6 w-6 rounded-md border-2 flex items-center justify-center transition-all shrink-0",
-          item.done
+          item.done && !pendingToggle
             ? "bg-secondary border-secondary text-secondary-foreground"
             : "border-muted-foreground/40 hover:border-secondary",
-          pendingToggle && "border-secondary bg-secondary/20"
+          pendingToggle && "border-secondary bg-secondary/20 text-secondary"
         )}
         title={pendingToggle ? "Klicka igen för att ångra" : item.done ? "Markera som aktiv" : "Markera som klar"}
       >
-        {(item.done || pendingToggle) && <Check className="h-4 w-4" />}
+        {pendingToggle ? (
+          <span className="text-xs font-bold leading-none">{countdown}</span>
+        ) : item.done ? (
+          <Check className="h-4 w-4" />
+        ) : null}
       </button>
-
-      {pendingToggle && (
-        <button
-          onClick={handleCheckClick}
-          className="h-6 w-6 rounded-md border-2 border-secondary bg-secondary/10 flex items-center justify-center text-xs font-bold text-secondary shrink-0 animate-fade-in"
-          title="Klicka för att ångra"
-        >
-          {countdown}
-        </button>
-      )}
     </div>
   );
 }

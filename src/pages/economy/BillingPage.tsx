@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { FileText, Users, Package, Plus, Trash2, Edit, Receipt, Eye, X, Calendar, Send, Download, Mail, CheckCircle, DollarSign } from "lucide-react";
+import { FileText, Users, Package, Plus, Trash2, Edit, Receipt, Eye, X, Calendar, Send, Download, Mail, CheckCircle, DollarSign, FileCog } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useBilling } from "@/contexts/BillingContext";
@@ -42,6 +48,10 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { CreateInvoiceDialog } from "@/components/billing/CreateInvoiceDialog";
 import { exportInvoicePDF } from "@/lib/pdf-export";
+import { useAccounting } from "@/contexts/AccountingContext";
+import { TemplateFormDialog, ExistingTemplatesDialog } from "@/components/billing/VoucherTemplateManager";
+import { buildVoucherFromTemplate, isTemplateBalanced } from "@/lib/billing/applyTemplate";
+import { VoucherTemplate } from "@/lib/billing/types";
 
 // Helper functions for input validation
 function formatPostalCode(value: string): string {
@@ -298,11 +308,14 @@ function InvoiceDetailView({
 }) {
   const { activeCompany } = useAuth();
   const navigate = useNavigate();
+  const { templates } = useBilling();
+  const { createVoucher } = useAccounting();
   const isQuote = invoice.documentType === "quote";
   const docLabel = isQuote ? "Quote" : "Invoice";
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showSendDialog, setShowSendDialog] = useState(false);
   const [showPaidConfirm, setShowPaidConfirm] = useState(false);
+  const linkedTemplate = invoice.templateId ? templates.find(t => t.id === invoice.templateId) : undefined;
 
   const handleSendManually = () => {
     exportInvoicePDF(invoice, activeCompany ? {
@@ -320,11 +333,16 @@ function InvoiceDetailView({
     setShowSendDialog(false);
   };
 
-  const handleMarkPaid = (createVoucher: boolean) => {
+  const handleMarkPaid = (useAutomatic: boolean) => {
     onStatusChange(invoice.id, "paid");
     setShowPaidConfirm(false);
     toast.success("Invoice marked as paid");
-    if (createVoucher) {
+    if (!useAutomatic) return;
+
+    const tpl = linkedTemplate;
+
+    // No template linked — fall back to old prefill flow on the accounting page.
+    if (!tpl) {
       const bookingAccount = activeCompany?.invoiceBookingAccount || "1930";
       navigate("/economy/accounting", {
         state: {
@@ -338,6 +356,36 @@ function InvoiceDetailView({
           },
         },
       });
+      return;
+    }
+
+    if (!isTemplateBalanced(invoice, tpl)) {
+      toast.error("Template is not balanced — opening voucher form to fix");
+      const built = buildVoucherFromTemplate(invoice, tpl);
+      navigate("/economy/accounting", {
+        state: {
+          openCreateVoucher: true,
+          prefillVoucher: {
+            description: built.description,
+            lines: built.lines,
+          },
+        },
+      });
+      return;
+    }
+
+    const built = buildVoucherFromTemplate(invoice, tpl);
+    const created = createVoucher({
+      date: built.date,
+      description: built.description,
+      lines: built.lines,
+    });
+    if (created) {
+      toast.success(`Voucher #${created.voucherNumber} created`, {
+        description: `From "${tpl.name}" template`,
+      });
+    } else {
+      toast.error("Could not create voucher — please review the template");
     }
   };
 
@@ -473,18 +521,22 @@ function InvoiceDetailView({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Paid Confirmation - Create Voucher? */}
+      {/* Paid Confirmation - Automatic booking? */}
       <AlertDialog open={showPaidConfirm} onOpenChange={setShowPaidConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Invoice Paid</AlertDialogTitle>
             <AlertDialogDescription>
-              Do you want to create a voucher for this invoice?
+              {linkedTemplate
+                ? `Use automatic booking with the linked template "${linkedTemplate.name}"?`
+                : "Do you want to create a voucher for this invoice? You can link a template when creating the invoice to make this fully automatic."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => handleMarkPaid(false)}>No</AlertDialogCancel>
-            <AlertDialogAction onClick={() => handleMarkPaid(true)}>Yes, Create Voucher</AlertDialogAction>
+            <AlertDialogAction onClick={() => handleMarkPaid(true)}>
+              {linkedTemplate ? "Yes, book automatically" : "Yes, open voucher form"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -525,7 +577,7 @@ function InvoiceDetailView({
 
 export default function BillingPage() {
   const { user } = useAuth();
-  const { customers, products, invoices, addCustomer, updateCustomer, deleteCustomer, addProduct, updateProduct, deleteProduct, deleteInvoice, updateInvoiceStatus, convertQuoteToInvoice } = useBilling();
+  const { customers, products, invoices, templates, addCustomer, updateCustomer, deleteCustomer, addProduct, updateProduct, deleteProduct, deleteInvoice, updateInvoiceStatus, convertQuoteToInvoice } = useBilling();
   const location = useLocation();
   
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
@@ -535,6 +587,9 @@ export default function BillingPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>();
   const [editingProduct, setEditingProduct] = useState<Product | undefined>();
+  const [templateFormOpen, setTemplateFormOpen] = useState(false);
+  const [editTemplate, setEditTemplate] = useState<VoucherTemplate | undefined>();
+  const [existingTemplatesOpen, setExistingTemplatesOpen] = useState(false);
 
   // Compute display status: only sent invoices can become overdue
   const getDisplayStatus = (inv: Invoice) => {
@@ -814,11 +869,45 @@ export default function BillingPage() {
             <>
               <div className="flex justify-between items-center">
                 <h2 className="text-xl font-semibold">Invoices</h2>
-                <Button onClick={() => setShowCreateInvoice(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Invoice
-                </Button>
+                <div className="flex items-center gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline">
+                        <FileCog className="h-4 w-4 mr-2" />
+                        Template
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => { setEditTemplate(undefined); setTemplateFormOpen(true); }}
+                      >
+                        <Plus className="h-4 w-4 mr-2" /> Create new
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={templates.length === 0}
+                        onClick={() => setExistingTemplatesOpen(true)}
+                      >
+                        <Edit className="h-4 w-4 mr-2" /> Edit existing
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Button onClick={() => setShowCreateInvoice(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Invoice
+                  </Button>
+                </div>
               </div>
+
+              <TemplateFormDialog
+                open={templateFormOpen}
+                onOpenChange={(o) => { setTemplateFormOpen(o); if (!o) setEditTemplate(undefined); }}
+                template={editTemplate}
+              />
+              <ExistingTemplatesDialog
+                open={existingTemplatesOpen}
+                onOpenChange={setExistingTemplatesOpen}
+                onEdit={(tpl) => { setEditTemplate(tpl); setTemplateFormOpen(true); }}
+              />
 
               {actualInvoices.length === 0 ? (
                 <Card>

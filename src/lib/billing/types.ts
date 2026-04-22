@@ -57,6 +57,31 @@ export interface Invoice {
   total: number;
   status: "draft" | "sent" | "paid" | "overdue" | "accepted" | "declined";
   paidDate?: string;
+  templateId?: string;
+  createdAt: string;
+}
+
+export type TemplateAmountSource = "total" | "subtotal" | "totalVat" | "fixed";
+
+export interface VoucherTemplateLine {
+  id: string;
+  accountNumber: string;
+  accountName: string;
+  side: "debit" | "credit";
+  amountSource: TemplateAmountSource;
+  fixedAmount?: number;
+}
+
+export interface VoucherTemplate {
+  id: string;
+  companyId: string;
+  name: string;
+  description?: string;
+  /** @deprecated kept for backwards-compat, no longer used in UI */
+  isDefault?: boolean;
+  /** When true, marking a linked invoice as paid auto-creates the voucher silently */
+  automaticBooking?: boolean;
+  lines: VoucherTemplateLine[];
   createdAt: string;
 }
 
