@@ -327,7 +327,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         setVouchers(dbVouchers);
         setNextVoucherNumber(converted.nextVoucherNumber);
         localStorage.setItem(`accountpro_accounts_${requestedCompanyId}`, JSON.stringify(nextAccounts));
-        localStorage.setItem(`accountpro_vouchers_${requestedCompanyId}`, JSON.stringify(dbVouchers));
+        persistVouchers(requestedCompanyId, dbVouchers);
         localStorage.setItem(`accountpro_next_voucher_${requestedCompanyId}`, converted.nextVoucherNumber.toString());
       })
       .catch((error) => {
