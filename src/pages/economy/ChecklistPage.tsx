@@ -61,59 +61,71 @@ export default function ChecklistPage() {
         </Button>
       </div>
 
-      {adding && (
-        <Card className="p-3 flex items-center gap-2 animate-fade-in">
-          <Input
-            ref={inputRef}
-            value={newText}
-            onChange={(e) => setNewText(e.target.value)}
-            placeholder="Vad behöver göras?"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleAdd();
-              if (e.key === "Escape") {
-                setAdding(false);
-                setNewText("");
-              }
-            }}
-          />
-          <Button size="sm" onClick={handleAdd}>
-            Lägg till
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={() => {
-              setAdding(false);
-              setNewText("");
-            }}
+      <AnimatePresence>
+        {adding && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
           >
-            <X className="h-4 w-4" />
-          </Button>
-        </Card>
-      )}
+            <Card className="p-3 flex items-center gap-2 shadow-md border-secondary/40">
+              <Input
+                ref={inputRef}
+                value={newText}
+                onChange={(e) => setNewText(e.target.value)}
+                placeholder="Vad behöver göras?"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAdd();
+                  if (e.key === "Escape") {
+                    setAdding(false);
+                    setNewText("");
+                  }
+                }}
+              />
+              <Button size="sm" onClick={handleAdd}>
+                Lägg till
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => {
+                  setAdding(false);
+                  setNewText("");
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <Section
         title="Active"
         count={active.length}
         open={activeOpen}
         onOpenChange={setActiveOpen}
+        accent="secondary"
       >
         {active.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4 text-center">
             Inga aktiva uppgifter. Lägg till en med plus-knappen.
           </p>
         ) : (
-          <div className="space-y-2">
-            {active.map((item) => (
-              <Row
-                key={item.id}
-                item={item}
-                onToggle={(done) => toggleDone(item.id, done)}
-                onUpdate={(text) => updateItem(item.id, text)}
-                onDelete={() => deleteItem(item.id)}
-              />
-            ))}
-          </div>
+          <motion.div layout className="space-y-2">
+            <AnimatePresence initial={false}>
+              {active.map((item) => (
+                <Row
+                  key={item.id}
+                  item={item}
+                  onToggle={(done) => toggleDone(item.id, done)}
+                  onUpdate={(text) => updateItem(item.id, text)}
+                  onDelete={() => deleteItem(item.id)}
+                />
+              ))}
+            </AnimatePresence>
+          </motion.div>
         )}
       </Section>
 
@@ -122,26 +134,29 @@ export default function ChecklistPage() {
         count={finished.length}
         open={finishedOpen}
         onOpenChange={setFinishedOpen}
+        accent="success"
       >
         {finished.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4 text-center">
             Inga klara uppgifter ännu.
           </p>
         ) : (
-          <div className="space-y-2">
-            {finished.map((item) => (
-              <Row
-                key={item.id}
-                item={item}
-                onToggle={(done) => toggleDone(item.id, done)}
-                onUpdate={(text) => updateItem(item.id, text)}
-                onDelete={() => deleteItem(item.id)}
-              />
-            ))}
-          </div>
+          <motion.div layout className="space-y-2">
+            <AnimatePresence initial={false}>
+              {finished.map((item) => (
+                <Row
+                  key={item.id}
+                  item={item}
+                  onToggle={(done) => toggleDone(item.id, done)}
+                  onUpdate={(text) => updateItem(item.id, text)}
+                  onDelete={() => deleteItem(item.id)}
+                />
+              ))}
+            </AnimatePresence>
+          </motion.div>
         )}
       </Section>
-    </div>
+    </motion.div>
   );
 }
 
@@ -151,30 +166,48 @@ interface SectionProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
+  accent?: "secondary" | "success";
 }
 
-function Section({ title, count, open, onOpenChange, children }: SectionProps) {
+function Section({ title, count, open, onOpenChange, children, accent = "secondary" }: SectionProps) {
+  const accentClass = accent === "success"
+    ? "before:bg-gradient-to-r before:from-success before:to-success/40"
+    : "before:bg-gradient-to-r before:from-secondary before:to-accent/40";
+
   return (
     <Collapsible open={open} onOpenChange={onOpenChange}>
-      <Card className="overflow-hidden">
+      <Card
+        className={cn(
+          "relative overflow-hidden border-border/60 shadow-card hover:shadow-md transition-shadow",
+          "before:content-[''] before:absolute before:top-0 before:left-0 before:w-full before:h-[2px] before:opacity-70",
+          accentClass
+        )}
+      >
         <CollapsibleTrigger asChild>
           <button className="w-full flex items-center justify-between p-4 hover:bg-muted/40 transition-colors">
             <div className="flex items-center gap-3">
               <span className="font-semibold text-foreground">{title}</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+              <span
+                className={cn(
+                  "text-xs px-2 py-0.5 rounded-full font-medium",
+                  accent === "success"
+                    ? "bg-success/10 text-success"
+                    : "bg-secondary/10 text-secondary"
+                )}
+              >
                 {count}
               </span>
             </div>
             <ChevronDown
               className={cn(
-                "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                "h-4 w-4 text-muted-foreground transition-transform duration-300",
                 open && "rotate-180"
               )}
             />
           </button>
         </CollapsibleTrigger>
         <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
-          <div className="px-4 pb-4 border-t border-border pt-3">{children}</div>
+          <div className="px-4 pb-4 border-t border-border/60 pt-3">{children}</div>
         </CollapsibleContent>
       </Card>
     </Collapsible>
