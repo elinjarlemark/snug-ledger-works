@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Plus, ChevronDown, Check, Trash2, Pencil, X } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -37,15 +38,25 @@ export default function ChecklistPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-4xl">
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h1 className="text-xl font-bold text-foreground">Checklist</h1>
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="space-y-6 w-full"
+    >
+      <div className="flex items-center justify-between gap-4">
+        <div className="space-y-1 min-w-0">
+          <h1 className="text-2xl font-bold gradient-text">Checklist</h1>
           <p className="text-sm text-muted-foreground">
             Hantera saker som behöver göras. Bocka av när de är klara.
           </p>
         </div>
-        <Button size="icon" onClick={() => setAdding(true)} title="Lägg till">
+        <Button
+          size="icon"
+          onClick={() => setAdding(true)}
+          title="Lägg till"
+          className="shrink-0 shadow-md hover:shadow-glow transition-shadow"
+        >
           <Plus className="h-4 w-4" />
         </Button>
       </div>
