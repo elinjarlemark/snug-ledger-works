@@ -276,9 +276,14 @@ function Row({ item, onToggle, onUpdate, onDelete }: RowProps) {
   };
 
   return (
-    <div
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      transition={{ duration: 0.2 }}
       className={cn(
-        "group flex items-center gap-3 p-3 rounded-md border border-border bg-background transition-colors"
+        "group flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card hover:border-secondary/40 hover:shadow-sm transition-all"
       )}
     >
       <div className="flex-1 min-w-0">
@@ -324,7 +329,7 @@ function Row({ item, onToggle, onUpdate, onDelete }: RowProps) {
         <Button
           size="icon"
           variant="ghost"
-          className="h-7 w-7 text-destructive hover:text-destructive"
+          className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
           onClick={onDelete}
           title="Ta bort"
         >
@@ -335,11 +340,11 @@ function Row({ item, onToggle, onUpdate, onDelete }: RowProps) {
       <button
         onClick={handleCheckClick}
         className={cn(
-          "h-6 w-6 rounded-md border-2 flex items-center justify-center transition-all shrink-0",
+          "h-7 w-7 rounded-md border-2 flex items-center justify-center transition-all shrink-0",
           item.done && !pendingToggle
-            ? "bg-secondary border-secondary text-secondary-foreground"
-            : "border-muted-foreground/40 hover:border-secondary",
-          pendingToggle && "border-secondary bg-secondary/20 text-secondary"
+            ? "bg-gradient-accent border-secondary text-secondary-foreground shadow-sm"
+            : "border-muted-foreground/40 hover:border-secondary hover:bg-secondary/5",
+          pendingToggle && "border-secondary bg-secondary/15 text-secondary animate-pulse"
         )}
         title={pendingToggle ? "Klicka igen för att ångra" : item.done ? "Markera som aktiv" : "Markera som klar"}
       >
@@ -349,6 +354,6 @@ function Row({ item, onToggle, onUpdate, onDelete }: RowProps) {
           <Check className="h-4 w-4" />
         ) : null}
       </button>
-    </div>
+    </motion.div>
   );
 }
