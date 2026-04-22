@@ -230,6 +230,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(`accountpro_accounts_${companyId}`, JSON.stringify(mergedAccounts));
 
     let initialVouchers: Voucher[] = storedVouchers ? (JSON.parse(storedVouchers) as Voucher[]) : [];
+    initialVouchers = rehydrateVouchers(companyId, initialVouchers) as Voucher[];
     let initialNextNumber = storedNextNumber ? parseInt(storedNextNumber) : 1;
 
     // Seed demo data for the hardcoded test account so all reports populate.
