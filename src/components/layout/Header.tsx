@@ -52,15 +52,15 @@ export function Header() {
   const displayedCompanies = showCompanySearch ? filteredCompanies : companies.slice(0, MAX_COMPANIES_SHOWN);
 
   return (
-    <header className="sticky top-0 z-50 w-full h-header border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+    <header className="sticky top-0 z-50 w-full h-header border-b border-border/60 bg-card/85 backdrop-blur-xl supports-[backdrop-filter]:bg-card/70 shadow-sm">
       <div className="container flex h-full items-center justify-between">
         <div className="flex items-center gap-2">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary">
+          <Link to="/" className="flex items-center gap-2 group">
+            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-primary-glow shadow-md transition-transform group-hover:scale-105">
               <span className="text-primary-foreground font-bold text-lg">A</span>
             </div>
             <span className="text-xl font-bold text-foreground">
-              Account<span className="text-secondary">Pro</span>
+              Account<span className="bg-gradient-to-r from-secondary to-accent-glow bg-clip-text text-transparent">Pro</span>
             </span>
           </Link>
 
