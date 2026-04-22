@@ -353,7 +353,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     setVouchers(newVouchers);
     setNextVoucherNumber(newNextNumber);
     if (companyId) {
-      localStorage.setItem(`accountpro_vouchers_${companyId}`, JSON.stringify(newVouchers));
+      persistVouchers(companyId, newVouchers);
       localStorage.setItem(`accountpro_next_voucher_${companyId}`, newNextNumber.toString());
     }
   };
