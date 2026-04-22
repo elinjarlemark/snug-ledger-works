@@ -673,14 +673,15 @@ export default function BillingPage() {
   }
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-5 animate-fade-in">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
-          <FileText className="h-5 w-5 text-secondary" />
+        <div className="w-11 h-11 rounded-xl bg-gradient-accent flex items-center justify-center shadow-md">
+          <FileText className="h-5 w-5 text-accent-foreground" />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-foreground">Billing</h1>
+          <h1 className="text-2xl font-bold gradient-text">Billing</h1>
+          <p className="text-xs text-muted-foreground">Hantera fakturor, offerter, kunder & produkter</p>
         </div>
       </div>
 
@@ -735,32 +736,32 @@ export default function BillingPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2 auto-rows-fr">
               {customers.map((customer) => (
-                <Card key={customer.id}>
+                <Card key={customer.id} className="border-border/60 shadow-card hover:shadow-md hover:border-secondary/30 transition-all hover-lift flex flex-col">
                   <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-lg">{customer.name}</CardTitle>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <CardTitle className="text-lg truncate">{customer.name}</CardTitle>
                         <CardDescription>
                           {customer.type === "company" ? "Company" : "Private Person"}
                           {customer.organizationNumber && ` • ${customer.organizationNumber}`}
                         </CardDescription>
                       </div>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => { setEditingCustomer(customer); setCustomerDialogOpen(true); }}>
+                      <div className="flex gap-1 shrink-0">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingCustomer(customer); setCustomerDialogOpen(true); }}>
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDeleteCustomer(customer.id)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10" onClick={() => handleDeleteCustomer(customer.id)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="text-sm text-muted-foreground">
+                  <CardContent className="text-sm text-muted-foreground flex-1">
                     <p>{customer.address}</p>
                     <p>{customer.postalCode} {customer.city}</p>
-                    {customer.email && <p>{customer.email}</p>}
+                    {customer.email && <p className="truncate">{customer.email}</p>}
                   </CardContent>
                 </Card>
               ))}
