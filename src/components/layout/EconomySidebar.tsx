@@ -94,20 +94,21 @@ export function EconomySidebar({ collapsed, onToggle }: EconomySidebarProps) {
     <aside
       className={cn(
         "fixed left-0 top-header h-[calc(100vh-var(--header-height))] bg-sidebar border-r border-sidebar-border z-40 transition-all duration-300 ease-in-out flex flex-col",
+        "before:content-[''] before:absolute before:inset-0 before:bg-gradient-to-b before:from-sidebar-primary/[0.04] before:via-transparent before:to-transparent before:pointer-events-none",
         collapsed ? "w-sidebar-collapsed" : "w-sidebar"
       )}
     >
-      <div className="flex items-center justify-between p-4 border-b border-sidebar-border shrink-0">
+      <div className="relative flex items-center justify-between p-4 border-b border-sidebar-border shrink-0">
         <span className={cn("font-semibold text-sidebar-foreground transition-opacity duration-200 whitespace-nowrap", !isExpanded && "opacity-0 w-0 overflow-hidden")}>
           Economy
         </span>
-        <Button variant="ghost" size="icon" onClick={onToggle} className="text-sidebar-foreground hover:bg-sidebar-accent shrink-0">
+        <Button variant="ghost" size="icon" onClick={onToggle} className="text-sidebar-foreground hover:bg-sidebar-accent shrink-0 h-8 w-8">
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </Button>
       </div>
 
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto scrollbar-hide">
-        {navItems.map((item) => {
+      <nav className="relative flex-1 p-3 space-y-1 overflow-y-auto scrollbar-hide">
+        {navItems.map((item, idx) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.href;
 
@@ -116,21 +117,26 @@ export function EconomySidebar({ collapsed, onToggle }: EconomySidebarProps) {
               key={item.href}
               to={item.href}
               onClick={() => handleNavClick(item.href)}
-              className={cn("economy-sidebar-link", !isExpanded && "justify-center px-0 gap-0", isActive && "active")}
+              className={cn("economy-sidebar-link group", !isExpanded && "justify-center px-0 gap-0", isActive && "active")}
               title={collapsed ? item.name : undefined}
+              style={{ animationDelay: `${idx * 30}ms` }}
             >
-              <Icon className="h-5 w-5 shrink-0" />
-              <div className={cn("flex flex-col transition-opacity duration-200 whitespace-nowrap", !isExpanded && "opacity-0 w-0 overflow-hidden")}>
+              <Icon className={cn(
+                "h-5 w-5 shrink-0 transition-transform duration-200",
+                "group-hover:scale-110",
+                isActive && "text-sidebar-primary"
+              )} />
+              <div className={cn("flex flex-col transition-opacity duration-200 whitespace-nowrap min-w-0", !isExpanded && "opacity-0 w-0 overflow-hidden")}>
                 <span className="text-sm">{item.name}</span>
-                <span className="text-xs text-sidebar-foreground/60">{item.description}</span>
+                <span className="text-[11px] text-sidebar-foreground/55">{item.description}</span>
               </div>
             </Link>
           );
         })}
       </nav>
 
-      <div className={cn("p-3 border-t border-sidebar-border transition-opacity duration-200 shrink-0", !isExpanded && "opacity-0 pointer-events-none")}>
-        <Button variant="secondary" size="sm" className="w-full" asChild>
+      <div className={cn("relative p-3 border-t border-sidebar-border transition-opacity duration-200 shrink-0", !isExpanded && "opacity-0 pointer-events-none")}>
+        <Button variant="secondary" size="sm" className="w-full shadow-sm hover:shadow-glow transition-shadow" asChild>
           <Link to="/support">Get Support</Link>
         </Button>
       </div>

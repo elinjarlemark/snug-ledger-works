@@ -373,28 +373,31 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
         </div>
       )}
 
-      {/* Customer + Dates */}
-      <div className="flex gap-3">
-        <div className="max-w-[180px] space-y-1.5">
-          <Label className="text-xs font-semibold">Customer</Label>
+      {/* Customer + Dates - balanced 2-column row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {/* Customer block */}
+        <div className="border border-border/60 rounded-lg p-3 bg-muted/20 flex flex-col">
+          <Label className="text-xs font-semibold text-muted-foreground mb-2">Customer</Label>
           {customers.length > 0 ? (
             <Select value={selectedCustomerId} onValueChange={(v) => { setSelectedCustomerId(v); setInlineCustomer(null); }}>
-              <SelectTrigger className="h-9 text-sm w-[180px]"><SelectValue placeholder="Select customer..." /></SelectTrigger>
+              <SelectTrigger className="h-9 text-sm w-full"><SelectValue placeholder="Select customer..." /></SelectTrigger>
               <SelectContent>
                 {customers.map(c => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}
               </SelectContent>
             </Select>
           ) : (
-            <div className="h-9 flex items-center text-sm text-muted-foreground border rounded-md px-3 bg-muted/30 w-[180px]">No customers yet</div>
+            <div className="h-9 flex items-center text-sm text-muted-foreground border rounded-md px-3 bg-background w-full">No customers yet</div>
           )}
-          <Button type="button" variant="outline" size="sm" className="h-7 text-xs px-2.5 w-auto" onClick={() => setShowNewCustomerForm(true)}>
+          <Button type="button" variant="outline" size="sm" className="h-8 text-xs px-2.5 mt-2 self-start" onClick={() => setShowNewCustomerForm(true)}>
             <UserPlus className="h-3.5 w-3.5 mr-1" />New Customer
           </Button>
         </div>
-        <div className="w-[160px] shrink-0 space-y-1.5">
-          <div className="border border-border rounded-lg p-2.5 space-y-2.5 bg-muted/20">
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Issue Date</Label>
+
+        {/* Dates block */}
+        <div className="border border-border/60 rounded-lg p-3 bg-muted/20">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground">Issue Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" size="sm" className="h-9 w-full justify-start text-left font-normal text-sm">
@@ -407,8 +410,8 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
                 </PopoverContent>
               </Popover>
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Due Date</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground">Due Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" size="sm" className="h-9 w-full justify-start text-left font-normal text-sm">
@@ -422,6 +425,7 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
               </Popover>
             </div>
           </div>
+          <p className="text-[10px] text-muted-foreground mt-2">Standard: 30 dagar betalningstid</p>
         </div>
       </div>
 

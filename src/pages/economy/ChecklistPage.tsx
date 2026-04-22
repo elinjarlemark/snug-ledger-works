@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Plus, ChevronDown, Check, Trash2, Pencil, X } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -37,72 +38,94 @@ export default function ChecklistPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-4xl">
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h1 className="text-xl font-bold text-foreground">Checklist</h1>
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="space-y-6 w-full"
+    >
+      <div className="flex items-center justify-between gap-4">
+        <div className="space-y-1 min-w-0">
+          <h1 className="text-2xl font-bold gradient-text">Checklist</h1>
           <p className="text-sm text-muted-foreground">
             Hantera saker som behöver göras. Bocka av när de är klara.
           </p>
         </div>
-        <Button size="icon" onClick={() => setAdding(true)} title="Lägg till">
+        <Button
+          size="icon"
+          onClick={() => setAdding(true)}
+          title="Lägg till"
+          className="shrink-0 shadow-md hover:shadow-glow transition-shadow"
+        >
           <Plus className="h-4 w-4" />
         </Button>
       </div>
 
-      {adding && (
-        <Card className="p-3 flex items-center gap-2 animate-fade-in">
-          <Input
-            ref={inputRef}
-            value={newText}
-            onChange={(e) => setNewText(e.target.value)}
-            placeholder="Vad behöver göras?"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleAdd();
-              if (e.key === "Escape") {
-                setAdding(false);
-                setNewText("");
-              }
-            }}
-          />
-          <Button size="sm" onClick={handleAdd}>
-            Lägg till
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={() => {
-              setAdding(false);
-              setNewText("");
-            }}
+      <AnimatePresence>
+        {adding && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
           >
-            <X className="h-4 w-4" />
-          </Button>
-        </Card>
-      )}
+            <Card className="p-3 flex items-center gap-2 shadow-md border-secondary/40">
+              <Input
+                ref={inputRef}
+                value={newText}
+                onChange={(e) => setNewText(e.target.value)}
+                placeholder="Vad behöver göras?"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAdd();
+                  if (e.key === "Escape") {
+                    setAdding(false);
+                    setNewText("");
+                  }
+                }}
+              />
+              <Button size="sm" onClick={handleAdd}>
+                Lägg till
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => {
+                  setAdding(false);
+                  setNewText("");
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <Section
         title="Active"
         count={active.length}
         open={activeOpen}
         onOpenChange={setActiveOpen}
+        accent="secondary"
       >
         {active.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4 text-center">
             Inga aktiva uppgifter. Lägg till en med plus-knappen.
           </p>
         ) : (
-          <div className="space-y-2">
-            {active.map((item) => (
-              <Row
-                key={item.id}
-                item={item}
-                onToggle={(done) => toggleDone(item.id, done)}
-                onUpdate={(text) => updateItem(item.id, text)}
-                onDelete={() => deleteItem(item.id)}
-              />
-            ))}
-          </div>
+          <motion.div layout className="space-y-2">
+            <AnimatePresence initial={false}>
+              {active.map((item) => (
+                <Row
+                  key={item.id}
+                  item={item}
+                  onToggle={(done) => toggleDone(item.id, done)}
+                  onUpdate={(text) => updateItem(item.id, text)}
+                  onDelete={() => deleteItem(item.id)}
+                />
+              ))}
+            </AnimatePresence>
+          </motion.div>
         )}
       </Section>
 
@@ -111,26 +134,29 @@ export default function ChecklistPage() {
         count={finished.length}
         open={finishedOpen}
         onOpenChange={setFinishedOpen}
+        accent="success"
       >
         {finished.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4 text-center">
             Inga klara uppgifter ännu.
           </p>
         ) : (
-          <div className="space-y-2">
-            {finished.map((item) => (
-              <Row
-                key={item.id}
-                item={item}
-                onToggle={(done) => toggleDone(item.id, done)}
-                onUpdate={(text) => updateItem(item.id, text)}
-                onDelete={() => deleteItem(item.id)}
-              />
-            ))}
-          </div>
+          <motion.div layout className="space-y-2">
+            <AnimatePresence initial={false}>
+              {finished.map((item) => (
+                <Row
+                  key={item.id}
+                  item={item}
+                  onToggle={(done) => toggleDone(item.id, done)}
+                  onUpdate={(text) => updateItem(item.id, text)}
+                  onDelete={() => deleteItem(item.id)}
+                />
+              ))}
+            </AnimatePresence>
+          </motion.div>
         )}
       </Section>
-    </div>
+    </motion.div>
   );
 }
 
@@ -140,30 +166,48 @@ interface SectionProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
+  accent?: "secondary" | "success";
 }
 
-function Section({ title, count, open, onOpenChange, children }: SectionProps) {
+function Section({ title, count, open, onOpenChange, children, accent = "secondary" }: SectionProps) {
+  const accentClass = accent === "success"
+    ? "before:bg-gradient-to-r before:from-success before:to-success/40"
+    : "before:bg-gradient-to-r before:from-secondary before:to-accent/40";
+
   return (
     <Collapsible open={open} onOpenChange={onOpenChange}>
-      <Card className="overflow-hidden">
+      <Card
+        className={cn(
+          "relative overflow-hidden border-border/60 shadow-card hover:shadow-md transition-shadow",
+          "before:content-[''] before:absolute before:top-0 before:left-0 before:w-full before:h-[2px] before:opacity-70",
+          accentClass
+        )}
+      >
         <CollapsibleTrigger asChild>
           <button className="w-full flex items-center justify-between p-4 hover:bg-muted/40 transition-colors">
             <div className="flex items-center gap-3">
               <span className="font-semibold text-foreground">{title}</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+              <span
+                className={cn(
+                  "text-xs px-2 py-0.5 rounded-full font-medium",
+                  accent === "success"
+                    ? "bg-success/10 text-success"
+                    : "bg-secondary/10 text-secondary"
+                )}
+              >
                 {count}
               </span>
             </div>
             <ChevronDown
               className={cn(
-                "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                "h-4 w-4 text-muted-foreground transition-transform duration-300",
                 open && "rotate-180"
               )}
             />
           </button>
         </CollapsibleTrigger>
         <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
-          <div className="px-4 pb-4 border-t border-border pt-3">{children}</div>
+          <div className="px-4 pb-4 border-t border-border/60 pt-3">{children}</div>
         </CollapsibleContent>
       </Card>
     </Collapsible>
@@ -232,9 +276,14 @@ function Row({ item, onToggle, onUpdate, onDelete }: RowProps) {
   };
 
   return (
-    <div
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      transition={{ duration: 0.2 }}
       className={cn(
-        "group flex items-center gap-3 p-3 rounded-md border border-border bg-background transition-colors"
+        "group flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card hover:border-secondary/40 hover:shadow-sm transition-all"
       )}
     >
       <div className="flex-1 min-w-0">
@@ -280,7 +329,7 @@ function Row({ item, onToggle, onUpdate, onDelete }: RowProps) {
         <Button
           size="icon"
           variant="ghost"
-          className="h-7 w-7 text-destructive hover:text-destructive"
+          className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
           onClick={onDelete}
           title="Ta bort"
         >
@@ -291,11 +340,11 @@ function Row({ item, onToggle, onUpdate, onDelete }: RowProps) {
       <button
         onClick={handleCheckClick}
         className={cn(
-          "h-6 w-6 rounded-md border-2 flex items-center justify-center transition-all shrink-0",
+          "h-7 w-7 rounded-md border-2 flex items-center justify-center transition-all shrink-0",
           item.done && !pendingToggle
-            ? "bg-secondary border-secondary text-secondary-foreground"
-            : "border-muted-foreground/40 hover:border-secondary",
-          pendingToggle && "border-secondary bg-secondary/20 text-secondary"
+            ? "bg-gradient-accent border-secondary text-secondary-foreground shadow-sm"
+            : "border-muted-foreground/40 hover:border-secondary hover:bg-secondary/5",
+          pendingToggle && "border-secondary bg-secondary/15 text-secondary animate-pulse"
         )}
         title={pendingToggle ? "Klicka igen för att ångra" : item.done ? "Markera som aktiv" : "Markera som klar"}
       >
@@ -305,6 +354,6 @@ function Row({ item, onToggle, onUpdate, onDelete }: RowProps) {
           <Check className="h-4 w-4" />
         ) : null}
       </button>
-    </div>
+    </motion.div>
   );
 }
