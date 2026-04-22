@@ -4,6 +4,88 @@ import { useAuth } from "./AuthContext";
 import { authService } from "@/services/auth";
 import { parseSIEFile, generateSIEFile, convertSIEVouchersToInternal, convertSIEAccountsToBAS } from "@/lib/sie";
 
+// ---- Storage helpers (handle localStorage quota for vouchers w/ base64 attachments) ----
+const ATTACH_KEY_PREFIX = "accountpro_attachment_";
+
+function isQuotaError(err: unknown): boolean {
+  return (
+    err instanceof DOMException &&
+    (err.name === "QuotaExceededError" ||
+      err.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+      err.code === 22 ||
+      err.code === 1014)
+  );
+}
+
+function storeAttachmentExternally(companyId: string, voucherId: string, attId: string, dataUrl: string): boolean {
+  try {
+    localStorage.setItem(`${ATTACH_KEY_PREFIX}${companyId}_${voucherId}_${attId}`, dataUrl);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function loadExternalAttachment(companyId: string, voucherId: string, attId: string): string | null {
+  try {
+    return localStorage.getItem(`${ATTACH_KEY_PREFIX}${companyId}_${voucherId}_${attId}`);
+  } catch {
+    return null;
+  }
+}
+
+function persistVouchers(companyId: string, vouchers: any[]): void {
+  const key = `accountpro_vouchers_${companyId}`;
+  try {
+    localStorage.setItem(key, JSON.stringify(vouchers));
+    return;
+  } catch (err) {
+    if (!isQuotaError(err)) {
+      console.error("Failed to persist vouchers:", err);
+      return;
+    }
+  }
+
+  // Quota exceeded: move attachment dataUrls to separate keys and persist a slim copy.
+  const slim = vouchers.map((v: any) => {
+    if (!v.attachments || v.attachments.length === 0) return v;
+    const slimAttachments = v.attachments.map((a: any) => {
+      if (a.dataUrl) {
+        const stored = storeAttachmentExternally(companyId, v.id, a.id, a.dataUrl);
+        if (stored) {
+          const { dataUrl, ...rest } = a;
+          return { ...rest, _external: true };
+        }
+      }
+      return a;
+    });
+    return { ...v, attachments: slimAttachments };
+  });
+
+  try {
+    localStorage.setItem(key, JSON.stringify(slim));
+  } catch (err) {
+    console.error("Vouchers still exceed quota after externalizing attachments:", err);
+  }
+}
+
+function rehydrateVouchers(companyId: string, vouchers: any[]): any[] {
+  return vouchers.map((v: any) => {
+    if (!v.attachments || v.attachments.length === 0) return v;
+    const attachments = v.attachments.map((a: any) => {
+      if (a._external && !a.dataUrl) {
+        const dataUrl = loadExternalAttachment(companyId, v.id, a.id);
+        if (dataUrl) {
+          const { _external, ...rest } = a;
+          return { ...rest, dataUrl };
+        }
+      }
+      return a;
+    });
+    return { ...v, attachments };
+  });
+}
+
 export interface VoucherLine {
   id: string;
   accountNumber: string;
