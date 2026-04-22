@@ -271,7 +271,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         });
         initialVouchers = seeded;
         initialNextNumber = voucherNo;
-        localStorage.setItem(`accountpro_vouchers_${companyId}`, JSON.stringify(seeded));
+        persistVouchers(companyId, seeded);
         localStorage.setItem(`accountpro_next_voucher_${companyId}`, String(voucherNo));
       }
     }
