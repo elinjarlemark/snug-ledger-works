@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Mail, Lock, ArrowRight, User } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
 
 export default function LoginPage() {
@@ -23,6 +24,7 @@ export default function LoginPage() {
 
   const { login, beginSignup } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -70,10 +72,10 @@ export default function LoginPage() {
         return;
       }
 
-      // Login -> company-gate
+      // Login -> mobile users go straight to upload, desktop -> company-gate
       await login(email, password);
       toast.success('Welcome back!');
-      navigate('/company-gate');
+      navigate(isMobile ? '/mobile/upload' : '/company-gate');
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Something went wrong. Please try again.';
