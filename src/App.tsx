@@ -17,6 +17,9 @@ import { EconomyLayout } from "@/components/layout/EconomyLayout";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { RequireCompany } from '@/components/RequireCompany';
 import { GlobalTakeoverListener } from "@/components/company/GlobalTakeoverListener";
+import { MobileGate } from "@/components/mobile/MobileGate";
+import MobileLanding from "./pages/mobile/MobileLanding";
+import MobileUpload from "./pages/mobile/MobileUpload";
 
 // Pages
 import Index from "./pages/Index";
@@ -62,7 +65,12 @@ const App = () => (
                   <BrowserRouter>
                     <ScrollToTop />
                     <GlobalTakeoverListener />
+                    <MobileGate />
                     <Routes>
+                      {/* Mobile-only routes */}
+                      <Route path="/mobile" element={<MobileLanding />} />
+                      <Route path="/mobile/upload" element={<MobileUpload />} />
+
                       {/* Public pages with header/footer */}
                       <Route element={<PublicLayout />}>
                         <Route path="/" element={<Index />} />
