@@ -673,16 +673,11 @@ export default function BillingPage() {
   }
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-xl bg-gradient-accent flex items-center justify-center shadow-md">
-          <FileText className="h-5 w-5 text-accent-foreground" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold gradient-text">Billing</h1>
-          <p className="text-xs text-muted-foreground">Hantera fakturor, offerter, kunder & produkter</p>
-        </div>
+      <div className="space-y-1">
+        <h1 className="text-3xl font-bold gradient-text">Billing</h1>
+        <p className="text-sm text-muted-foreground">Hantera fakturor, offerter, kunder & produkter.</p>
       </div>
 
       {/* Tabs */}

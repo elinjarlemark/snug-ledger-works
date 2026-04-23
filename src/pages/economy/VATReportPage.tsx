@@ -135,15 +135,11 @@ export default function VATReportPage() {
     : [];
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
-          <FileCheck className="h-5 w-5 text-secondary" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-foreground">VAT Report (Momsredovisning)</h1>
-        </div>
+      <div className="space-y-1">
+        <h1 className="text-3xl font-bold gradient-text">VAT Report</h1>
+        <p className="text-sm text-muted-foreground">Momsredovisning per period.</p>
       </div>
 
       {/* Period selector */}

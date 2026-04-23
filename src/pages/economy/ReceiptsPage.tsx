@@ -115,14 +115,10 @@ export default function ReceiptsPage() {
   };
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
-          <ReceiptIcon className="h-5 w-5 text-secondary" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-foreground">Receipts</h1>
-        </div>
+    <div className="space-y-6 animate-fade-in">
+      <div className="space-y-1">
+        <h1 className="text-3xl font-bold gradient-text">Receipts</h1>
+        <p className="text-sm text-muted-foreground">Hantera och koppla uppladdade kvitton.</p>
       </div>
 
       <div className="flex items-center justify-between gap-4">
