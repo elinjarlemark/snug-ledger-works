@@ -46,7 +46,7 @@ export default function ChecklistPage() {
     >
       <div className="flex items-center justify-between gap-4">
         <div className="space-y-1 min-w-0">
-          <h1 className="text-2xl font-bold gradient-text">Checklist</h1>
+          <h1 className="text-3xl font-bold gradient-text">Checklist</h1>
           <p className="text-sm text-muted-foreground">
             Hantera saker som behöver göras. Bocka av när de är klara.
           </p>

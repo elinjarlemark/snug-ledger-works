@@ -242,18 +242,14 @@ export default function SalaryPage() {
   }
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
-            <Users className="h-5 w-5 text-secondary" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">Salary</h1>
-          </div>
+      <div className="flex items-center justify-between gap-4">
+        <div className="space-y-1 min-w-0">
+          <h1 className="text-3xl font-bold gradient-text">Salary</h1>
+          <p className="text-sm text-muted-foreground">Lönehantering och anställda.</p>
         </div>
-        <Button size="sm" onClick={() => { setEditingEmployee(undefined); setDialogOpen(true); }}>
+        <Button size="sm" onClick={() => { setEditingEmployee(undefined); setDialogOpen(true); }} className="shrink-0 shadow-md hover:shadow-glow transition-shadow">
           <Plus className="h-4 w-4 mr-1" />
           Add Employee
         </Button>

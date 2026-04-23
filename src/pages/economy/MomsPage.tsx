@@ -116,14 +116,11 @@ export default function MomsPage() {
   }
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
-          <Calculator className="h-5 w-5 text-secondary" />
-        </div>
-        <div className="flex-1">
-          <h1 className="text-xl font-bold text-foreground">Moms</h1>
-          <p className="text-sm text-muted-foreground">Svensk momsmodul – översikt, rapport och avstämning</p>
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1 min-w-0 flex-1">
+          <h1 className="text-3xl font-bold gradient-text">Moms</h1>
+          <p className="text-sm text-muted-foreground">Svensk momsmodul – översikt, rapport och avstämning.</p>
         </div>
         <MomsPeriodChip status={status} />
       </div>
