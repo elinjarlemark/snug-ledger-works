@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useEffectiveIsMobile } from "@/contexts/ViewModeContext";
 import { useAuth } from "@/contexts/AuthContext";
 
 /**
@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
  * Desktop users are unaffected.
  */
 export function MobileGate() {
-  const isMobile = useIsMobile();
+  const isMobile = useEffectiveIsMobile();
   const { user, isLoading } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
