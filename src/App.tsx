@@ -18,6 +18,8 @@ import { ScrollToTop } from "@/components/ScrollToTop";
 import { RequireCompany } from '@/components/RequireCompany';
 import { GlobalTakeoverListener } from "@/components/company/GlobalTakeoverListener";
 import { MobileGate } from "@/components/mobile/MobileGate";
+import { ViewModeProvider } from "@/contexts/ViewModeContext";
+import { ViewModeSwitch } from "@/components/ViewModeSwitch";
 import MobileLanding from "./pages/mobile/MobileLanding";
 import MobileUpload from "./pages/mobile/MobileUpload";
 
@@ -63,9 +65,11 @@ const App = () => (
                   <Toaster />
                   <Sonner />
                   <BrowserRouter>
-                    <ScrollToTop />
-                    <GlobalTakeoverListener />
-                    <MobileGate />
+                    <ViewModeProvider>
+                      <ScrollToTop />
+                      <GlobalTakeoverListener />
+                      <MobileGate />
+                      <ViewModeSwitch />
                     <Routes>
                       {/* Mobile-only routes */}
                       <Route path="/mobile" element={<MobileLanding />} />
