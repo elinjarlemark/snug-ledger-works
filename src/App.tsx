@@ -121,6 +121,7 @@ const App = () => (
                       {/* Catch-all */}
                       <Route path="*" element={<NotFound />} />
                     </Routes>
+                    </ViewModeProvider>
                   </BrowserRouter>
                 </TooltipProvider>
                 </ChecklistProvider>
