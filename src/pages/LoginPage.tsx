@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Mail, Lock, ArrowRight, User } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useEffectiveIsMobile } from '@/contexts/ViewModeContext';
 import { toast } from 'sonner';
 
 export default function LoginPage() {
@@ -24,7 +24,7 @@ export default function LoginPage() {
 
   const { login, beginSignup } = useAuth();
   const navigate = useNavigate();
-  const isMobile = useIsMobile();
+  const isMobile = useEffectiveIsMobile();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
