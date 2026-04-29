@@ -86,13 +86,15 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       setProducts([]);
       setInvoices([]);
       setTemplates([]);
-      setNextInvoiceNumber(1);
+      setNextInvoiceNumberState(1);
+      setFirstInvoiceNumberSet(false);
       return;
     }
 
     const storedInvoices = localStorage.getItem(`billing_invoices_${companyId}`);
     const storedNextNumber = localStorage.getItem(`billing_next_invoice_${companyId}`);
     const storedTemplates = localStorage.getItem(`billing_templates_${companyId}`);
+    const storedFirstSet = localStorage.getItem(`billing_first_invoice_set_${companyId}`);
 
     if (storedInvoices) setInvoices(JSON.parse(storedInvoices));
     else setInvoices([]);
@@ -100,8 +102,10 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     if (storedTemplates) setTemplates(JSON.parse(storedTemplates));
     else setTemplates([]);
 
-    if (storedNextNumber) setNextInvoiceNumber(parseInt(storedNextNumber));
-    else setNextInvoiceNumber(1);
+    if (storedNextNumber) setNextInvoiceNumberState(parseInt(storedNextNumber));
+    else setNextInvoiceNumberState(1);
+
+    setFirstInvoiceNumberSet(storedFirstSet === "1");
 
     if (shouldUseDatabase && user && hasNumericCompanyId) {
       fetch(`${API_BASE_URL}/customers?user_id=${user.id}&company_id=${parsedCompanyId}`)
@@ -170,12 +174,28 @@ export function BillingProvider({ children }: { children: ReactNode }) {
 
   const saveInvoices = (newInvoices: Invoice[], newNextNumber: number) => {
     setInvoices(newInvoices);
-    setNextInvoiceNumber(newNextNumber);
+    setNextInvoiceNumberState(newNextNumber);
     if (companyId) {
       localStorage.setItem(`billing_invoices_${companyId}`, JSON.stringify(newInvoices));
       localStorage.setItem(`billing_next_invoice_${companyId}`, newNextNumber.toString());
     }
   };
+
+  const setNextInvoiceNumber = (n: number, opts?: { allowLower?: boolean; markFirstSet?: boolean }): boolean => {
+    if (!Number.isFinite(n) || n < 1) return false;
+    const intN = Math.floor(n);
+    if (!opts?.allowLower && intN < nextInvoiceNumber) return false;
+    setNextInvoiceNumberState(intN);
+    if (companyId) {
+      localStorage.setItem(`billing_next_invoice_${companyId}`, intN.toString());
+      if (opts?.markFirstSet) {
+        localStorage.setItem(`billing_first_invoice_set_${companyId}`, "1");
+        setFirstInvoiceNumberSet(true);
+      }
+    }
+    return true;
+  };
+
 
   const addCustomer = (customerData: Omit<Customer, "id" | "companyId" | "createdAt">) => {
     const newCustomer: Customer = {
