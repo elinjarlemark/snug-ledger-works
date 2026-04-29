@@ -23,10 +23,12 @@ const FADE_DELAY_MS = 5000;
 
 export default function ChecklistPage() {
   const { items, addItem, updateItem, deleteItem, toggleDone } = useChecklist();
+  const navigate = useNavigate();
   const [activeOpen, setActiveOpen] = useState(true);
   const [finishedOpen, setFinishedOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newText, setNewText] = useState("");
+  const [pendingRecurring, setPendingRecurring] = useState<ChecklistItem | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -46,6 +48,32 @@ export default function ChecklistPage() {
       setNewText("");
       setAdding(false);
     }
+  };
+
+  const handleRecurringYes = () => {
+    if (!pendingRecurring?.meta) return;
+    const meta = pendingRecurring.meta;
+    // Mark item as done so it lands in Finished after invoice creation flow.
+    toggleDone(pendingRecurring.id, true);
+    navigate("/economy/billing", {
+      state: {
+        openCreateInvoice: true,
+        invoicePrefill: {
+          customerId: meta.customerId,
+          description: meta.description,
+          issueDate: meta.issueDate,
+          dueDate: meta.dueDate,
+          lines: meta.lines,
+        },
+      },
+    });
+    setPendingRecurring(null);
+  };
+
+  const handleRecurringNo = () => {
+    if (!pendingRecurring) return;
+    toggleDone(pendingRecurring.id, true);
+    setPendingRecurring(null);
   };
 
   return (
