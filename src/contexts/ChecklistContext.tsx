@@ -1,20 +1,41 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
+export interface RecurringChecklistMeta {
+  kind: "recurring-invoice";
+  recurringId: string;
+  occurrenceIndex: number; // 0-based
+  customerId: string;
+  customerName: string;
+  customerAddress?: string;
+  description: string;
+  issueDate: string;
+  dueDate: string;
+  lines: Array<{
+    productName: string;
+    description?: string;
+    quantity: number;
+    unitPrice: number;
+    vatRate: number;
+  }>;
+}
+
 export interface ChecklistItem {
   id: string;
   text: string;
   done: boolean;
   createdAt: string;
   completedAt?: string;
+  meta?: RecurringChecklistMeta;
 }
 
 interface ChecklistContextType {
   items: ChecklistItem[];
-  addItem: (text: string) => void;
+  addItem: (text: string, meta?: RecurringChecklistMeta) => ChecklistItem;
   updateItem: (id: string, text: string) => void;
   deleteItem: (id: string) => void;
   toggleDone: (id: string, done: boolean) => void;
+  hasItemForRecurring: (recurringId: string, occurrenceIndex: number) => boolean;
 }
 
 const ChecklistContext = createContext<ChecklistContextType | undefined>(undefined);
@@ -48,17 +69,26 @@ export function ChecklistProvider({ children }: { children: ReactNode }) {
     [activeCompany?.id]
   );
 
-  const addItem = (text: string) => {
+  const addItem = (text: string, meta?: RecurringChecklistMeta) => {
     const trimmed = text.trim();
-    if (!trimmed) return;
     const newItem: ChecklistItem = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      text: trimmed,
+      text: trimmed || text,
       done: false,
       createdAt: new Date().toISOString(),
+      meta,
     };
     persist([newItem, ...items]);
+    return newItem;
   };
+
+  const hasItemForRecurring = (recurringId: string, occurrenceIndex: number) =>
+    items.some(
+      (i) =>
+        i.meta?.kind === "recurring-invoice" &&
+        i.meta.recurringId === recurringId &&
+        i.meta.occurrenceIndex === occurrenceIndex,
+    );
 
   const updateItem = (id: string, text: string) => {
     persist(items.map((i) => (i.id === id ? { ...i, text } : i)));
