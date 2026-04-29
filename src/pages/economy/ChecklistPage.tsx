@@ -200,6 +200,31 @@ export default function ChecklistPage() {
           </motion.div>
         )}
       </Section>
+
+      {/* Recurring invoice confirmation */}
+      <AlertDialog open={!!pendingRecurring} onOpenChange={(o) => !o && setPendingRecurring(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Repeat className="h-5 w-5 text-secondary" />
+              Skapa automatisk faktura?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingRecurring?.meta && (
+                <>
+                  Vill du skapa invoice <span className="font-semibold">"{pendingRecurring.meta.description}"</span>{" "}
+                  till <span className="font-semibold">{pendingRecurring.meta.customerName}</span>
+                  {pendingRecurring.meta.customerAddress ? `, ${pendingRecurring.meta.customerAddress}` : ""}?
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleRecurringNo}>Nej</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRecurringYes}>Ja, öppna fakturan</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.div>
   );
 }
@@ -263,9 +288,10 @@ interface RowProps {
   onToggle: (done: boolean) => void;
   onUpdate: (text: string) => void;
   onDelete: () => void;
+  onItemClick?: () => void;
 }
 
-function Row({ item, onToggle, onUpdate, onDelete }: RowProps) {
+function Row({ item, onToggle, onUpdate, onDelete, onItemClick }: RowProps) {
   const [pendingToggle, setPendingToggle] = useState(false);
   const [countdown, setCountdown] = useState(5);
   const [editing, setEditing] = useState(false);
