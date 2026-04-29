@@ -10,6 +10,10 @@ interface BillingContextType {
   invoices: Invoice[];
   templates: VoucherTemplate[];
   nextInvoiceNumber: number;
+  /** True once the user has explicitly chosen a starting invoice number (or created their first invoice). */
+  firstInvoiceNumberSet: boolean;
+  /** Manually set the next invoice number. Returns false if attempt was lower than current (rejected). */
+  setNextInvoiceNumber: (n: number, opts?: { allowLower?: boolean; markFirstSet?: boolean }) => boolean;
   addCustomer: (customer: Omit<Customer, "id" | "companyId" | "createdAt">) => Customer;
   updateCustomer: (customer: Customer) => void;
   deleteCustomer: (customerId: string) => void;
