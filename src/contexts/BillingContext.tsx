@@ -69,7 +69,8 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [templates, setTemplates] = useState<VoucherTemplate[]>([]);
-  const [nextInvoiceNumber, setNextInvoiceNumber] = useState(1);
+  const [nextInvoiceNumber, setNextInvoiceNumberState] = useState(1);
+  const [firstInvoiceNumberSet, setFirstInvoiceNumberSet] = useState(false);
 
   const companyId = activeCompany?.id || "";
   const parsedCompanyId = Number(companyId);
