@@ -865,9 +865,13 @@ export default function BillingPage() {
           {showCreateInvoice && (
             <CreateInvoiceDialog
               open={showCreateInvoice}
-              onOpenChange={setShowCreateInvoice}
+              onOpenChange={(o) => {
+                setShowCreateInvoice(o);
+                if (!o) setInvoicePrefill(undefined);
+              }}
               inline
               documentType="invoice"
+              prefill={invoicePrefill}
               onInvoiceCreated={(inv) => setSelectedInvoice(inv)}
             />
           )}
@@ -888,6 +892,14 @@ export default function BillingPage() {
               <div className="flex justify-between items-center">
                 <h2 className="text-xl font-semibold">Invoices</h2>
                 <div className="flex items-center gap-2">
+                  <Button variant="outline" onClick={() => setSettingsOpen(true)}>
+                    <Settings className="h-4 w-4 mr-2" />
+                    Settings
+                  </Button>
+                  <Button variant="outline" onClick={() => setRecurringManagerOpen(true)}>
+                    <Repeat className="h-4 w-4 mr-2" />
+                    Recurring
+                  </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline">
@@ -909,7 +921,7 @@ export default function BillingPage() {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  <Button onClick={() => setShowCreateInvoice(true)}>
+                  <Button onClick={handleCreateInvoiceClick}>
                     <Plus className="h-4 w-4 mr-2" />
                     Create Invoice
                   </Button>
