@@ -12,13 +12,11 @@ import { useBilling } from "@/contexts/BillingContext";
 import { useRecurringBilling } from "@/contexts/RecurringBillingContext";
 import {
   RecurringInvoice,
-  RecurringFrequency,
   DueDateMode,
   computeIssueDate,
   computeDueDate,
   stepDescription,
 } from "@/lib/billing/recurring";
-import { calculateProductPrice } from "@/lib/billing/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
