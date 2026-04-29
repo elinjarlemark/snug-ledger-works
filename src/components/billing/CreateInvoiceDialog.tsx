@@ -39,12 +39,27 @@ import { toast } from "sonner";
 import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 
+interface InvoicePrefill {
+  customerId?: string;
+  description?: string; // applied to the first line's description if no line description provided
+  issueDate?: string; // YYYY-MM-DD
+  dueDate?: string; // YYYY-MM-DD
+  lines?: Array<{
+    productName: string;
+    description?: string;
+    quantity: number;
+    unitPrice: number;
+    vatRate: number;
+  }>;
+}
+
 interface CreateInvoiceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   inline?: boolean;
   documentType?: DocumentType;
   onInvoiceCreated?: (invoice: Invoice) => void;
+  prefill?: InvoicePrefill;
 }
 
 // Helper: format postal code as XXX XX
@@ -76,7 +91,7 @@ function filterCity(value: string): string {
   return value.replace(/[0-9]/g, "");
 }
 
-export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType = "invoice", onInvoiceCreated }: CreateInvoiceDialogProps) {
+export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType = "invoice", onInvoiceCreated, prefill }: CreateInvoiceDialogProps) {
   const { customers, products, templates, addCustomer, addProduct, updateProduct, createInvoice } = useBilling();
   const { vatCodes, vatSettings } = useVat();
   const { isDateInLockedPeriod } = useVatPeriodLock();
