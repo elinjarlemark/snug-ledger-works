@@ -109,7 +109,7 @@ export function ChecklistProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <ChecklistContext.Provider value={{ items, addItem, updateItem, deleteItem, toggleDone }}>
+    <ChecklistContext.Provider value={{ items, addItem, updateItem, deleteItem, toggleDone, hasItemForRecurring }}>
       {children}
     </ChecklistContext.Provider>
   );
