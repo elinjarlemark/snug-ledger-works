@@ -161,6 +161,11 @@ export default function ChecklistPage() {
                   onToggle={(done) => toggleDone(item.id, done)}
                   onUpdate={(text) => updateItem(item.id, text)}
                   onDelete={() => deleteItem(item.id)}
+                  onItemClick={
+                    item.meta?.kind === "recurring-invoice"
+                      ? () => setPendingRecurring(item)
+                      : undefined
+                  }
                 />
               ))}
             </AnimatePresence>
