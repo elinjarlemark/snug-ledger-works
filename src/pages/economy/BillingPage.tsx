@@ -938,6 +938,13 @@ export default function BillingPage() {
                 onOpenChange={setExistingTemplatesOpen}
                 onEdit={(tpl) => { setEditTemplate(tpl); setTemplateFormOpen(true); }}
               />
+              <BillingSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+              <RecurringInvoiceManager open={recurringManagerOpen} onOpenChange={setRecurringManagerOpen} />
+              <FirstInvoiceNumberPrompt
+                open={firstNumberPromptOpen}
+                onOpenChange={setFirstNumberPromptOpen}
+                onConfirmed={() => setShowCreateInvoice(true)}
+              />
 
               {actualInvoices.length === 0 ? (
                 <Card>
