@@ -369,6 +369,11 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       createdAt: new Date().toISOString(),
     };
     saveInvoices([...invoices, newInvoice], nextInvoiceNumber + 1);
+    // Mark the first-invoice setting prompt as resolved (so we don't ask again).
+    if (!firstInvoiceNumberSet && companyId) {
+      localStorage.setItem(`billing_first_invoice_set_${companyId}`, "1");
+      setFirstInvoiceNumberSet(true);
+    }
     return newInvoice;
   };
 
@@ -459,6 +464,8 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       invoices,
       templates,
       nextInvoiceNumber,
+      firstInvoiceNumberSet,
+      setNextInvoiceNumber,
       addCustomer,
       updateCustomer,
       deleteCustomer,
