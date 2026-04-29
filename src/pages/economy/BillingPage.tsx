@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { FileText, Users, Package, Plus, Trash2, Edit, Receipt, Eye, X, Calendar, Send, Download, Mail, CheckCircle, DollarSign, FileCog } from "lucide-react";
+import { FileText, Users, Package, Plus, Trash2, Edit, Receipt, Eye, X, Calendar, Send, Download, Mail, CheckCircle, DollarSign, FileCog, Settings, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
@@ -52,6 +52,8 @@ import { useAccounting } from "@/contexts/AccountingContext";
 import { TemplateFormDialog, ExistingTemplatesDialog } from "@/components/billing/VoucherTemplateManager";
 import { buildVoucherFromTemplate, isTemplateBalanced } from "@/lib/billing/applyTemplate";
 import { VoucherTemplate } from "@/lib/billing/types";
+import { BillingSettingsDialog, FirstInvoiceNumberPrompt } from "@/components/billing/BillingSettingsDialog";
+import { RecurringInvoiceManager } from "@/components/billing/RecurringInvoiceManager";
 
 // Helper functions for input validation
 function formatPostalCode(value: string): string {
