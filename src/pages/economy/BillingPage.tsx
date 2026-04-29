@@ -579,9 +579,9 @@ function InvoiceDetailView({
 
 export default function BillingPage() {
   const { user } = useAuth();
-  const { customers, products, invoices, templates, addCustomer, updateCustomer, deleteCustomer, addProduct, updateProduct, deleteProduct, deleteInvoice, updateInvoiceStatus, convertQuoteToInvoice } = useBilling();
+  const { customers, products, invoices, templates, firstInvoiceNumberSet, addCustomer, updateCustomer, deleteCustomer, addProduct, updateProduct, deleteProduct, deleteInvoice, updateInvoiceStatus, convertQuoteToInvoice } = useBilling();
   const location = useLocation();
-  
+
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [showCreateInvoice, setShowCreateInvoice] = useState(false);
@@ -592,6 +592,10 @@ export default function BillingPage() {
   const [templateFormOpen, setTemplateFormOpen] = useState(false);
   const [editTemplate, setEditTemplate] = useState<VoucherTemplate | undefined>();
   const [existingTemplatesOpen, setExistingTemplatesOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [recurringManagerOpen, setRecurringManagerOpen] = useState(false);
+  const [firstNumberPromptOpen, setFirstNumberPromptOpen] = useState(false);
+  const [invoicePrefill, setInvoicePrefill] = useState<any | undefined>(undefined);
 
   // Compute display status: only sent invoices can become overdue
   const getDisplayStatus = (inv: Invoice) => {
