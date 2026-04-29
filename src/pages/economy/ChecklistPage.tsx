@@ -372,6 +372,15 @@ function Row({ item, onToggle, onUpdate, onDelete, onItemClick }: RowProps) {
             }}
             className="h-8"
           />
+        ) : onItemClick && !item.done ? (
+          <button
+            type="button"
+            onClick={onItemClick}
+            className="flex items-center gap-2 text-left text-sm hover:text-secondary transition-colors w-full"
+          >
+            <Repeat className="h-3.5 w-3.5 text-secondary shrink-0" />
+            <span className="break-words font-medium">{item.text}</span>
+          </button>
         ) : (
           <p
             className={cn(
