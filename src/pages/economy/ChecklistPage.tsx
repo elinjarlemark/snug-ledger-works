@@ -1,10 +1,21 @@
 import { useEffect, useRef, useState } from "react";
-import { Plus, ChevronDown, Check, Trash2, Pencil, X } from "lucide-react";
+import { Plus, ChevronDown, Check, Trash2, Pencil, X, Repeat } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useChecklist, ChecklistItem } from "@/contexts/ChecklistContext";
 
