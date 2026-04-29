@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,12 +39,27 @@ import { toast } from "sonner";
 import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 
+interface InvoicePrefill {
+  customerId?: string;
+  description?: string; // applied to the first line's description if no line description provided
+  issueDate?: string; // YYYY-MM-DD
+  dueDate?: string; // YYYY-MM-DD
+  lines?: Array<{
+    productName: string;
+    description?: string;
+    quantity: number;
+    unitPrice: number;
+    vatRate: number;
+  }>;
+}
+
 interface CreateInvoiceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   inline?: boolean;
   documentType?: DocumentType;
   onInvoiceCreated?: (invoice: Invoice) => void;
+  prefill?: InvoicePrefill;
 }
 
 // Helper: format postal code as XXX XX
@@ -76,7 +91,7 @@ function filterCity(value: string): string {
   return value.replace(/[0-9]/g, "");
 }
 
-export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType = "invoice", onInvoiceCreated }: CreateInvoiceDialogProps) {
+export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType = "invoice", onInvoiceCreated, prefill }: CreateInvoiceDialogProps) {
   const { customers, products, templates, addCustomer, addProduct, updateProduct, createInvoice } = useBilling();
   const { vatCodes, vatSettings } = useVat();
   const { isDateInLockedPeriod } = useVatPeriodLock();
@@ -128,6 +143,46 @@ export function CreateInvoiceDialog({ open, onOpenChange, inline, documentType =
   const [prodIncludesVat, setProdIncludesVat] = useState(false);
 
   const docLabel = documentType === "quote" ? "Quote" : "Invoice";
+
+  // Apply prefill once per "open" cycle.
+  const appliedPrefillRef = useRef(false);
+  useEffect(() => {
+    if (!open) {
+      appliedPrefillRef.current = false;
+      return;
+    }
+    if (appliedPrefillRef.current || !prefill) return;
+    appliedPrefillRef.current = true;
+
+    if (prefill.customerId) {
+      setSelectedCustomerId(prefill.customerId);
+      setInlineCustomer(null);
+    }
+    if (prefill.issueDate) {
+      const [y, m, d] = prefill.issueDate.split("-").map(Number);
+      setIssueDate(new Date(y, m - 1, d));
+    }
+    if (prefill.dueDate) {
+      const [y, m, d] = prefill.dueDate.split("-").map(Number);
+      setDueDate(new Date(y, m - 1, d));
+    }
+    if (prefill.lines && prefill.lines.length > 0) {
+      const mapped = prefill.lines.map((l) => ({
+        productName: l.productName,
+        description: l.description ?? (prefill.description ?? ""),
+        quantity: l.quantity,
+        unitPrice: l.unitPrice,
+        vatRate: l.vatRate,
+        vatCodeId: defaultSalesCodeId,
+      }));
+      setLines(mapped);
+    } else if (prefill.description) {
+      // Apply description to the (single) default empty line.
+      setLines((prev) => prev.map((l, i) => (i === 0 ? { ...l, description: prefill.description! } : l)));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, prefill]);
+
 
   const getCustomerDisplay = () => {
     if (inlineCustomer) return inlineCustomer.name;

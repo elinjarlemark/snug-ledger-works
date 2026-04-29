@@ -1,10 +1,21 @@
 import { useEffect, useRef, useState } from "react";
-import { Plus, ChevronDown, Check, Trash2, Pencil, X } from "lucide-react";
+import { Plus, ChevronDown, Check, Trash2, Pencil, X, Repeat } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useChecklist, ChecklistItem } from "@/contexts/ChecklistContext";
 
@@ -12,10 +23,12 @@ const FADE_DELAY_MS = 5000;
 
 export default function ChecklistPage() {
   const { items, addItem, updateItem, deleteItem, toggleDone } = useChecklist();
+  const navigate = useNavigate();
   const [activeOpen, setActiveOpen] = useState(true);
   const [finishedOpen, setFinishedOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newText, setNewText] = useState("");
+  const [pendingRecurring, setPendingRecurring] = useState<ChecklistItem | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -35,6 +48,32 @@ export default function ChecklistPage() {
       setNewText("");
       setAdding(false);
     }
+  };
+
+  const handleRecurringYes = () => {
+    if (!pendingRecurring?.meta) return;
+    const meta = pendingRecurring.meta;
+    // Mark item as done so it lands in Finished after invoice creation flow.
+    toggleDone(pendingRecurring.id, true);
+    navigate("/economy/billing", {
+      state: {
+        openCreateInvoice: true,
+        invoicePrefill: {
+          customerId: meta.customerId,
+          description: meta.description,
+          issueDate: meta.issueDate,
+          dueDate: meta.dueDate,
+          lines: meta.lines,
+        },
+      },
+    });
+    setPendingRecurring(null);
+  };
+
+  const handleRecurringNo = () => {
+    if (!pendingRecurring) return;
+    toggleDone(pendingRecurring.id, true);
+    setPendingRecurring(null);
   };
 
   return (
@@ -122,6 +161,11 @@ export default function ChecklistPage() {
                   onToggle={(done) => toggleDone(item.id, done)}
                   onUpdate={(text) => updateItem(item.id, text)}
                   onDelete={() => deleteItem(item.id)}
+                  onItemClick={
+                    item.meta?.kind === "recurring-invoice"
+                      ? () => setPendingRecurring(item)
+                      : undefined
+                  }
                 />
               ))}
             </AnimatePresence>
@@ -156,6 +200,31 @@ export default function ChecklistPage() {
           </motion.div>
         )}
       </Section>
+
+      {/* Recurring invoice confirmation */}
+      <AlertDialog open={!!pendingRecurring} onOpenChange={(o) => !o && setPendingRecurring(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Repeat className="h-5 w-5 text-secondary" />
+              Skapa automatisk faktura?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingRecurring?.meta && (
+                <>
+                  Vill du skapa invoice <span className="font-semibold">"{pendingRecurring.meta.description}"</span>{" "}
+                  till <span className="font-semibold">{pendingRecurring.meta.customerName}</span>
+                  {pendingRecurring.meta.customerAddress ? `, ${pendingRecurring.meta.customerAddress}` : ""}?
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleRecurringNo}>Nej</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRecurringYes}>Ja, öppna fakturan</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.div>
   );
 }
@@ -219,9 +288,10 @@ interface RowProps {
   onToggle: (done: boolean) => void;
   onUpdate: (text: string) => void;
   onDelete: () => void;
+  onItemClick?: () => void;
 }
 
-function Row({ item, onToggle, onUpdate, onDelete }: RowProps) {
+function Row({ item, onToggle, onUpdate, onDelete, onItemClick }: RowProps) {
   const [pendingToggle, setPendingToggle] = useState(false);
   const [countdown, setCountdown] = useState(5);
   const [editing, setEditing] = useState(false);
@@ -302,6 +372,15 @@ function Row({ item, onToggle, onUpdate, onDelete }: RowProps) {
             }}
             className="h-8"
           />
+        ) : onItemClick && !item.done ? (
+          <button
+            type="button"
+            onClick={onItemClick}
+            className="flex items-center gap-2 text-left text-sm hover:text-secondary transition-colors w-full"
+          >
+            <Repeat className="h-3.5 w-3.5 text-secondary shrink-0" />
+            <span className="break-words font-medium">{item.text}</span>
+          </button>
         ) : (
           <p
             className={cn(
