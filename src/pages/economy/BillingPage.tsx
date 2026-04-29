@@ -611,10 +611,26 @@ export default function BillingPage() {
   const quotes = invoices.filter(i => i.documentType === "quote");
 
   useEffect(() => {
-    if ((location.state as any)?.openCreateInvoice) {
+    const state = location.state as any;
+    if (state?.openCreateInvoice) {
+      if (state.invoicePrefill) setInvoicePrefill(state.invoicePrefill);
+      // First-invoice prompt only when there's no prefill (recurring flow already implies the user knows what they're doing).
+      if (!state.invoicePrefill && !firstInvoiceNumberSet) {
+        setFirstNumberPromptOpen(true);
+      } else {
+        setShowCreateInvoice(true);
+      }
+    }
+  }, [location.state, firstInvoiceNumberSet]);
+
+  const handleCreateInvoiceClick = () => {
+    if (!firstInvoiceNumberSet) {
+      setFirstNumberPromptOpen(true);
+    } else {
+      setInvoicePrefill(undefined);
       setShowCreateInvoice(true);
     }
-  }, [location.state]);
+  };
 
   const handleAddCustomer = (data: Omit<Customer, "id" | "companyId" | "createdAt">) => {
     if (editingCustomer) {
