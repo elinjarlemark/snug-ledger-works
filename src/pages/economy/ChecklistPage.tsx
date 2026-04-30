@@ -55,7 +55,7 @@ export default function ChecklistPage() {
   };
 
   const handleRecurringYes = () => {
-    if (!pendingRecurring?.meta) return;
+    if (!pendingRecurring?.meta || pendingRecurring.meta.kind !== "recurring-invoice") return;
     const meta = pendingRecurring.meta;
     // Mark item as done so it lands in Finished after invoice creation flow.
     toggleDone(pendingRecurring.id, true);
@@ -214,7 +214,7 @@ export default function ChecklistPage() {
               Skapa automatisk faktura?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingRecurring?.meta && (
+              {pendingRecurring?.meta?.kind === "recurring-invoice" && (
                 <>
                   Vill du skapa invoice <span className="font-semibold">"{pendingRecurring.meta.description}"</span>{" "}
                   till <span className="font-semibold">{pendingRecurring.meta.customerName}</span>
