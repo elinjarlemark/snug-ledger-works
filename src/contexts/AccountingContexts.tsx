@@ -357,7 +357,8 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
   const saveAccounts = (newAccounts: BASAccount[]) => {
     setAccounts(newAccounts);
     if (companyId) {
-      localStorage.setItem(`accountpro_accounts_${companyId}`, JSON.stringify(newAccounts));
+      const basNumbers = new Set(getLatestBASAccounts("K3").map((a) => a.number));
+      persistAccounts(companyId, newAccounts, basNumbers);
     }
   };
 
