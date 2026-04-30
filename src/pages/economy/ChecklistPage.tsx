@@ -372,6 +372,10 @@ function Row({ item, onToggle, onUpdate, onDelete, onItemClick }: RowProps) {
     setEditing(false);
   };
 
+  const isSmart = item.meta?.kind === "smart-rule";
+  const isRecurring = item.meta?.kind === "recurring-invoice";
+  const RowIcon = isSmart ? Sparkles : Repeat;
+
   return (
     <motion.div
       layout
@@ -380,7 +384,8 @@ function Row({ item, onToggle, onUpdate, onDelete, onItemClick }: RowProps) {
       exit={{ opacity: 0, scale: 0.96 }}
       transition={{ duration: 0.2 }}
       className={cn(
-        "group flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card hover:border-secondary/40 hover:shadow-sm transition-all"
+        "group flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card hover:border-secondary/40 hover:shadow-sm transition-all",
+        item.resolvedAt && !item.done && "border-success/40 bg-success/5"
       )}
     >
       <div className="flex-1 min-w-0">
@@ -405,8 +410,13 @@ function Row({ item, onToggle, onUpdate, onDelete, onItemClick }: RowProps) {
             onClick={onItemClick}
             className="flex items-center gap-2 text-left text-sm hover:text-secondary transition-colors w-full"
           >
-            <Repeat className="h-3.5 w-3.5 text-secondary shrink-0" />
+            <RowIcon className={cn("h-3.5 w-3.5 shrink-0", isSmart ? "text-secondary" : "text-secondary")} />
             <span className="break-words font-medium">{item.text}</span>
+            {item.resolvedAt && (
+              <span className="text-[10px] uppercase font-bold tracking-wide px-1.5 py-0.5 rounded bg-success/15 text-success border border-success/30 shrink-0">
+                Löst!
+              </span>
+            )}
           </button>
         ) : (
           <p
