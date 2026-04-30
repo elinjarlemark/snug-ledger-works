@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Plus, ChevronDown, Check, Trash2, Pencil, X, Repeat } from "lucide-react";
+import { Plus, ChevronDown, Check, Trash2, Pencil, X, Repeat, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,8 @@ import {
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useChecklist, ChecklistItem } from "@/contexts/ChecklistContext";
+import { SmartRuleInfoDialog } from "@/components/checklist/SmartRuleInfoDialog";
+import { SmartRulesSettingsDialog } from "@/components/checklist/SmartRulesSettingsDialog";
 
 const FADE_DELAY_MS = 5000;
 
@@ -29,6 +31,8 @@ export default function ChecklistPage() {
   const [adding, setAdding] = useState(false);
   const [newText, setNewText] = useState("");
   const [pendingRecurring, setPendingRecurring] = useState<ChecklistItem | null>(null);
+  const [smartInfoItem, setSmartInfoItem] = useState<ChecklistItem | null>(null);
+  const [smartSettingsOpen, setSmartSettingsOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
