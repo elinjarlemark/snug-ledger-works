@@ -94,15 +94,36 @@ export default function ChecklistPage() {
             Hantera saker som behöver göras. Bocka av när de är klara.
           </p>
         </div>
-        <Button
-          size="icon"
-          onClick={() => setAdding(true)}
-          title="Lägg till"
-          className="shrink-0 shadow-md hover:shadow-glow transition-shadow"
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setSmartSettingsOpen(true)}
+            title="Smart-regler"
+          >
+            <Sparkles className="h-4 w-4 mr-2" />
+            Smart-regler
+          </Button>
+          <Button
+            size="icon"
+            onClick={() => setAdding(true)}
+            title="Lägg till"
+            className="shadow-md hover:shadow-glow transition-shadow"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
+
+      <SmartRulesSettingsDialog open={smartSettingsOpen} onOpenChange={setSmartSettingsOpen} />
+      <SmartRuleInfoDialog
+        item={smartInfoItem}
+        onOpenChange={(o) => !o && setSmartInfoItem(null)}
+        onMarkDone={(id) => {
+          toggleDone(id, true);
+          setSmartInfoItem(null);
+        }}
+      />
 
       <AnimatePresence>
         {adding && (
@@ -168,7 +189,9 @@ export default function ChecklistPage() {
                   onItemClick={
                     item.meta?.kind === "recurring-invoice"
                       ? () => setPendingRecurring(item)
-                      : undefined
+                      : item.meta?.kind === "smart-rule"
+                        ? () => setSmartInfoItem(item)
+                        : undefined
                   }
                 />
               ))}
