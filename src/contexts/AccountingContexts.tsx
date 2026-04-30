@@ -34,6 +34,18 @@ function loadExternalAttachment(companyId: string, voucherId: string, attId: str
   }
 }
 
+function persistAccounts(companyId: string, accounts: BASAccount[], basNumbers: Set<string>): void {
+  // Only store custom (non-BAS) accounts to keep payload tiny and avoid quota errors.
+  const custom = accounts.filter((a) => !basNumbers.has(a.number));
+  const key = `accountpro_accounts_${companyId}`;
+  try {
+    localStorage.setItem(key, JSON.stringify(custom));
+  } catch (err) {
+    console.error("Failed to persist accounts:", err);
+    try { localStorage.removeItem(key); } catch {}
+  }
+}
+
 function persistVouchers(companyId: string, vouchers: any[]): void {
   const key = `accountpro_vouchers_${companyId}`;
   try {
@@ -227,7 +239,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     const mergedAccounts = [...visibleStandardAccounts, ...customAccounts].sort((a, b) => a.number.localeCompare(b.number));
 
     setAccounts(mergedAccounts);
-    localStorage.setItem(`accountpro_accounts_${companyId}`, JSON.stringify(mergedAccounts));
+    persistAccounts(companyId, mergedAccounts, basAccountNumbers);
 
     let initialVouchers: Voucher[] = storedVouchers ? (JSON.parse(storedVouchers) as Voucher[]) : [];
     initialVouchers = rehydrateVouchers(companyId, initialVouchers) as Voucher[];
@@ -326,7 +338,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         setAccounts(nextAccounts);
         setVouchers(dbVouchers);
         setNextVoucherNumber(converted.nextVoucherNumber);
-        localStorage.setItem(`accountpro_accounts_${requestedCompanyId}`, JSON.stringify(nextAccounts));
+        persistAccounts(requestedCompanyId, nextAccounts, basAccountNumbers);
         persistVouchers(requestedCompanyId, dbVouchers);
         localStorage.setItem(`accountpro_next_voucher_${requestedCompanyId}`, converted.nextVoucherNumber.toString());
       })
@@ -345,7 +357,8 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
   const saveAccounts = (newAccounts: BASAccount[]) => {
     setAccounts(newAccounts);
     if (companyId) {
-      localStorage.setItem(`accountpro_accounts_${companyId}`, JSON.stringify(newAccounts));
+      const basNumbers = new Set(getLatestBASAccounts("K3").map((a) => a.number));
+      persistAccounts(companyId, newAccounts, basNumbers);
     }
   };
 
