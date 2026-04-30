@@ -20,21 +20,44 @@ export interface RecurringChecklistMeta {
   }>;
 }
 
+export interface SmartRuleChecklistMeta {
+  kind: "smart-rule";
+  ruleId: string;
+  templateId?: string;
+  occurrenceKey: string;
+  explanation: string;
+  suggestedAccountNumber?: string;
+}
+
+export type ChecklistItemMeta = RecurringChecklistMeta | SmartRuleChecklistMeta;
+
 export interface ChecklistItem {
   id: string;
   text: string;
   done: boolean;
   createdAt: string;
   completedAt?: string;
-  meta?: RecurringChecklistMeta;
+  /** Set by smart-rule sync when the underlying condition becomes satisfied. */
+  resolvedAt?: string;
+  meta?: ChecklistItemMeta;
 }
 
 interface ChecklistContextType {
   items: ChecklistItem[];
-  addItem: (text: string, meta?: RecurringChecklistMeta) => ChecklistItem;
+  addItem: (text: string, meta?: ChecklistItemMeta) => ChecklistItem;
   updateItem: (id: string, text: string) => void;
   deleteItem: (id: string) => void;
   toggleDone: (id: string, done: boolean) => void;
+  setResolved: (id: string, resolved: boolean) => void;
+  /** Bulk replace items that match a predicate — used by SmartChecklistContext to sync rule items. */
+  syncSmartItems: (
+    nextSmartItems: Array<{
+      occurrenceKey: string;
+      text: string;
+      meta: SmartRuleChecklistMeta;
+      resolved: boolean;
+    }>,
+  ) => void;
   hasItemForRecurring: (recurringId: string, occurrenceIndex: number) => boolean;
 }
 
