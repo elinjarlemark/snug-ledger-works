@@ -239,7 +239,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     const mergedAccounts = [...visibleStandardAccounts, ...customAccounts].sort((a, b) => a.number.localeCompare(b.number));
 
     setAccounts(mergedAccounts);
-    localStorage.setItem(`accountpro_accounts_${companyId}`, JSON.stringify(mergedAccounts));
+    persistAccounts(companyId, mergedAccounts, basAccountNumbers);
 
     let initialVouchers: Voucher[] = storedVouchers ? (JSON.parse(storedVouchers) as Voucher[]) : [];
     initialVouchers = rehydrateVouchers(companyId, initialVouchers) as Voucher[];
