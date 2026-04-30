@@ -34,6 +34,18 @@ function loadExternalAttachment(companyId: string, voucherId: string, attId: str
   }
 }
 
+function persistAccounts(companyId: string, accounts: BASAccount[], basNumbers: Set<string>): void {
+  // Only store custom (non-BAS) accounts to keep payload tiny and avoid quota errors.
+  const custom = accounts.filter((a) => !basNumbers.has(a.number));
+  const key = `accountpro_accounts_${companyId}`;
+  try {
+    localStorage.setItem(key, JSON.stringify(custom));
+  } catch (err) {
+    console.error("Failed to persist accounts:", err);
+    try { localStorage.removeItem(key); } catch {}
+  }
+}
+
 function persistVouchers(companyId: string, vouchers: any[]): void {
   const key = `accountpro_vouchers_${companyId}`;
   try {
