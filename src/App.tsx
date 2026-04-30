@@ -13,6 +13,7 @@ import { VatProvider } from "@/contexts/VatContext";
 import { VatPeriodLockProvider } from "@/contexts/VatPeriodLockContext";
 import { ChecklistProvider } from "@/contexts/ChecklistContext";
 import { RecurringBillingProvider } from "@/contexts/RecurringBillingContext";
+import { SmartChecklistProvider } from "@/contexts/SmartChecklistContext";
 import { PublicLayout } from "@/components/layout/PublicLayout";
 import { EconomyLayout } from "@/components/layout/EconomyLayout";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -63,6 +64,7 @@ const App = () => (
                 <VatPeriodLockProvider>
                 <ChecklistProvider>
                 <RecurringBillingProvider>
+                <SmartChecklistProvider>
                 <TooltipProvider>
                   <Toaster />
                   <Sonner />
@@ -126,6 +128,7 @@ const App = () => (
                     </ViewModeProvider>
                   </BrowserRouter>
                 </TooltipProvider>
+                </SmartChecklistProvider>
                 </RecurringBillingProvider>
                 </ChecklistProvider>
                   </VatPeriodLockProvider>
