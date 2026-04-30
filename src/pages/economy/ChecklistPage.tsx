@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Plus, ChevronDown, Check, Trash2, Pencil, X, Repeat } from "lucide-react";
+import { Plus, ChevronDown, Check, Trash2, Pencil, X, Repeat, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,8 @@ import {
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useChecklist, ChecklistItem } from "@/contexts/ChecklistContext";
+import { SmartRuleInfoDialog } from "@/components/checklist/SmartRuleInfoDialog";
+import { SmartRulesSettingsDialog } from "@/components/checklist/SmartRulesSettingsDialog";
 
 const FADE_DELAY_MS = 5000;
 
@@ -29,6 +31,8 @@ export default function ChecklistPage() {
   const [adding, setAdding] = useState(false);
   const [newText, setNewText] = useState("");
   const [pendingRecurring, setPendingRecurring] = useState<ChecklistItem | null>(null);
+  const [smartInfoItem, setSmartInfoItem] = useState<ChecklistItem | null>(null);
+  const [smartSettingsOpen, setSmartSettingsOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -51,7 +55,7 @@ export default function ChecklistPage() {
   };
 
   const handleRecurringYes = () => {
-    if (!pendingRecurring?.meta) return;
+    if (!pendingRecurring?.meta || pendingRecurring.meta.kind !== "recurring-invoice") return;
     const meta = pendingRecurring.meta;
     // Mark item as done so it lands in Finished after invoice creation flow.
     toggleDone(pendingRecurring.id, true);
@@ -90,15 +94,36 @@ export default function ChecklistPage() {
             Hantera saker som behöver göras. Bocka av när de är klara.
           </p>
         </div>
-        <Button
-          size="icon"
-          onClick={() => setAdding(true)}
-          title="Lägg till"
-          className="shrink-0 shadow-md hover:shadow-glow transition-shadow"
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setSmartSettingsOpen(true)}
+            title="Smart-regler"
+          >
+            <Sparkles className="h-4 w-4 mr-2" />
+            Smart-regler
+          </Button>
+          <Button
+            size="icon"
+            onClick={() => setAdding(true)}
+            title="Lägg till"
+            className="shadow-md hover:shadow-glow transition-shadow"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
+
+      <SmartRulesSettingsDialog open={smartSettingsOpen} onOpenChange={setSmartSettingsOpen} />
+      <SmartRuleInfoDialog
+        item={smartInfoItem}
+        onOpenChange={(o) => !o && setSmartInfoItem(null)}
+        onMarkDone={(id) => {
+          toggleDone(id, true);
+          setSmartInfoItem(null);
+        }}
+      />
 
       <AnimatePresence>
         {adding && (
@@ -164,7 +189,9 @@ export default function ChecklistPage() {
                   onItemClick={
                     item.meta?.kind === "recurring-invoice"
                       ? () => setPendingRecurring(item)
-                      : undefined
+                      : item.meta?.kind === "smart-rule"
+                        ? () => setSmartInfoItem(item)
+                        : undefined
                   }
                 />
               ))}
@@ -210,7 +237,7 @@ export default function ChecklistPage() {
               Skapa automatisk faktura?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingRecurring?.meta && (
+              {pendingRecurring?.meta?.kind === "recurring-invoice" && (
                 <>
                   Vill du skapa invoice <span className="font-semibold">"{pendingRecurring.meta.description}"</span>{" "}
                   till <span className="font-semibold">{pendingRecurring.meta.customerName}</span>
@@ -345,6 +372,10 @@ function Row({ item, onToggle, onUpdate, onDelete, onItemClick }: RowProps) {
     setEditing(false);
   };
 
+  const isSmart = item.meta?.kind === "smart-rule";
+  const isRecurring = item.meta?.kind === "recurring-invoice";
+  const RowIcon = isSmart ? Sparkles : Repeat;
+
   return (
     <motion.div
       layout
@@ -353,7 +384,8 @@ function Row({ item, onToggle, onUpdate, onDelete, onItemClick }: RowProps) {
       exit={{ opacity: 0, scale: 0.96 }}
       transition={{ duration: 0.2 }}
       className={cn(
-        "group flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card hover:border-secondary/40 hover:shadow-sm transition-all"
+        "group flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card hover:border-secondary/40 hover:shadow-sm transition-all",
+        item.resolvedAt && !item.done && "border-success/40 bg-success/5"
       )}
     >
       <div className="flex-1 min-w-0">
@@ -378,8 +410,13 @@ function Row({ item, onToggle, onUpdate, onDelete, onItemClick }: RowProps) {
             onClick={onItemClick}
             className="flex items-center gap-2 text-left text-sm hover:text-secondary transition-colors w-full"
           >
-            <Repeat className="h-3.5 w-3.5 text-secondary shrink-0" />
+            <RowIcon className={cn("h-3.5 w-3.5 shrink-0", isSmart ? "text-secondary" : "text-secondary")} />
             <span className="break-words font-medium">{item.text}</span>
+            {item.resolvedAt && (
+              <span className="text-[10px] uppercase font-bold tracking-wide px-1.5 py-0.5 rounded bg-success/15 text-success border border-success/30 shrink-0">
+                Löst!
+              </span>
+            )}
           </button>
         ) : (
           <p

@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useBilling } from "@/contexts/BillingContext";
 import { toast } from "sonner";
-import { AlertCircle, Hash } from "lucide-react";
+import { AlertCircle, Hash, Sparkles } from "lucide-react";
+import { SmartRulesSettingsDialog } from "@/components/checklist/SmartRulesSettingsDialog";
 
 interface BillingSettingsDialogProps {
   open: boolean;
@@ -25,6 +26,7 @@ interface BillingSettingsDialogProps {
 export function BillingSettingsDialog({ open, onOpenChange }: BillingSettingsDialogProps) {
   const { nextInvoiceNumber, setNextInvoiceNumber } = useBilling();
   const [value, setValue] = useState(String(nextInvoiceNumber));
+  const [smartRulesOpen, setSmartRulesOpen] = useState(false);
 
   // Re-sync when dialog re-opens.
   const handleOpenChange = (o: boolean) => {
@@ -97,12 +99,28 @@ export function BillingSettingsDialog({ open, onOpenChange }: BillingSettingsDia
             </p>
           </div>
 
+          <div className="rounded-md border border-secondary/30 bg-secondary/5 p-3 space-y-2">
+            <div className="flex items-start gap-2">
+              <Sparkles className="h-4 w-4 shrink-0 mt-0.5 text-secondary" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold">Smart Checklist-regler</p>
+                <p className="text-xs text-muted-foreground">
+                  Aktivera/inaktivera automatiska påminnelser (moms, lön, bank-avstämning m.m.) eller skapa egna konto-regler.
+                </p>
+              </div>
+            </div>
+            <Button size="sm" variant="outline" className="w-full" onClick={() => setSmartRulesOpen(true)}>
+              Hantera smart-regler
+            </Button>
+          </div>
+
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Avbryt</Button>
             <Button onClick={handleSave}>Spara</Button>
           </div>
         </div>
       </DialogContent>
+      <SmartRulesSettingsDialog open={smartRulesOpen} onOpenChange={setSmartRulesOpen} />
     </Dialog>
   );
 }
