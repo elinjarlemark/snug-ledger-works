@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sparkles, Trash2, Plus } from "lucide-react";
+import { Sparkles, Trash2, Plus, ChevronDown } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -18,9 +18,90 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { useSmartChecklist } from "@/contexts/SmartChecklistContext";
+import { useAccounting } from "@/contexts/AccountingContext";
 import { BUILT_IN_TEMPLATES } from "@/lib/checklist/smartRules";
 import { toast } from "sonner";
+
+interface SmartRulesSettingsDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+/** Searchable account selector matching the voucher form. */
+function AccountSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (number: string) => void;
+}) {
+  const { accounts } = useAccounting();
+  const [open, setOpen] = useState(false);
+  const selected = accounts.find((a) => a.number === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between font-normal overflow-hidden"
+        >
+          {value ? (
+            <span className="truncate">
+              <span className="font-mono">{value}</span>
+              {selected && <span className="ml-2 text-muted-foreground">{selected.name}</span>}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">Välj konto...</span>
+          )}
+          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[360px] p-0" align="start">
+        <Command
+          filter={(val, search) => {
+            if (!search) return 1;
+            return val.toLowerCase().includes(search.toLowerCase()) ? 1 : 0;
+          }}
+        >
+          <CommandInput placeholder="Sök konto (siffror eller namn)..." />
+          <CommandList>
+            <CommandEmpty>Inget konto hittades.</CommandEmpty>
+            <CommandGroup>
+              {accounts.map((a) => (
+                <CommandItem
+                  key={a.number}
+                  value={`${a.number} ${a.name}`}
+                  onSelect={() => {
+                    onChange(a.number);
+                    setOpen(false);
+                  }}
+                >
+                  <span className="font-mono w-14">{a.number}</span>
+                  <span className={cn("truncate", a.number === value && "font-semibold")}>{a.name}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 interface SmartRulesSettingsDialogProps {
   open: boolean;
@@ -156,12 +237,10 @@ export function SmartRulesSettingsDialog({ open, onOpenChange }: SmartRulesSetti
               <p className="text-xs font-semibold text-muted-foreground">Lägg till ny regel</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="acc-num" className="text-xs">Kontonummer (BAS, 4 siffror)</Label>
-                  <Input
-                    id="acc-num"
-                    placeholder="t.ex. 2510"
+                  <Label className="text-xs">Konto (BAS)</Label>
+                  <AccountSelect
                     value={accountNumber}
-                    onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                    onChange={(num) => setAccountNumber(num)}
                   />
                 </div>
                 <div className="space-y-1.5">

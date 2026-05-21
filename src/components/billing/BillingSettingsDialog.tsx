@@ -69,59 +69,140 @@ export function BillingSettingsDialog({ open, onOpenChange }: BillingSettingsDia
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 pt-2">
-          <div className="space-y-2">
-            <Label htmlFor="nextInvoice" className="flex items-center gap-2">
-              <Hash className="h-4 w-4" />
-              Nästa fakturanummer
-            </Label>
-            <Input
-              id="nextInvoice"
-              type="number"
-              min={nextInvoiceNumber}
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onFocus={(e) => {
-                if (e.target.value === "0") e.target.value = "";
-              }}
-            />
-            <p className="text-xs text-muted-foreground">
-              Nuvarande nästa nummer: <span className="font-mono font-semibold text-foreground">{nextInvoiceNumber}</span>.
-              Du kan höja det (t.ex. om du importerat tidigare fakturor) men inte sänka det.
-            </p>
-          </div>
-
-          <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 flex gap-2 text-xs text-amber-700 dark:text-amber-400">
-            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-            <p>
-              Att sänka fakturanumret kan skapa dubbletter mot redan skickade fakturor och är därför inte
-              tillåtet.
-            </p>
-          </div>
-
-          <div className="rounded-md border border-secondary/30 bg-secondary/5 p-3 space-y-2">
-            <div className="flex items-start gap-2">
-              <Sparkles className="h-4 w-4 shrink-0 mt-0.5 text-secondary" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold">Smart Checklist-regler</p>
-                <p className="text-xs text-muted-foreground">
-                  Aktivera/inaktivera automatiska påminnelser (moms, lön, bank-avstämning m.m.) eller skapa egna konto-regler.
-                </p>
-              </div>
-            </div>
-            <Button size="sm" variant="outline" className="w-full" onClick={() => setSmartRulesOpen(true)}>
-              Hantera smart-regler
-            </Button>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Avbryt</Button>
-            <Button onClick={handleSave}>Spara</Button>
-          </div>
-        </div>
+        <BillingSettingsBody
+          value={value}
+          setValue={setValue}
+          nextInvoiceNumber={nextInvoiceNumber}
+          onSave={handleSave}
+          onCancel={() => onOpenChange(false)}
+          onOpenSmartRules={() => setSmartRulesOpen(true)}
+          showActions
+        />
       </DialogContent>
       <SmartRulesSettingsDialog open={smartRulesOpen} onOpenChange={setSmartRulesOpen} />
     </Dialog>
+  );
+}
+
+/**
+ * Inline panel version of the Billing settings — used by the Settings tab on BillingPage.
+ * Same fields as the dialog, just without the modal chrome.
+ */
+export function BillingSettingsPanel() {
+  const { nextInvoiceNumber, setNextInvoiceNumber } = useBilling();
+  const [value, setValue] = useState(String(nextInvoiceNumber));
+  const [smartRulesOpen, setSmartRulesOpen] = useState(false);
+
+  const handleSave = () => {
+    const n = parseInt(value, 10);
+    if (!Number.isFinite(n) || n < 1) {
+      toast.error("Fakturanumret måste vara ett positivt heltal");
+      return;
+    }
+    if (n < nextInvoiceNumber) {
+      toast.error(
+        `Du kan inte sänka fakturanumret (risk för dubbletter). Numret är fortfarande ${nextInvoiceNumber}.`,
+      );
+      setValue(String(nextInvoiceNumber));
+      return;
+    }
+    if (n === nextInvoiceNumber) {
+      toast.info("Inget att ändra");
+      return;
+    }
+    const ok = setNextInvoiceNumber(n, { markFirstSet: true });
+    if (ok) toast.success(`Nästa faktura får nummer ${n}`);
+  };
+
+  return (
+    <div className="bg-card border border-border rounded-lg p-6 max-w-2xl">
+      <div className="mb-4">
+        <h2 className="text-xl font-semibold text-foreground">Billing settings</h2>
+        <p className="text-sm text-muted-foreground">
+          Inställningar som påverkar hur fakturor skapas.
+        </p>
+      </div>
+      <BillingSettingsBody
+        value={value}
+        setValue={setValue}
+        nextInvoiceNumber={nextInvoiceNumber}
+        onSave={handleSave}
+        onOpenSmartRules={() => setSmartRulesOpen(true)}
+        showActions
+        saveLabel="Save changes"
+      />
+      <SmartRulesSettingsDialog open={smartRulesOpen} onOpenChange={setSmartRulesOpen} />
+    </div>
+  );
+}
+
+interface BillingSettingsBodyProps {
+  value: string;
+  setValue: (v: string) => void;
+  nextInvoiceNumber: number;
+  onSave: () => void;
+  onCancel?: () => void;
+  onOpenSmartRules: () => void;
+  showActions?: boolean;
+  saveLabel?: string;
+}
+
+function BillingSettingsBody({
+  value, setValue, nextInvoiceNumber, onSave, onCancel, onOpenSmartRules, showActions, saveLabel = "Spara",
+}: BillingSettingsBodyProps) {
+  return (
+    <div className="space-y-4 pt-2">
+      <div className="space-y-2">
+        <Label htmlFor="nextInvoice" className="flex items-center gap-2">
+          <Hash className="h-4 w-4" />
+          Nästa fakturanummer
+        </Label>
+        <Input
+          id="nextInvoice"
+          type="number"
+          min={nextInvoiceNumber}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onFocus={(e) => {
+            if (e.target.value === "0") e.target.value = "";
+          }}
+        />
+        <p className="text-xs text-muted-foreground">
+          Nuvarande nästa nummer: <span className="font-mono font-semibold text-foreground">{nextInvoiceNumber}</span>.
+          Du kan höja det (t.ex. om du importerat tidigare fakturor) men inte sänka det.
+        </p>
+      </div>
+
+      <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 flex gap-2 text-xs text-amber-700 dark:text-amber-400">
+        <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+        <p>
+          Att sänka fakturanumret kan skapa dubbletter mot redan skickade fakturor och är därför inte
+          tillåtet.
+        </p>
+      </div>
+
+      <div className="rounded-md border border-secondary/30 bg-secondary/5 p-3 space-y-2">
+        <div className="flex items-start gap-2">
+          <Sparkles className="h-4 w-4 shrink-0 mt-0.5 text-secondary" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold">Smart Checklist-regler</p>
+            <p className="text-xs text-muted-foreground">
+              Aktivera/inaktivera automatiska påminnelser (moms, lön, bank-avstämning m.m.) eller skapa egna konto-regler.
+            </p>
+          </div>
+        </div>
+        <Button size="sm" variant="outline" className="w-full" onClick={onOpenSmartRules}>
+          Hantera smart-regler
+        </Button>
+      </div>
+
+      {showActions && (
+        <div className="flex justify-end gap-2 pt-2">
+          {onCancel && <Button variant="outline" onClick={onCancel}>Avbryt</Button>}
+          <Button onClick={onSave}>{saveLabel}</Button>
+        </div>
+      )}
+    </div>
   );
 }
 
