@@ -1,0 +1,393 @@
+{
+  "title": "Årsredovisning V7 frågor",
+  "source": "generate_arsredovisning_from_sie_v7.py",
+  "fields": [
+    {
+      "id": "company_name",
+      "label": "Bolagsnamn",
+      "kind": "text",
+      "section": "general",
+      "widget": "input"
+    },
+    {
+      "id": "org_number",
+      "label": "Organisationsnummer",
+      "kind": "text",
+      "section": "general",
+      "widget": "input"
+    },
+    {
+      "id": "report_start",
+      "label": "Rapportperiod start",
+      "kind": "text",
+      "section": "general",
+      "widget": "input"
+    },
+    {
+      "id": "report_end",
+      "label": "Rapportperiod slut",
+      "kind": "text",
+      "section": "general",
+      "widget": "input"
+    },
+    {
+      "id": "prior_start",
+      "label": "Föregående år start",
+      "kind": "text",
+      "section": "general",
+      "widget": "input"
+    },
+    {
+      "id": "prior_end",
+      "label": "Föregående år slut",
+      "kind": "text",
+      "section": "general",
+      "widget": "input"
+    },
+    {
+      "id": "business_description",
+      "label": "Verksamhetsbeskrivning",
+      "kind": "text",
+      "section": "general",
+      "widget": "textarea"
+    },
+    {
+      "id": "registered_seat",
+      "label": "Säte",
+      "kind": "text",
+      "section": "general",
+      "widget": "input"
+    },
+    {
+      "id": "board_city",
+      "label": "Ort för underskrift",
+      "kind": "text",
+      "section": "general",
+      "widget": "input"
+    },
+    {
+      "id": "adoption_date",
+      "label": "Fastställelsedatum / stämmodatum (YYYY-MM-DD)",
+      "kind": "text",
+      "section": "general",
+      "widget": "date"
+    },
+    {
+      "id": "faststallelse_signatory",
+      "label": "Namn i fastställelseintyget",
+      "kind": "text",
+      "section": "general",
+      "widget": "input"
+    },
+    {
+      "id": "faststallelse_title",
+      "label": "Roll i fastställelseintyget",
+      "kind": "text",
+      "section": "general",
+      "widget": "input"
+    },
+    {
+      "id": "avg_employees",
+      "label": "Medelantal anställda",
+      "kind": "text",
+      "section": "general",
+      "widget": "input"
+    },
+    {
+      "id": "utdelning",
+      "label": "Utdelning",
+      "kind": "int",
+      "section": "general",
+      "widget": "input"
+    },
+    {
+      "id": "report_mode",
+      "label": "Inlämningssätt (paper eller digital)",
+      "kind": "select",
+      "section": "general",
+      "widget": "select",
+      "options": [
+        {
+          "value": "paper",
+          "label": "Paper"
+        },
+        {
+          "value": "digital",
+          "label": "Digital"
+        }
+      ]
+    },
+    {
+      "id": "document_date",
+      "label": "Dateringsdatum för årsredovisningen (YYYY-MM-DD)",
+      "kind": "text",
+      "section": "general",
+      "widget": "date"
+    },
+    {
+      "id": "submission_date",
+      "label": "Planerat inlämningsdatum till Bolagsverket (YYYY-MM-DD)",
+      "kind": "text",
+      "section": "general",
+      "widget": "date"
+    },
+    {
+      "id": "has_auditor",
+      "label": "Har bolaget revisor",
+      "kind": "bool",
+      "section": "general",
+      "widget": "switch"
+    },
+    {
+      "id": "significant_events_during_year",
+      "label": "Väsentliga händelser under räkenskapsåret (tomt om inga)",
+      "kind": "text",
+      "section": "general",
+      "widget": "textarea"
+    },
+    {
+      "id": "significant_events_after_year_end",
+      "label": "Väsentliga händelser efter räkenskapsårets slut (tomt om inga)",
+      "kind": "text",
+      "section": "general",
+      "widget": "textarea"
+    },
+    {
+      "id": "has_own_shares",
+      "label": "Har bolaget egna aktier som kräver upplysning",
+      "kind": "bool",
+      "section": "general",
+      "widget": "switch"
+    },
+    {
+      "id": "own_shares_text",
+      "label": "Text för upplysning om egna aktier",
+      "kind": "text",
+      "section": "general",
+      "widget": "textarea",
+      "dependsOn": {
+        "field": "has_own_shares",
+        "value": true
+      }
+    },
+    {
+      "id": "net_sales_variation_comment",
+      "label": "Kommentar om nettoomsättningen varierar mer än 30 procent (tomt om ej aktuellt)",
+      "kind": "text",
+      "section": "general",
+      "widget": "textarea"
+    },
+    {
+      "id": "company_is_public",
+      "label": "Är bolaget publikt",
+      "kind": "bool",
+      "section": "k2",
+      "widget": "switch"
+    },
+    {
+      "id": "parent_in_larger_group",
+      "label": "Är bolaget moderföretag i större koncern",
+      "kind": "bool",
+      "section": "k2",
+      "widget": "switch"
+    },
+    {
+      "id": "parent_in_smaller_group_prepares_consolidated",
+      "label": "Är bolaget moderföretag i mindre koncern och upprättar koncernredovisning",
+      "kind": "bool",
+      "section": "k2",
+      "widget": "switch"
+    },
+    {
+      "id": "foreign_branch",
+      "label": "Har bolaget filial i utlandet under året",
+      "kind": "bool",
+      "section": "k2",
+      "widget": "switch"
+    },
+    {
+      "id": "share_based_payments",
+      "label": "Har bolaget aktierelaterade ersättningar",
+      "kind": "bool",
+      "section": "k2",
+      "widget": "switch"
+    },
+    {
+      "id": "compound_instruments",
+      "label": "Har bolaget konvertibler eller liknande sammansatta finansiella instrument",
+      "kind": "bool",
+      "section": "k2",
+      "widget": "switch"
+    },
+    {
+      "id": "crypto_assets",
+      "label": "Har bolaget kryptotillgångar utöver enstaka betalningar",
+      "kind": "bool",
+      "section": "k2",
+      "widget": "switch"
+    },
+    {
+      "id": "k2_previous_year",
+      "label": "Tillämpade bolaget K2 föregående räkenskapsår",
+      "kind": "bool",
+      "section": "k2",
+      "widget": "switch"
+    },
+    {
+      "id": "deferred_tax_liability_significant",
+      "label": "Har bolaget väsentlig uppskjuten skatteskuld",
+      "kind": "bool",
+      "section": "k2",
+      "widget": "switch"
+    },
+    {
+      "id": "buildings_generate_75_pct_turnover",
+      "label": "Har bolaget byggnader som genererar minst 75 procent av nettoomsättningen",
+      "kind": "bool",
+      "section": "k2",
+      "widget": "switch"
+    },
+    {
+      "id": "headcount_over_3_two_years",
+      "label": "Har medelantalet anställda överstigit 3 båda de två senaste åren",
+      "kind": "bool",
+      "section": "k2",
+      "widget": "switch"
+    },
+    {
+      "id": "balance_over_1_5m_two_years",
+      "label": "Har balansomslutningen överstigit 1,5 mkr båda de två senaste åren",
+      "kind": "bool",
+      "section": "k2",
+      "widget": "switch"
+    },
+    {
+      "id": "net_sales_over_3m_two_years",
+      "label": "Har nettoomsättningen överstigit 3 mkr båda de två senaste åren",
+      "kind": "bool",
+      "section": "k2",
+      "widget": "switch"
+    },
+    {
+      "id": "rounding_mode",
+      "label": "Avrundningsläge (truncate eller half_up)",
+      "kind": "select",
+      "section": "k2",
+      "widget": "select",
+      "options": [
+        {
+          "value": "truncate",
+          "label": "truncate"
+        },
+        {
+          "value": "half_up",
+          "label": "half_up"
+        }
+      ]
+    },
+    {
+      "id": "tax_rate_soliditet",
+      "label": "Skattesats för soliditet (t.ex. 0.206)",
+      "kind": "number",
+      "section": "k2",
+      "widget": "input"
+    }
+  ],
+  "repeaters": [
+    {
+      "id": "flerarsoversikt",
+      "label": "Flerårsöversikt tidigare år",
+      "kind": "year_history",
+      "section": "history",
+      "yearsBack": [
+        2,
+        3
+      ],
+      "fields": [
+        {
+          "id": "start",
+          "label": "Flerårsöversikt {year} start",
+          "kind": "text",
+          "section": "history",
+          "widget": "input"
+        },
+        {
+          "id": "end",
+          "label": "Flerårsöversikt {year} slut",
+          "kind": "text",
+          "section": "history",
+          "widget": "input"
+        },
+        {
+          "id": "nettoomsattning",
+          "label": "Flerårsöversikt {year} nettoomsättning",
+          "kind": "int",
+          "section": "history",
+          "widget": "input"
+        },
+        {
+          "id": "resultat_efter_finansiella_poster",
+          "label": "Flerårsöversikt {year} resultat efter finansiella poster",
+          "kind": "int",
+          "section": "history",
+          "widget": "input"
+        },
+        {
+          "id": "soliditet",
+          "label": "Flerårsöversikt {year} soliditet (%)",
+          "kind": "int",
+          "section": "history",
+          "widget": "input"
+        }
+      ]
+    },
+    {
+      "id": "board_members",
+      "label": "Underskrifter",
+      "kind": "signatories",
+      "section": "signatures",
+      "countField": {
+        "id": "board_member_count",
+        "label": "Antal underskrifter i dokumentet",
+        "kind": "int",
+        "section": "signatures",
+        "widget": "input"
+      },
+      "fields": [
+        {
+          "id": "name",
+          "label": "Underskrift {index} namn",
+          "kind": "text",
+          "section": "signatures",
+          "widget": "input"
+        },
+        {
+          "id": "title",
+          "label": "Underskrift {index} roll",
+          "kind": "text",
+          "section": "signatures",
+          "widget": "input"
+        },
+        {
+          "id": "date",
+          "label": "Underskrift {index} datum (YYYY-MM-DD)",
+          "kind": "text",
+          "section": "signatures",
+          "widget": "date"
+        }
+      ]
+    }
+  ],
+  "sectionOrder": [
+    "general",
+    "k2",
+    "history",
+    "signatures"
+  ],
+  "sectionLabels": {
+    "general": "Grunduppgifter",
+    "k2": "K2-kontroll",
+    "history": "Flerårsöversikt",
+    "signatures": "Underskrifter"
+  }
+}

@@ -9,11 +9,27 @@ const currentDir = path.dirname(currentFilePath);
 const configPath = path.resolve(currentDir, "script-actions.json");
 const port = process.env.PORT ? Number(process.env.PORT) : 5050;
 
+const PYTHON_CANDIDATES = process.platform === "win32" ? ["py", "python", "python3"] : ["python3", "python", "py"];
+
+const pickPythonCommand = async () => {
+  for (const candidate of PYTHON_CANDIDATES) {
+    const result = await runCommand({
+      command: candidate,
+      args: ["--version"],
+      cwd: currentDir,
+    });
+    if (result.code === 0) {
+      return candidate;
+    }
+  }
+  return null;
+};
+
 const sendJson = (res, statusCode, payload) => {
   res.writeHead(statusCode, {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
   });
   res.end(JSON.stringify(payload));
@@ -94,9 +110,81 @@ const runScript = (action, entry) =>
     });
   });
 
+const runCommand = ({ command, args = [], cwd = currentDir, env = {} }) =>
+  new Promise((resolve) => {
+    const child = spawn(command, args, { cwd, env: { ...process.env, ...env } });
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on("close", (code) => {
+      resolve({ code, stdout: stdout.trim(), stderr: stderr.trim() });
+    });
+
+    child.on("error", (error) => {
+      resolve({ code: 1, stdout: "", stderr: error.message });
+    });
+  });
+
 const server = http.createServer(async (req, res) => {
   if (req.method === "OPTIONS") {
     sendJson(res, 204, {});
+    return;
+  }
+
+  if (req.method === "GET" && req.url === "/api/health") {
+    sendJson(res, 200, { success: true, message: "Script server is running." });
+    return;
+  }
+
+  if (req.method === "GET" && req.url === "/api/annual-report/questions") {
+    const pythonCommand = await pickPythonCommand();
+    if (!pythonCommand) {
+      sendJson(res, 500, {
+        success: false,
+        message: "Could not find a Python interpreter on the server.",
+      });
+      return;
+    }
+
+    const result = await runCommand({
+      command: pythonCommand,
+      args: [
+        path.resolve(currentDir, "scripts/extract_v7_questions.py"),
+        path.resolve(currentDir, "scripts/generate_arsredovisning_from_sie_v7.py"),
+      ],
+      cwd: currentDir,
+    });
+
+    if (result.code !== 0) {
+      sendJson(res, 500, {
+        success: false,
+        message: "Could not extract annual report questions from v7.",
+        data: result,
+      });
+      return;
+    }
+
+    try {
+      const payload = JSON.parse(result.stdout || "{}");
+      sendJson(res, 200, {
+        success: true,
+        message: "Annual report question schema loaded.",
+        data: payload,
+      });
+    } catch (error) {
+      sendJson(res, 500, {
+        success: false,
+        message: "Question schema was not valid JSON.",
+        data: result,
+      });
+    }
     return;
   }
 
