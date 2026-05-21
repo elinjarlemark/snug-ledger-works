@@ -22,7 +22,7 @@ function DeclarationField({
   const [open, setOpen] = useState(false);
   const hasValue = !!result && Math.abs(result.value) >= 0.5;
   const hasBreakdown = !!result && result.breakdown.length > 0;
-  const displayValue = hasValue ? formatSEK(result!.value) : "";
+  const displayValue = hasValue ? formatSEK(Math.abs(result!.value)) : "";
 
   const inputEl = (
     <Input
@@ -75,13 +75,13 @@ function DeclarationField({
                   className="flex justify-between gap-3 px-3 py-1.5 text-[11px] border-b border-border/40 last:border-b-0"
                 >
                   <span className="text-foreground/80 truncate">{entry.label}</span>
-                  <span className="font-mono text-foreground shrink-0">{formatSEK(entry.amount)}</span>
+                  <span className="font-mono text-foreground shrink-0">{formatSEK(Math.abs(entry.amount))}</span>
                 </div>
               ))}
             </div>
             <div className="bg-muted/40 px-3 py-2 border-t border-border flex justify-between text-xs">
               <span className="font-semibold text-foreground">Summa</span>
-              <span className="font-mono font-semibold text-primary">{formatSEK(result!.value)}</span>
+              <span className="font-mono font-semibold text-primary">{formatSEK(Math.abs(result!.value))}</span>
             </div>
           </PopoverContent>
         </Popover>
@@ -90,6 +90,121 @@ function DeclarationField({
       )}
     </div>
   );
+}
+
+function PlusMinusDeclarationField({
+  label,
+  id,
+  result,
+}: {
+  label: string;
+  id: string;
+  result?: FieldResult;
+}) {
+  const value = result?.value ?? 0;
+  const absValue = Math.abs(value);
+  const isPositive = value >= 0;
+  const hasValue = absValue >= 0.5;
+
+  const plusResult: FieldResult | undefined = hasValue && isPositive
+    ? { ...result!, value: absValue }
+    : undefined;
+  const minusResult: FieldResult | undefined = hasValue && !isPositive
+    ? { ...result!, value: absValue }
+    : undefined;
+
+  return (
+    <div className="border-b border-border/50 last:border-b-0">
+      <div className="flex items-start justify-between gap-2 py-1.5 px-2">
+        <label className="text-xs text-foreground flex-1 pt-1">{label}</label>
+        <div className="flex flex-col gap-0.5 shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground font-medium shrink-0">+</span>
+            <DeclarationFieldInput id={`${id}_plus`} result={plusResult} label={label} />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground font-medium shrink-0">−</span>
+            <DeclarationFieldInput id={`${id}_minus`} result={minusResult} label={label} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeclarationFieldInput({
+  id,
+  result,
+  label,
+}: {
+  id: string;
+  result?: FieldResult;
+  label: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const hasValue = !!result && Math.abs(result.value) >= 0.5;
+  const hasBreakdown = !!result && result.breakdown.length > 0;
+  const displayValue = hasValue ? formatSEK(Math.abs(result!.value)) : "";
+
+  const inputEl = (
+    <Input
+      id={id}
+      type="text"
+      value={displayValue}
+      readOnly
+      className={`w-[140px] h-7 text-xs text-right font-mono bg-muted/30 border-border shrink-0 ${
+        hasValue && hasBreakdown ? "cursor-pointer hover:bg-accent/30 hover:border-primary/40 transition-colors" : ""
+      }`}
+      onClick={(e) => {
+        if (hasValue && hasBreakdown) {
+          e.preventDefault();
+          setOpen((o) => !o);
+        }
+      }}
+    />
+  );
+
+  if (hasValue && hasBreakdown) {
+    return (
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>{inputEl}</PopoverTrigger>
+        <PopoverContent
+          side="top"
+          align="end"
+          sideOffset={6}
+          className="w-[340px] p-0 shadow-lg border-primary/20"
+          collisionPadding={16}
+        >
+          <div className="bg-primary/5 px-3 py-2 border-b border-border flex items-start gap-2">
+            <Info className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-semibold text-foreground">Beräkning av {label.split(" ")[0]}</p>
+              {result?.note && (
+                <p className="text-[10px] text-muted-foreground mt-0.5">{result.note}</p>
+              )}
+            </div>
+          </div>
+          <div className="max-h-[280px] overflow-y-auto">
+            {result!.breakdown.map((entry, idx) => (
+              <div
+                key={idx}
+                className="flex justify-between gap-3 px-3 py-1.5 text-[11px] border-b border-border/40 last:border-b-0"
+              >
+                <span className="text-foreground/80 truncate">{entry.label}</span>
+                <span className="font-mono text-foreground shrink-0">{formatSEK(Math.abs(entry.amount))}</span>
+              </div>
+            ))}
+          </div>
+          <div className="bg-muted/40 px-3 py-2 border-t border-border flex justify-between text-xs">
+            <span className="font-semibold text-foreground">Summa</span>
+            <span className="font-mono font-semibold text-primary">{formatSEK(Math.abs(result!.value))}</span>
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  }
+
+  return inputEl;
 }
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
@@ -342,10 +457,10 @@ export default function DeclarationPage() {
             <DeclarationField label="3.11 Övriga rörelsekostnader" id="f3_11" sign="−" result={F("f3_11")} />
           </SectionCard>
           <SectionCard title="Finansiella poster">
-            <DeclarationField label="3.12 Resultat från andelar i koncernföretag" id="f3_12" sign="±" result={F("f3_12")} />
-            <DeclarationField label="3.13 Resultat från andelar i intresseföretag och gemensamt styrda företag" id="f3_13" sign="±" result={F("f3_13")} />
-            <DeclarationField label="3.14 Resultat från övriga företag som det finns ett ägarintresse i" id="f3_14" sign="±" result={F("f3_14")} />
-            <DeclarationField label="3.15 Resultat från övriga finansiella anläggningstillgångar" id="f3_15" sign="±" result={F("f3_15")} />
+            <PlusMinusDeclarationField label="3.12 Resultat från andelar i koncernföretag" id="f3_12" result={F("f3_12")} />
+            <PlusMinusDeclarationField label="3.13 Resultat från andelar i intresseföretag och gemensamt styrda företag" id="f3_13" result={F("f3_13")} />
+            <PlusMinusDeclarationField label="3.14 Resultat från övriga företag som det finns ett ägarintresse i" id="f3_14" result={F("f3_14")} />
+            <PlusMinusDeclarationField label="3.15 Resultat från övriga finansiella anläggningstillgångar" id="f3_15" result={F("f3_15")} />
           </SectionCard>
         </div>
         <div className="space-y-4">
@@ -361,8 +476,8 @@ export default function DeclarationPage() {
           <SectionCard title="Bokslutsdispositioner">
             <DeclarationField label="3.21 Återföring av periodiseringsfond" id="f3_21" sign="+" result={F("f3_21")} />
             <DeclarationField label="3.22 Avsättning till periodiseringsfond" id="f3_22" sign="−" result={F("f3_22")} />
-            <DeclarationField label="3.23 Förändring av överavskrivningar" id="f3_23" sign="±" result={F("f3_23")} />
-            <DeclarationField label="3.24 Övriga bokslutsdispositioner" id="f3_24" sign="±" result={F("f3_24")} />
+            <PlusMinusDeclarationField label="3.23 Förändring av överavskrivningar" id="f3_23" result={F("f3_23")} />
+            <PlusMinusDeclarationField label="3.24 Övriga bokslutsdispositioner" id="f3_24" result={F("f3_24")} />
           </SectionCard>
           <SectionCard title="Årets resultat">
             <DeclarationField label="3.25 Skatt på årets resultat" id="f3_25" sign="−" result={F("f3_25")} />
@@ -419,8 +534,8 @@ export default function DeclarationPage() {
             <DeclarationField label="d. Skattemässigt underskott enl. N3B" id="f4_8d" sign="−" />
           </SectionCard>
           <SectionCard title="Övriga justeringar">
-            <DeclarationField label="4.9 Skattemässig justering av bokfört resultat för avskrivning på byggnader m.m." id="f4_9" sign="±" />
-            <DeclarationField label="4.10 Skattemässig justering vid avyttring av näringsfastighet/näringsbostadsrätt" id="f4_10" sign="±" />
+            <PlusMinusDeclarationField label="4.9 Skattemässig justering av bokfört resultat för avskrivning på byggnader m.m." id="f4_9" result={F("f4_9")} />
+            <PlusMinusDeclarationField label="4.10 Skattemässig justering vid avyttring av näringsfastighet/näringsbostadsrätt" id="f4_10" result={F("f4_10")} />
             <DeclarationField label="4.11 Skogs-/substansminskningsavdrag (blankett N8)" id="f4_11" sign="−" />
             <DeclarationField label="4.12 Återföringar vid avyttring av fastighet" id="f4_12" sign="+" />
           </SectionCard>

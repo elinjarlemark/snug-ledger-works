@@ -16,6 +16,7 @@ import { RecurringBillingProvider } from "@/contexts/RecurringBillingContext";
 import { SmartChecklistProvider } from "@/contexts/SmartChecklistContext";
 import { PublicLayout } from "@/components/layout/PublicLayout";
 import { EconomyLayout } from "@/components/layout/EconomyLayout";
+import { SidebarShell } from "@/components/layout/SidebarShell";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { RequireCompany } from '@/components/RequireCompany';
 import { GlobalTakeoverListener } from "@/components/company/GlobalTakeoverListener";
@@ -90,37 +91,36 @@ const App = () => (
                       {/* Preview */}
                       <Route path="/preview" element={<PreviewPage />} />
 
-                      {/* Economy section with sidebar */}
-                      <Route path='/economy' element={<RequireCompany><EconomyLayout /></RequireCompany>}>
-                        <Route index element={<EconomyIndex />} />
-                        <Route path="accounting" element={<AccountingPage />} />
-                        <Route path="billing" element={<BillingPage />} />
-                        <Route path="receipts" element={<ReceiptsPage />} />
-                        <Route path="salary" element={<SalaryPage />} />
-                        <Route path="declaration" element={<DeclarationPage />} />
-                        <Route path="vat-report" element={<VATReportPage />} />
-                        <Route path="moms" element={<MomsPage />} />
-                        <Route path="financial-statements" element={<FinancialStatementsPage />} />
-                        <Route path="annual-reports" element={<NewAnnualReportsPage />} />
-                        <Route path="accounts" element={<AccountsPage />} />
-                        <Route path="checklist" element={<ChecklistPage />} />
+                      {/* App shell with sidebar */}
+                      <Route element={<SidebarShell />}>
+                        {/* Economy section */}
+                        <Route path='/economy' element={<RequireCompany><EconomyLayout /></RequireCompany>}>
+                          <Route index element={<EconomyIndex />} />
+                          <Route path="accounting" element={<AccountingPage />} />
+                          <Route path="billing" element={<BillingPage />} />
+                          <Route path="receipts" element={<ReceiptsPage />} />
+                          <Route path="salary" element={<SalaryPage />} />
+                          <Route path="declaration" element={<DeclarationPage />} />
+                          <Route path="vat-report" element={<VATReportPage />} />
+                          <Route path="moms" element={<MomsPage />} />
+                          <Route path="financial-statements" element={<FinancialStatementsPage />} />
+                          <Route path="annual-reports" element={<NewAnnualReportsPage />} />
+                          <Route path="accounts" element={<AccountsPage />} />
+                          <Route path="checklist" element={<ChecklistPage />} />
+                        </Route>
+
+                        {/* Settings & Admin inside sidebar shell */}
+                        <Route path="/settings" element={<SettingsPage />} />
+                        <Route path="/admin" element={<AdminPage />} />
+                        <Route path="/audit-trail" element={<AuditTrailPage />} />
+
+                        {/* Legacy redirect */}
+                        <Route path="/company" element={<SettingsPage />} />
                       </Route>
-
-                      {/* Settings */}
-                      <Route path="/settings" element={<SettingsPage />} />
-
-                      {/* Admin */}
-                      <Route path="/admin" element={<AdminPage />} />
-
-                      {/* Audit Trail */}
-                      <Route path="/audit-trail" element={<AuditTrailPage />} />
 
                       {/* Auth */}
                       <Route path="/login" element={<LoginPage />} />
                       <Route path='/company-gate' element={<CompanyGate />} />
-
-                      {/* Legacy redirect */}
-                      <Route path="/company" element={<SettingsPage />} />
 
                       {/* Catch-all */}
                       <Route path="*" element={<NotFound />} />

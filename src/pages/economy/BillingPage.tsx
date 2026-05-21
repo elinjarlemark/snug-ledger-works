@@ -52,7 +52,7 @@ import { useAccounting } from "@/contexts/AccountingContext";
 import { TemplateFormDialog, ExistingTemplatesDialog } from "@/components/billing/VoucherTemplateManager";
 import { buildVoucherFromTemplate, isTemplateBalanced } from "@/lib/billing/applyTemplate";
 import { VoucherTemplate } from "@/lib/billing/types";
-import { BillingSettingsDialog, FirstInvoiceNumberPrompt } from "@/components/billing/BillingSettingsDialog";
+import { BillingSettingsDialog, FirstInvoiceNumberPrompt, BillingSettingsPanel } from "@/components/billing/BillingSettingsDialog";
 import { RecurringInvoiceManager } from "@/components/billing/RecurringInvoiceManager";
 
 // Helper functions for input validation
@@ -704,7 +704,7 @@ export default function BillingPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="invoices" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="invoices" className="gap-2">
             <Receipt className="h-4 w-4" />
             Invoices ({actualInvoices.length})
@@ -720,6 +720,10 @@ export default function BillingPage() {
           <TabsTrigger value="products" className="gap-2">
             <Package className="h-4 w-4" />
             Products ({products.length})
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="gap-2">
+            <Settings className="h-4 w-4" />
+            Settings
           </TabsTrigger>
         </TabsList>
 
@@ -892,10 +896,6 @@ export default function BillingPage() {
               <div className="flex justify-between items-center">
                 <h2 className="text-xl font-semibold">Invoices</h2>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" onClick={() => setSettingsOpen(true)}>
-                    <Settings className="h-4 w-4 mr-2" />
-                    Settings
-                  </Button>
                   <Button variant="outline" onClick={() => setRecurringManagerOpen(true)}>
                     <Repeat className="h-4 w-4 mr-2" />
                     Recurring
@@ -1084,6 +1084,14 @@ export default function BillingPage() {
               )}
             </>
           )}
+        </TabsContent>
+
+        {/* Settings Tab */}
+        <TabsContent value="settings" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold">Settings</h2>
+          </div>
+          <BillingSettingsPanel />
         </TabsContent>
       </Tabs>
     </div>

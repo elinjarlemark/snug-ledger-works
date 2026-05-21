@@ -2,8 +2,6 @@ import { useAuditTrail } from "@/contexts/AuditTrailContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
-import { Header } from "@/components/layout/Header";
-import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ClipboardList } from "lucide-react";
 
@@ -19,8 +17,7 @@ export default function AuditTrailPage() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
+    <div className="space-y-4">
       <main className="flex-1 container py-8">
         <div className="max-w-4xl mx-auto space-y-4">
           <div className="flex items-center gap-3">
@@ -80,7 +77,6 @@ export default function AuditTrailPage() {
           )}
         </div>
       </main>
-      <Footer />
     </div>
   );
 }

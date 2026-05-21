@@ -50,15 +50,15 @@
 
     --radius: 0.75rem;
 
-    /* Sidebar - Matching modern theme */
-    --sidebar-background: 245 50% 22%;
-    --sidebar-foreground: 220 30% 92%;
-    --sidebar-primary: 178 85% 55%;
-    --sidebar-primary-foreground: 245 50% 15%;
-    --sidebar-accent: 245 45% 30%;
-    --sidebar-accent-foreground: 220 30% 96%;
-    --sidebar-border: 245 40% 32%;
-    --sidebar-ring: 178 85% 55%;
+    /* Sidebar - Light / white theme with purple accent */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 25% 30%;
+    --sidebar-primary: 245 70% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 245 50% 96%;
+    --sidebar-accent-foreground: 222 35% 15%;
+    --sidebar-border: 220 25% 92%;
+    --sidebar-ring: 245 70% 55%;
 
     /* Custom tokens */
     --header-height: 4rem;
@@ -81,8 +81,8 @@
     --shadow-md: 0 4px 12px -2px hsl(245 50% 20% / 0.07), 0 2px 4px -2px hsl(245 50% 20% / 0.04);
     --shadow-lg: 0 12px 24px -6px hsl(245 50% 20% / 0.1), 0 6px 10px -4px hsl(245 50% 20% / 0.05);
     --shadow-xl: 0 24px 40px -8px hsl(245 50% 20% / 0.12), 0 10px 16px -6px hsl(245 50% 20% / 0.07);
-    --shadow-glow: 0 0 40px hsl(178 78% 45% / 0.3);
-    --shadow-glow-strong: 0 0 60px hsl(178 85% 58% / 0.45);
+    --shadow-glow: 0 0 40px hsl(245 70% 55% / 0.3);
+    --shadow-glow-strong: 0 0 60px hsl(245 70% 55% / 0.45);
     --shadow-card: 0 1px 3px 0 hsl(245 50% 20% / 0.05), 0 1px 2px -1px hsl(245 50% 20% / 0.04);
 
     /* Transitions */
@@ -128,14 +128,14 @@
     --input: 222 30% 20%;
     --ring: 174 72% 48%;
 
-    --sidebar-background: 222 47% 7%;
-    --sidebar-foreground: 210 20% 85%;
-    --sidebar-primary: 174 72% 48%;
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 210 30% 80%;
+    --sidebar-primary: 245 70% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 222 47% 15%;
     --sidebar-accent-foreground: 210 20% 90%;
-    --sidebar-border: 222 30% 15%;
-    --sidebar-ring: 174 72% 48%;
+    --sidebar-border: 222 30% 18%;
+    --sidebar-ring: 245 70% 60%;
   }
 }
 
@@ -180,17 +180,16 @@
   }
 
   .economy-sidebar-link {
-    @apply relative flex items-center gap-3 px-4 py-2.5 rounded-lg text-sidebar-foreground/75 font-medium transition-all duration-200;
-    @apply hover:bg-sidebar-accent hover:text-sidebar-foreground hover:translate-x-0.5;
+    @apply relative flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground font-medium transition-all duration-200 text-sm;
+    @apply hover:bg-sidebar-accent hover:text-sidebar-foreground;
   }
 
   .economy-sidebar-link.active {
-    @apply bg-gradient-to-r from-sidebar-primary/20 to-sidebar-primary/5 text-sidebar-primary border-l-2 border-sidebar-primary;
-    @apply shadow-[inset_0_0_20px_-10px_hsl(var(--sidebar-primary)/0.4)];
+    @apply bg-sidebar-primary/10 text-sidebar-primary font-semibold;
   }
 
   .economy-sidebar-link.active:hover {
-    @apply translate-x-0;
+    @apply bg-sidebar-primary/15;
   }
 
   .feature-card {

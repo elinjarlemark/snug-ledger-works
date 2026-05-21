@@ -81,15 +81,11 @@ export default function ChecklistPage() {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="space-y-6 w-full"
-    >
-      <div className="flex items-center justify-between gap-4">
+    <div className="space-y-6 animate-fade-in">
+      {/* Header — matches BillingPage / other economy pages */}
+      <div className="flex items-start justify-between gap-4">
         <div className="space-y-1 min-w-0">
-          <h1 className="text-3xl font-bold gradient-text">Checklist</h1>
+          <h1 className="text-3xl font-bold text-foreground">Checklist</h1>
           <p className="text-sm text-muted-foreground">
             Hantera saker som behöver göras. Bocka av när de är klara.
           </p>
@@ -105,12 +101,12 @@ export default function ChecklistPage() {
             Smart-regler
           </Button>
           <Button
-            size="icon"
+            size="sm"
             onClick={() => setAdding(true)}
             title="Lägg till"
-            className="shadow-md hover:shadow-glow transition-shadow"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4 mr-2" />
+            Add Item
           </Button>
         </div>
       </div>
@@ -133,7 +129,7 @@ export default function ChecklistPage() {
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2 }}
           >
-            <Card className="p-3 flex items-center gap-2 shadow-md border-secondary/40">
+            <Card className="p-3 flex items-center gap-2 border-border">
               <Input
                 ref={inputRef}
                 value={newText}
@@ -252,7 +248,7 @@ export default function ChecklistPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </motion.div>
+    </div>
   );
 }
 
@@ -266,23 +262,13 @@ interface SectionProps {
 }
 
 function Section({ title, count, open, onOpenChange, children, accent = "secondary" }: SectionProps) {
-  const accentClass = accent === "success"
-    ? "before:bg-gradient-to-r before:from-success before:to-success/40"
-    : "before:bg-gradient-to-r before:from-secondary before:to-accent/40";
-
   return (
     <Collapsible open={open} onOpenChange={onOpenChange}>
-      <Card
-        className={cn(
-          "relative overflow-hidden border-border/60 shadow-card hover:shadow-md transition-shadow",
-          "before:content-[''] before:absolute before:top-0 before:left-0 before:w-full before:h-[2px] before:opacity-70",
-          accentClass
-        )}
-      >
+      <Card className="border-border bg-card overflow-hidden">
         <CollapsibleTrigger asChild>
-          <button className="w-full flex items-center justify-between p-4 hover:bg-muted/40 transition-colors">
-            <div className="flex items-center gap-3">
-              <span className="font-semibold text-foreground">{title}</span>
+          <button className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors">
+            <div className="flex items-center gap-2">
+              <span className="text-base font-semibold text-foreground">{title}</span>
               <span
                 className={cn(
                   "text-xs px-2 py-0.5 rounded-full font-medium",
@@ -296,14 +282,14 @@ function Section({ title, count, open, onOpenChange, children, accent = "seconda
             </div>
             <ChevronDown
               className={cn(
-                "h-4 w-4 text-muted-foreground transition-transform duration-300",
+                "h-4 w-4 text-muted-foreground transition-transform duration-200",
                 open && "rotate-180"
               )}
             />
           </button>
         </CollapsibleTrigger>
         <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
-          <div className="px-4 pb-4 border-t border-border/60 pt-3">{children}</div>
+          <div className="px-4 pb-4 border-t border-border pt-3">{children}</div>
         </CollapsibleContent>
       </Card>
     </Collapsible>
@@ -384,7 +370,7 @@ function Row({ item, onToggle, onUpdate, onDelete, onItemClick }: RowProps) {
       exit={{ opacity: 0, scale: 0.96 }}
       transition={{ duration: 0.2 }}
       className={cn(
-        "group flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card hover:border-secondary/40 hover:shadow-sm transition-all",
+        "group flex items-center gap-3 px-3 py-2.5 rounded-md border border-border bg-card hover:bg-muted/30 transition-colors",
         item.resolvedAt && !item.done && "border-success/40 bg-success/5"
       )}
     >
