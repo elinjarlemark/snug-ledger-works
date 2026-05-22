@@ -44,7 +44,7 @@ export function TakeoverPopup({ companyId, userId }: Props) {
     loadRequests()
     const i = setInterval(loadRequests, 2000)
     return () => clearInterval(i)
-  }, [companyId])
+  }, [companyId, userId])
 
   const approve = async (id: number) => {
     setLoading(true)

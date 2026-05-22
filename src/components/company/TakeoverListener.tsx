@@ -112,7 +112,7 @@ export function TakeoverListener(props: {
 
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, companyId, pollMs]);
+  }, [enabled, companyId, userId, pollMs]);
 
   async function approve() {
     if (!req) return;
