@@ -4,7 +4,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { unlockCompany } from "@/lib/api";
 import { authService } from "@/services/auth";
 
-const INACTIVITY_MS = 1 * 60 * 1000; // 5 min
+const INACTIVITY_MS = 1 * 60 * 1000; // 1 min (currently unused while disabled)
+const INACTIVITY_LOGOUT_ENABLED = false;
 
 export function useInactivityLogout() {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ export function useInactivityLogout() {
   const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
+    if (!INACTIVITY_LOGOUT_ENABLED) return;
     if (!user) return;
 
     const resetTimer = () => {

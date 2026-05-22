@@ -181,9 +181,6 @@ export function EconomySidebar({ collapsed, onToggle }: EconomySidebarProps) {
             <Link
               key={item.href}
               to={item.href}
-              onClick={() => {
-                if (location.pathname !== item.href) window.scrollTo({ top: 0, behavior: "instant" });
-              }}
               className={cn("economy-sidebar-link group", !isExpanded && "justify-center px-0 gap-0", isActive && "active")}
               title={collapsed ? item.name : undefined}
             >
