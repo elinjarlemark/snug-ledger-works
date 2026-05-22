@@ -27,13 +27,14 @@ export function TakeoverPopup({ companyId, userId }: Props) {
 
   const loadRequests = async () => {
     try {
+      const query = new URLSearchParams({ user_id: String(userId) })
       const res = await fetch(
-        API_BASE_URL + "/companies/" + companyId + "/takeover-requests"
-			)
+        API_BASE_URL + "/companies/" + companyId + "/takeover-requests?" + query.toString()
+				)
       if (!res.ok) return
 
       const data = await res.json()
-      setRequests(data.value ?? [])
+      setRequests(Array.isArray(data) ? data : [])
     } catch (err) {
       console.error(err)
     }
