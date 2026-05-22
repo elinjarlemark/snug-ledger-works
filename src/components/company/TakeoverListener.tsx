@@ -65,7 +65,9 @@ export function TakeoverListener(props: {
     if (!enabled) return;
 
     try {
-      const url = API_BASE_URL + "/companies/" + companyId + "/takeover-requests";
+      const query = new URLSearchParams({ user_id: String(userId) });
+      const url =
+        API_BASE_URL + "/companies/" + companyId + "/takeover-requests?" + query.toString();
       const res = await fetch(url, { method: "GET" });
       if (!res.ok) return;
 

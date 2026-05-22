@@ -620,6 +620,8 @@ def approve_takeover(request_id: int, payload: CompanyLockPayload, db: Session =
     if not req:
         raise HTTPException(status_code=404, detail="Takeover request not found")
 
+    require_company_access(db, req.company_id, user_id)
+
     if req.status != CompanyLockTakeoverStatus.PENDING:
         return {"success": False}
 
@@ -653,6 +655,8 @@ def reject_takeover(request_id: int, payload: CompanyLockPayload, db: Session = 
 
     if not req:
         raise HTTPException(status_code=404, detail="Takeover request not found")
+
+    require_company_access(db, req.company_id, user_id)
 
     if req.status != CompanyLockTakeoverStatus.PENDING:
         return {"success": False}
