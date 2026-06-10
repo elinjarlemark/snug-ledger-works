@@ -43,6 +43,7 @@ export default function SettingsPage() {
     setActiveCompany,
     markCompanySetupComplete,
     deleteAccount,
+    isLoading,
   } = useAuth();
 
   const { importSIE, exportSIE, vouchers } = useAccounting();
@@ -115,10 +116,10 @@ export default function SettingsPage() {
   }, [isNewCompany, activeCompany, originalCompanyId]);
 
   useEffect(() => {
-    if (!user) navigate("/login");
-  }, [user, navigate]);
+    if (!isLoading && !user) navigate("/login");
+  }, [user, isLoading, navigate]);
 
-  if (!user) return null;
+  if (isLoading || !user) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
