@@ -322,13 +322,43 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
 
         const parseResult = parseSIEFile(sieContent);
         const sieAccounts = convertSIEAccountsToBAS(parseResult.accounts);
-        const accountsToAdd = sieAccounts.filter(
-          (newAcc) => !mergedAccounts.find((existing) => existing.number === newAcc.number)
-        );
-        const nextAccounts = [...mergedAccounts, ...accountsToAdd].sort((a, b) => a.number.localeCompare(b.number));
+        const accountNumbersFromContent = new Set<string>();
+
+        parseResult.vouchers.forEach((voucher) => {
+          voucher.lines.forEach((line) => accountNumbersFromContent.add(line.accountNumber));
+        });
+        parseResult.openingBalances.forEach((balance) => accountNumbersFromContent.add(balance.accountNumber));
+        parseResult.previousClosingBalances.forEach((balance) => accountNumbersFromContent.add(balance.accountNumber));
+
+        const fallbackCustomAccounts = Array.from(accountNumbersFromContent)
+          .filter((accountNumber) => !basAccountNumbers.has(accountNumber))
+          .map((accountNumber) => {
+            const sieAccount = sieAccounts.find((account) => account.number === accountNumber);
+            return sieAccount ?? {
+              number: accountNumber,
+              name: `Account ${accountNumber}`,
+              class: getAccountClass(accountNumber),
+            };
+          });
+
+        const nextAccountsByNumber = new Map<string, BASAccount>();
+        [...mergedAccounts, ...sieAccounts, ...fallbackCustomAccounts].forEach((account) => {
+          if (!nextAccountsByNumber.has(account.number)) {
+            nextAccountsByNumber.set(account.number, account);
+          }
+        });
+        const nextAccounts = Array.from(nextAccountsByNumber.values()).sort((a, b) => a.number.localeCompare(b.number));
+
+        const openingBalanceVoucher = convertSIEOpeningBalancesToVoucher(parseResult, requestedCompanyId, nextAccounts);
+        if (openingBalanceVoucher) {
+          openingBalanceVoucher.voucherNumber = 0;
+        }
 
         const converted = convertSIEVouchersToInternal(parseResult.vouchers, requestedCompanyId, [], nextAccounts);
-        const dbVouchers = converted.newVouchers.sort((a, b) =>
+        const dbVouchers = [
+          ...(openingBalanceVoucher ? [openingBalanceVoucher] : []),
+          ...converted.newVouchers,
+        ].sort((a, b) =>
           new Date(a.date).getTime() - new Date(b.date).getTime() || a.voucherNumber - b.voucherNumber
         );
 
