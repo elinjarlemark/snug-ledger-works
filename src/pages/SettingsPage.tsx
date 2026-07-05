@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +32,7 @@ import { useFiscalLock } from "@/contexts/FiscalLockContext";
 import { useAccounting as useAccountingMain } from "@/contexts/AccountingContext";
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8000";
+const VOUCHER_CONFIRMATION_KEY = "accountpro_voucher_confirmation_enabled";
 
 export default function SettingsPage() {
   const {
@@ -43,6 +45,7 @@ export default function SettingsPage() {
     setActiveCompany,
     markCompanySetupComplete,
     deleteAccount,
+    isLoading,
   } = useAuth();
 
   const { importSIE, exportSIE, vouchers } = useAccounting();
@@ -66,6 +69,9 @@ export default function SettingsPage() {
 
   // Personal settings
   const [personalNumber, setPersonalNumber] = useState("");
+  const [voucherConfirmationEnabled, setVoucherConfirmationEnabledState] = useState(
+    () => localStorage.getItem(VOUCHER_CONFIRMATION_KEY) !== "false"
+  );
 
   useEffect(() => {
     if (user) {
@@ -115,10 +121,10 @@ export default function SettingsPage() {
   }, [isNewCompany, activeCompany, originalCompanyId]);
 
   useEffect(() => {
-    if (!user) navigate("/login");
-  }, [user, navigate]);
+    if (!isLoading && !user) navigate("/login");
+  }, [user, isLoading, navigate]);
 
-  if (!user) return null;
+  if (isLoading || !user) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -176,6 +182,12 @@ export default function SettingsPage() {
     }
     localStorage.setItem(`accountpro_personal_number_${user.id}`, personalNumber);
     toast.success("Personal settings saved!");
+  };
+
+  const setVoucherConfirmationEnabled = (enabled: boolean) => {
+    setVoucherConfirmationEnabledState(enabled);
+    localStorage.setItem(VOUCHER_CONFIRMATION_KEY, enabled ? "true" : "false");
+    toast.success(enabled ? "Extra check aktiverad" : "Extra check inaktiverad");
   };
 
   const handleAddCompany = () => {
@@ -654,6 +666,18 @@ export default function SettingsPage() {
                       <p className="text-xs text-muted-foreground">
                         {personalNumber.replace(/-/g, "").length}/12 digits — Format: XXXXXXXX-XXXX
                       </p>
+                    </div>
+
+                    <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                      <div className="space-y-1">
+                        <Label htmlFor="voucherConfirmation">Extra check innan bokföring</Label>
+                        <p className="text-xs text-muted-foreground">Visa popupen där du kontrollerar datum, konton och summor innan en ny verifikation bokförs.</p>
+                      </div>
+                      <Switch
+                        id="voucherConfirmation"
+                        checked={voucherConfirmationEnabled}
+                        onCheckedChange={setVoucherConfirmationEnabled}
+                      />
                     </div>
 
                     <Button onClick={handleSavePersonal}>

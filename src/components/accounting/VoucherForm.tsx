@@ -13,11 +13,32 @@ import { useVat } from "@/contexts/VatContext";
 import { useVatPeriodLock } from "@/contexts/VatPeriodLockContext";
 import { getActiveVatCodes, getVatCodeById } from "@/lib/vat/codes";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { formatAmount } from "@/lib/bas-accounts";
 import { getBASAccountsForDate } from "@/lib/bas-accounts";
 import { Plus, Trash2, Check, AlertCircle, X, Upload, FileText, Image, ChevronDown, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+const VOUCHER_CONFIRMATION_KEY = "accountpro_voucher_confirmation_enabled";
+
+function isVoucherConfirmationEnabled() {
+  return localStorage.getItem(VOUCHER_CONFIRMATION_KEY) !== "false";
+}
+
+function setVoucherConfirmationEnabled(enabled: boolean) {
+  localStorage.setItem(VOUCHER_CONFIRMATION_KEY, enabled ? "true" : "false");
+}
 
 interface PendingAttachment {
   id: string;
@@ -60,6 +81,8 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
   const [openComboboxes, setOpenComboboxes] = useState<Record<string, boolean>>({});
   const [pendingFocusLineId, setPendingFocusLineId] = useState<string | null>(null);
   const [dateAccounts, setDateAccounts] = useState(accounts);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [confirmationEnabled, setConfirmationEnabled] = useState(isVoucherConfirmationEnabled);
 
   useEffect(() => {
     const yearAccounts = getBASAccountsForDate(date, activeCompany?.accountingStandard ?? "");
@@ -156,33 +179,39 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
     setPendingAttachments(prev => prev.filter(a => a.id !== id));
   };
 
-  const handleSubmit = () => {
+  const getValidLines = () => lines.filter(l => l.accountNumber && (l.debit > 0 || l.credit > 0));
+
+  const validateBeforePosting = () => {
     if (!validation.isValid) {
       toast.error("Voucher must be balanced (debit = credit)");
-      return;
+      return false;
     }
     if (!date || !description.trim()) {
       toast.error("Please fill in date and description");
-      return;
+      return false;
     }
     const today = new Date().toISOString().split("T")[0];
     if (date > today) {
       toast.error("Date cannot be in the future");
-      return;
+      return false;
     }
     if (isDateInLockedYear(date)) {
       toast.error("Cannot create vouchers for a locked fiscal year");
-      return;
+      return false;
     }
     if (isDateInLockedPeriod(date)) {
       toast.error("Momsperioden är låst. Skapa en rättelseverifikation istället.");
-      return;
+      return false;
     }
-    const validLines = lines.filter(l => l.accountNumber && (l.debit > 0 || l.credit > 0));
-    if (validLines.length < 2) {
+    if (getValidLines().length < 2) {
       toast.error("Voucher must have at least 2 valid lines");
-      return;
+      return false;
     }
+    return true;
+  };
+
+  const postVoucher = () => {
+    const validLines = getValidLines();
 
     if (editVoucher) {
       const updated = updateVoucher(editVoucher.id, {
@@ -197,7 +226,6 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
         toast.error("Failed to update voucher");
       }
     } else {
-      const voucherNum = nextVoucherNumber;
       const voucher = createVoucher({
         date,
         description: description.trim(),
@@ -223,6 +251,17 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
         toast.error("Failed to create voucher");
       }
     }
+  };
+
+  const handleSubmit = () => {
+    if (!validateBeforePosting()) return;
+
+    if (!editVoucher && confirmationEnabled) {
+      setShowConfirmation(true);
+      return;
+    }
+
+    postVoucher();
   };
 
   return (
@@ -523,9 +562,81 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={onCancel}>Cancel</Button>
         <Button onClick={handleSubmit} disabled={!validation.isValid}>
-          {editVoucher ? "Update Voucher" : "Save Voucher"}
+          {editVoucher ? "Update Voucher" : confirmationEnabled ? "Spara" : "Bokför"}
         </Button>
       </div>
+
+      <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Kontrollera verifikationen</AlertDialogTitle>
+            <AlertDialogDescription>
+              Kontrollera datum, namn, konton och summor innan verifikationen bokförs.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-3 text-sm">
+            <div className="grid grid-cols-2 gap-2 rounded-md bg-muted/40 p-3">
+              <div>
+                <p className="text-muted-foreground">Datum</p>
+                <p className="font-medium">{date}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Namn</p>
+                <p className="font-medium">{description.trim()}</p>
+              </div>
+            </div>
+
+            <div className="rounded-md border overflow-hidden">
+              <table className="w-full text-xs">
+                <thead className="bg-muted/40">
+                  <tr>
+                    <th className="p-2 text-left">Konto</th>
+                    <th className="p-2 text-left">Namn</th>
+                    <th className="p-2 text-right">Debet</th>
+                    <th className="p-2 text-right">Kredit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {getValidLines().map((line) => (
+                    <tr key={line.id} className="border-t">
+                      <td className="p-2 font-mono">{line.accountNumber}</td>
+                      <td className="p-2">{line.accountName}</td>
+                      <td className="p-2 text-right font-mono">{line.debit > 0 ? formatAmount(line.debit) : ""}</td>
+                      <td className="p-2 text-right font-mono">{line.credit > 0 ? formatAmount(line.credit) : ""}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-muted/30 border-t">
+                  <tr>
+                    <td className="p-2 font-semibold" colSpan={2}>Summa</td>
+                    <td className="p-2 text-right font-mono font-semibold">{formatAmount(validation.totalDebit)}</td>
+                    <td className="p-2 text-right font-mono font-semibold">{formatAmount(validation.totalCredit)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    setVoucherConfirmationEnabled(false);
+                    setConfirmationEnabled(false);
+                    toast.info("Du kan ändra tillbaka till extra check i inställningarna");
+                  }
+                }}
+              />
+              <span>Ta bort check av verification</span>
+            </label>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>Ändra</AlertDialogCancel>
+            <AlertDialogAction onClick={postVoucher}>Bokför</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

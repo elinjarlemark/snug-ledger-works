@@ -6,15 +6,15 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, ClipboardList } from "lucide-react";
 
 export default function AuditTrailPage() {
-  const { user, activeCompany } = useAuth();
+  const { user, activeCompany, isLoading } = useAuth();
   const { entries } = useAuditTrail();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!user) navigate("/login");
-  }, [user, navigate]);
+    if (!isLoading && !user) navigate("/login");
+  }, [user, isLoading, navigate]);
 
-  if (!user) return null;
+  if (isLoading || !user) return null;
 
   return (
     <div className="space-y-4">

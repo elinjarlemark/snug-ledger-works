@@ -41,9 +41,15 @@ export function VoucherDetailsDialog({
       date: new Date().toISOString().split("T")[0],
       description: `Reversal of voucher #${voucher.voucherNumber}: ${voucher.description}`,
       lines: reversalLines,
+      reversesVoucherId: voucher.id,
+      reversesVoucherNumber: voucher.voucherNumber,
     });
 
     if (reversalVoucher) {
+      updateVoucher(voucher.id, {
+        reversedByVoucherId: reversalVoucher.id,
+        reversedByVoucherNumber: reversalVoucher.voucherNumber,
+      });
       toast.success(`Reversal voucher #${reversalVoucher.voucherNumber} created`);
       onOpenChange(false);
     } else {
@@ -95,6 +101,14 @@ export function VoucherDetailsDialog({
           />
         ) : (
           <div className="space-y-6">
+          {(voucher.reversesVoucherNumber || voucher.reversedByVoucherNumber) && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              {voucher.reversesVoucherNumber
+                ? `Den här verifikationen vänder verifikation #${voucher.reversesVoucherNumber}.`
+                : `Den här verifikationen har vänts av verifikation #${voucher.reversedByVoucherNumber}.`}
+            </div>
+          )}
+
           {/* Voucher info */}
           <div className="grid md:grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg">
             <div>
