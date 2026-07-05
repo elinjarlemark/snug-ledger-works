@@ -19,6 +19,20 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 
 const VOUCHERS_PER_PAGE = 10;
+const VOUCHER_TEMPLATE_KEY_PREFIX = "accountpro_voucher_templates_";
+
+interface StoredVoucherTemplate {
+  id: string;
+  name: string;
+  description: string;
+  lines: {
+    accountNumber: string;
+    accountName: string;
+    debit: number;
+    credit: number;
+    vatCodeId?: string;
+  }[];
+}
 
 interface AccountingPanelProps {
   compact?: boolean;
@@ -41,10 +55,11 @@ export function AccountingPanel({
   onToggleCompare,
   prefillVoucher,
 }: AccountingPanelProps) {
-  const { user } = useAuth();
+  const { user, activeCompany } = useAuth();
   const { vouchers } = useAccounting();
   const { isYearLocked } = useFiscalLock();
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showCreateChoice, setShowCreateChoice] = useState(false);
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
   const [editingVoucher, setEditingVoucher] = useState<Voucher | null>(null);
   const [duplicatingVoucher, setDuplicatingVoucher] = useState<Voucher | null>(null);
@@ -61,8 +76,22 @@ export function AccountingPanel({
   const [searchQuery, setSearchQuery] = useState("");
   const [hideReversedVouchers, setHideReversedVouchers] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [customTemplates, setCustomTemplates] = useState<StoredVoucherTemplate[]>([]);
 
   const currentYearLocked = selectedYear !== undefined ? isYearLocked(selectedYear) : false;
+
+  const loadCustomTemplates = () => {
+    if (!activeCompany?.id) {
+      setCustomTemplates([]);
+      return;
+    }
+    const raw = localStorage.getItem(`${VOUCHER_TEMPLATE_KEY_PREFIX}${activeCompany.id}`);
+    setCustomTemplates(raw ? JSON.parse(raw) : []);
+  };
+
+  useEffect(() => {
+    loadCustomTemplates();
+  }, [activeCompany?.id]);
 
   // Auto-open create form from header shortcut
   useEffect(() => {
@@ -114,15 +143,38 @@ export function AccountingPanel({
   const handleVoucherClick = (v: Voucher) => {
     setSelectedVoucher(v);
     setShowCreateForm(false);
+    setShowCreateChoice(false);
     setEditingVoucher(null);
     setDuplicatingVoucher(null);
   };
 
   const handleCreateClick = () => {
-    setShowCreateForm(true);
+    loadCustomTemplates();
+    setShowCreateChoice(true);
+    setShowCreateForm(false);
     setSelectedVoucher(null);
     setEditingVoucher(null);
     setDuplicatingVoucher(null);
+  };
+
+  const startManualVoucher = () => {
+    setShowCreateChoice(false);
+    setShowCreateForm(true);
+    setDuplicatingVoucher(null);
+  };
+
+  const startFromTemplate = (template: StoredVoucherTemplate) => {
+    setShowCreateChoice(false);
+    setDuplicatingVoucher({
+      id: template.id,
+      companyId: activeCompany?.id || "",
+      voucherNumber: 0,
+      date: new Date().toISOString().split("T")[0],
+      description: template.description || template.name,
+      lines: template.lines.map((line) => ({ ...line, id: crypto.randomUUID() })),
+      createdAt: new Date().toISOString(),
+    });
+    setShowCreateForm(true);
   };
 
   const handleFormCancel = () => {
@@ -168,6 +220,42 @@ export function AccountingPanel({
   return (
     <div className="space-y-4" ref={listRef}>
       {/* Create/Edit/Duplicate Form */}
+      {showCreateChoice && !showCreateForm && !editingVoucher && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Ny verifikation</CardTitle>
+            <CardDescription>Välj hur du vill skapa verifikationen.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-3">
+            <Button variant="outline" className="h-auto flex-col items-start p-4" onClick={startManualVoucher}>
+              <span className="font-semibold">Manuell bokföring</span>
+              <span className="text-xs text-muted-foreground text-left">Börja med tomma rader.</span>
+            </Button>
+            <Button variant="outline" className="h-auto flex-col items-start p-4" disabled>
+              <span className="font-semibold">Färdiga mallar</span>
+              <span className="text-xs text-muted-foreground text-left">Standardmallar läggs in senare.</span>
+            </Button>
+            <div className="rounded-md border p-4 space-y-2">
+              <p className="font-semibold text-sm">Egna mallar</p>
+              {customTemplates.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Inga egna mallar ännu. Skapa en manuellt och klicka “Spara som egen mall”.</p>
+              ) : (
+                <div className="space-y-2">
+                  {customTemplates.map((template) => (
+                    <Button key={template.id} variant="ghost" size="sm" className="w-full justify-start" onClick={() => startFromTemplate(template)}>
+                      {template.name}
+                    </Button>
+                  ))}
+                </div>
+              )}
+              <Button size="sm" variant="secondary" onClick={startManualVoucher}>
+                Skapa egen mall
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {(showCreateForm || editingVoucher) && (
         <VoucherForm
           onCancel={handleFormCancel}
@@ -187,7 +275,7 @@ export function AccountingPanel({
       )}
 
       {/* Voucher List */}
-      {!showCreateForm && !selectedVoucher && !editingVoucher && (
+      {!showCreateForm && !showCreateChoice && !selectedVoucher && !editingVoucher && (
          <>
 
           {/* Filters */}
@@ -272,6 +360,10 @@ export function AccountingPanel({
               Vouchers ({filteredVouchers.length})
             </h2>
             <div className="flex items-center gap-2">
+              <Button variant="default" size="sm" onClick={handleCreateClick}>
+                <Plus className="h-4 w-4 mr-2" />
+                Ny verifikation
+              </Button>
               {onToggleCompare && (
                 <Button variant="outline" size="sm" onClick={onToggleCompare}>
                   <Columns2 className="h-4 w-4 mr-2" />

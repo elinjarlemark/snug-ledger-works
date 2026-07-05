@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const VOUCHER_CONFIRMATION_KEY = "accountpro_voucher_confirmation_enabled";
+const VOUCHER_TEMPLATE_KEY_PREFIX = "accountpro_voucher_templates_";
 
 function isVoucherConfirmationEnabled() {
   return localStorage.getItem(VOUCHER_CONFIRMATION_KEY) !== "false";
@@ -262,6 +263,38 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
     }
 
     postVoucher();
+  };
+
+  const handleSaveAsTemplate = () => {
+    if (!activeCompany?.id) return;
+    const validLines = getValidLines();
+    if (validLines.length < 2) {
+      toast.error("Add at least 2 account rows before saving a template");
+      return;
+    }
+
+    const name = window.prompt("Namn på egen mall", description.trim() || "Ny verifikationsmall");
+    if (!name?.trim()) return;
+
+    const key = `${VOUCHER_TEMPLATE_KEY_PREFIX}${activeCompany.id}`;
+    const existing = JSON.parse(localStorage.getItem(key) ?? "[]");
+    const next = [
+      ...existing,
+      {
+        id: crypto.randomUUID(),
+        name: name.trim(),
+        description: description.trim(),
+        lines: validLines.map((line) => ({
+          accountNumber: line.accountNumber,
+          accountName: line.accountName,
+          debit: line.debit,
+          credit: line.credit,
+          vatCodeId: line.vatCodeId,
+        })),
+      },
+    ];
+    localStorage.setItem(key, JSON.stringify(next));
+    toast.success("Egen verifikationsmall sparad");
   };
 
   return (
@@ -559,7 +592,10 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
       )}
 
       {/* Submit */}
-      <div className="flex justify-end gap-3">
+      <div className="flex flex-col sm:flex-row sm:justify-end gap-3">
+        <Button type="button" variant="secondary" onClick={handleSaveAsTemplate}>
+          Spara som egen mall
+        </Button>
         <Button variant="outline" onClick={onCancel}>Cancel</Button>
         <Button onClick={handleSubmit} disabled={!validation.isValid}>
           {editVoucher ? "Update Voucher" : confirmationEnabled ? "Spara" : "Bokför"}
