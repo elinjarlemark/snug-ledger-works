@@ -23,25 +23,13 @@ export function VoucherDetailsDialog({
   onOpenChange, 
   voucher 
 }: VoucherDetailsDialogProps) {
-  const { createVoucher, updateVoucher, deleteVoucher } = useAccounting();
+  const { reverseVoucher, deleteVoucher } = useAccounting();
   const [isEditing, setIsEditing] = useState(false);
 
   if (!voucher) return null;
 
   const handleRevert = () => {
-    const reversalLines = voucher.lines.map(line => ({
-      id: crypto.randomUUID(),
-      accountNumber: line.accountNumber,
-      accountName: line.accountName,
-      debit: line.credit,
-      credit: line.debit,
-    }));
-
-    const reversalVoucher = createVoucher({
-      date: new Date().toISOString().split("T")[0],
-      description: `Reversal of voucher #${voucher.voucherNumber}: ${voucher.description}`,
-      lines: reversalLines,
-    });
+    const reversalVoucher = reverseVoucher(voucher);
 
     if (reversalVoucher) {
       toast.success(`Reversal voucher #${reversalVoucher.voucherNumber} created`);
@@ -95,6 +83,14 @@ export function VoucherDetailsDialog({
           />
         ) : (
           <div className="space-y-6">
+          {(voucher.reversesVoucherNumber || voucher.reversedByVoucherNumber) && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              {voucher.reversesVoucherNumber
+                ? `Den här verifikationen vänder verifikation #${voucher.reversesVoucherNumber}.`
+                : `Den här verifikationen har vänts av verifikation #${voucher.reversedByVoucherNumber}.`}
+            </div>
+          )}
+
           {/* Voucher info */}
           <div className="grid md:grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg">
             <div>

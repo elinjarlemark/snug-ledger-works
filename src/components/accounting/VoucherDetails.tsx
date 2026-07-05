@@ -24,7 +24,7 @@ interface VoucherDetailsProps {
 }
 
 export function VoucherDetails({ voucher, onClose, onDuplicate }: VoucherDetailsProps) {
-  const { createVoucher } = useAccounting();
+  const { reverseVoucher } = useAccounting();
   const { addEntry } = useAuditTrail();
   const { isYearLocked } = useFiscalLock();
   const { addReceipt, getReceiptsForVoucher, unlinkReceipt } = useReceipts();
@@ -39,19 +39,7 @@ export function VoucherDetails({ voucher, onClose, onDuplicate }: VoucherDetails
   const handleRevert = () => {
     if (yearLocked) return;
 
-    const reversalLines = voucher.lines.map(line => ({
-      id: crypto.randomUUID(),
-      accountNumber: line.accountNumber,
-      accountName: line.accountName,
-      debit: line.credit,
-      credit: line.debit,
-    }));
-
-    const reversalVoucher = createVoucher({
-      date: new Date().toISOString().split("T")[0],
-      description: `Reversal of voucher #${voucher.voucherNumber}: ${voucher.description}`,
-      lines: reversalLines,
-    });
+    const reversalVoucher = reverseVoucher(voucher);
 
     if (reversalVoucher) {
       addEntry(`Created voucher #${reversalVoucher.voucherNumber}, revert of voucher #${voucher.voucherNumber}`);
@@ -133,6 +121,14 @@ export function VoucherDetails({ voucher, onClose, onDuplicate }: VoucherDetails
           <X className="h-5 w-5" />
         </Button>
       </div>
+
+      {(voucher.reversesVoucherNumber || voucher.reversedByVoucherNumber) && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {voucher.reversesVoucherNumber
+            ? `Den här verifikationen vänder verifikation #${voucher.reversesVoucherNumber}.`
+            : `Den här verifikationen har vänts av verifikation #${voucher.reversedByVoucherNumber}.`}
+        </div>
+      )}
 
       {/* Voucher info */}
       <div className="grid md:grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg">
