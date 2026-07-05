@@ -19,6 +19,7 @@ import {
   LogOut,
   User,
   ClipboardList,
+  MessageSquare,
   ChevronDown,
   Search,
   Check,
@@ -240,6 +241,20 @@ export function EconomySidebar({ collapsed, onToggle }: EconomySidebarProps) {
             <ClipboardList className={cn("h-[18px] w-[18px] shrink-0", location.pathname === "/audit-trail" && "text-sidebar-primary")} />
             <span className={cn("transition-opacity duration-200 whitespace-nowrap", !isExpanded && "opacity-0 w-0 overflow-hidden")}>
               Audit Trail
+            </span>
+          </Link>
+          <Link
+            to="/comments"
+            className={cn(
+              "economy-sidebar-link group",
+              !isExpanded && "justify-center px-0 gap-0",
+              location.pathname === "/comments" && "active"
+            )}
+            title={collapsed ? "Kommentarer" : undefined}
+          >
+            <MessageSquare className={cn("h-[18px] w-[18px] shrink-0", location.pathname === "/comments" && "text-sidebar-primary")} />
+            <span className={cn("transition-opacity duration-200 whitespace-nowrap", !isExpanded && "opacity-0 w-0 overflow-hidden")}>
+              Kommentarer
             </span>
           </Link>
         </div>

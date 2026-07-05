@@ -6,9 +6,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Voucher, useAccounting } from "@/contexts/AccountingContext";
+import { useComments } from "@/contexts/CommentsContext";
 import { formatAmount } from "@/lib/bas-accounts";
-import { RotateCcw, Trash2, Edit, FileText, Image, ExternalLink } from "lucide-react";
+import { RotateCcw, Trash2, Edit, FileText, Image, ExternalLink, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { VoucherForm } from "./VoucherForm";
 
@@ -24,7 +26,9 @@ export function VoucherDetailsDialog({
   voucher 
 }: VoucherDetailsDialogProps) {
   const { reverseVoucher, deleteVoucher } = useAccounting();
+  const { addComment, getCommentsForTarget, deleteComment } = useComments();
   const [isEditing, setIsEditing] = useState(false);
+  const [commentText, setCommentText] = useState("");
 
   if (!voucher) return null;
 
@@ -66,6 +70,24 @@ export function VoucherDetailsDialog({
 
   const totalDebit = voucher.lines.reduce((sum, l) => sum + l.debit, 0);
   const totalCredit = voucher.lines.reduce((sum, l) => sum + l.credit, 0);
+  const voucherComments = getCommentsForTarget("voucher", voucher.id);
+
+  const handleAddComment = () => {
+    const text = commentText.trim();
+    if (!text) return;
+
+    const added = addComment({
+      targetType: "voucher",
+      targetId: voucher.id,
+      targetLabel: `Verifikation #${voucher.voucherNumber} · ${voucher.description}`,
+      text,
+    });
+
+    if (added) {
+      setCommentText("");
+      toast.success("Kommentar sparad");
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={(open) => { if (!open) setIsEditing(false); onOpenChange(open); }}>
@@ -170,6 +192,43 @@ export function VoucherDetailsDialog({
                 </tr>
               </tfoot>
             </table>
+          </div>
+
+          <div className="rounded-lg border border-border p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-muted-foreground" />
+              <h3 className="font-medium">Kommentarer</h3>
+              <span className="text-xs text-muted-foreground">({voucherComments.length})</span>
+            </div>
+            <Textarea
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              placeholder="Skriv en kommentar om den här verifikationen..."
+              rows={3}
+            />
+            <div className="flex justify-end">
+              <Button size="sm" onClick={handleAddComment} disabled={!commentText.trim()}>
+                Lägg till kommentar
+              </Button>
+            </div>
+            {voucherComments.length > 0 && (
+              <div className="space-y-2 border-t border-border pt-3">
+                {voucherComments.map((comment) => (
+                  <div key={comment.id} className="rounded-md bg-muted/30 p-3 text-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="whitespace-pre-wrap text-foreground">{comment.text}</p>
+                      <Button variant="ghost" size="sm" className="h-7 text-destructive" onClick={() => deleteComment(comment.id)}>
+                        Ta bort
+                      </Button>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {new Date(comment.createdAt).toLocaleString()}
+                      {comment.createdBy ? ` · ${comment.createdBy}` : ""}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Actions */}

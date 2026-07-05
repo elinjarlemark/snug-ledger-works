@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Voucher, useAccounting } from "@/contexts/AccountingContext";
 import { useAuditTrail } from "@/contexts/AuditTrailContext";
+import { useComments } from "@/contexts/CommentsContext";
 import { useFiscalLock } from "@/contexts/FiscalLockContext";
 import { useReceipts } from "@/contexts/ReceiptsContext";
 import { formatAmount } from "@/lib/bas-accounts";
-import { X, RotateCcw, FileText, Image, ExternalLink, Copy, Upload, Trash2, Eye } from "lucide-react";
+import { X, RotateCcw, FileText, Image, ExternalLink, Copy, Upload, Trash2, Eye, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { useRef } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -25,11 +27,13 @@ interface VoucherDetailsProps {
 
 export function VoucherDetails({ voucher, onClose, onDuplicate }: VoucherDetailsProps) {
   const { reverseVoucher } = useAccounting();
+  const { addComment, getCommentsForTarget, deleteComment } = useComments();
   const { addEntry } = useAuditTrail();
   const { isYearLocked } = useFiscalLock();
   const { addReceipt, getReceiptsForVoucher, unlinkReceipt } = useReceipts();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showReceiptsDialog, setShowReceiptsDialog] = useState(false);
+  const [commentText, setCommentText] = useState("");
 
   const voucherYear = new Date(voucher.date).getFullYear();
   const yearLocked = isYearLocked(voucherYear);
@@ -107,6 +111,24 @@ export function VoucherDetails({ voucher, onClose, onDuplicate }: VoucherDetails
 
   const totalDebit = voucher.lines.reduce((sum, l) => sum + l.debit, 0);
   const totalCredit = voucher.lines.reduce((sum, l) => sum + l.credit, 0);
+  const voucherComments = getCommentsForTarget("voucher", voucher.id);
+
+  const handleAddComment = () => {
+    const text = commentText.trim();
+    if (!text) return;
+
+    const added = addComment({
+      targetType: "voucher",
+      targetId: voucher.id,
+      targetLabel: `Verifikation #${voucher.voucherNumber} · ${voucher.description}`,
+      text,
+    });
+
+    if (added) {
+      setCommentText("");
+      toast.success("Kommentar sparad");
+    }
+  };
 
   return (
     <div className="bg-card rounded-xl border border-border p-6 space-y-6">
@@ -192,6 +214,43 @@ export function VoucherDetails({ voucher, onClose, onDuplicate }: VoucherDetails
             </tr>
           </tfoot>
         </table>
+      </div>
+
+      <div className="rounded-lg border border-border p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 text-muted-foreground" />
+          <h3 className="font-medium">Kommentarer</h3>
+          <span className="text-xs text-muted-foreground">({voucherComments.length})</span>
+        </div>
+        <Textarea
+          value={commentText}
+          onChange={(e) => setCommentText(e.target.value)}
+          placeholder="Skriv en kommentar om den här verifikationen..."
+          rows={3}
+        />
+        <div className="flex justify-end">
+          <Button size="sm" onClick={handleAddComment} disabled={!commentText.trim()}>
+            Lägg till kommentar
+          </Button>
+        </div>
+        {voucherComments.length > 0 && (
+          <div className="space-y-2 border-t border-border pt-3">
+            {voucherComments.map((comment) => (
+              <div key={comment.id} className="rounded-md bg-muted/30 p-3 text-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="whitespace-pre-wrap text-foreground">{comment.text}</p>
+                  <Button variant="ghost" size="sm" className="h-7 text-destructive" onClick={() => deleteComment(comment.id)}>
+                    Ta bort
+                  </Button>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {new Date(comment.createdAt).toLocaleString()}
+                  {comment.createdBy ? ` · ${comment.createdBy}` : ""}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Actions */}
