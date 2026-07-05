@@ -23,27 +23,13 @@ export function VoucherDetailsDialog({
   onOpenChange, 
   voucher 
 }: VoucherDetailsDialogProps) {
-  const { createVoucher, updateVoucher, deleteVoucher } = useAccounting();
+  const { reverseVoucher, deleteVoucher } = useAccounting();
   const [isEditing, setIsEditing] = useState(false);
 
   if (!voucher) return null;
 
   const handleRevert = () => {
-    const reversalLines = voucher.lines.map(line => ({
-      id: crypto.randomUUID(),
-      accountNumber: line.accountNumber,
-      accountName: line.accountName,
-      debit: line.credit,
-      credit: line.debit,
-    }));
-
-    const reversalVoucher = createVoucher({
-      date: new Date().toISOString().split("T")[0],
-      description: `Reversal of voucher #${voucher.voucherNumber}: ${voucher.description}`,
-      lines: reversalLines,
-      reversesVoucherId: voucher.id,
-      reversesVoucherNumber: voucher.voucherNumber,
-    });
+    const reversalVoucher = reverseVoucher(voucher);
 
     if (reversalVoucher) {
       updateVoucher(voucher.id, {

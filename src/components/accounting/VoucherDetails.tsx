@@ -24,7 +24,7 @@ interface VoucherDetailsProps {
 }
 
 export function VoucherDetails({ voucher, onClose, onDuplicate }: VoucherDetailsProps) {
-  const { createVoucher, updateVoucher } = useAccounting();
+  const { reverseVoucher } = useAccounting();
   const { addEntry } = useAuditTrail();
   const { isYearLocked } = useFiscalLock();
   const { addReceipt, getReceiptsForVoucher, unlinkReceipt } = useReceipts();
@@ -39,21 +39,7 @@ export function VoucherDetails({ voucher, onClose, onDuplicate }: VoucherDetails
   const handleRevert = () => {
     if (yearLocked) return;
 
-    const reversalLines = voucher.lines.map(line => ({
-      id: crypto.randomUUID(),
-      accountNumber: line.accountNumber,
-      accountName: line.accountName,
-      debit: line.credit,
-      credit: line.debit,
-    }));
-
-    const reversalVoucher = createVoucher({
-      date: new Date().toISOString().split("T")[0],
-      description: `Reversal of voucher #${voucher.voucherNumber}: ${voucher.description}`,
-      lines: reversalLines,
-      reversesVoucherId: voucher.id,
-      reversesVoucherNumber: voucher.voucherNumber,
-    });
+    const reversalVoucher = reverseVoucher(voucher);
 
     if (reversalVoucher) {
       updateVoucher(voucher.id, {

@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 
 const VOUCHER_CONFIRMATION_KEY = "accountpro_voucher_confirmation_enabled";
 const VOUCHER_TEMPLATE_KEY_PREFIX = "accountpro_voucher_templates_";
+const STANDARD_VOUCHER_TEMPLATE_KEY = "accountpro_standard_voucher_templates";
 
 function isVoucherConfirmationEnabled() {
   return localStorage.getItem(VOUCHER_CONFIRMATION_KEY) !== "false";
@@ -265,18 +266,16 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
     postVoucher();
   };
 
-  const handleSaveAsTemplate = () => {
-    if (!activeCompany?.id) return;
+  const saveTemplate = (key: string, successMessage: string) => {
     const validLines = getValidLines();
     if (validLines.length < 2) {
       toast.error("Add at least 2 account rows before saving a template");
       return;
     }
 
-    const name = window.prompt("Namn på egen mall", description.trim() || "Ny verifikationsmall");
+    const name = window.prompt("Namn på mall", description.trim() || "Ny verifikationsmall");
     if (!name?.trim()) return;
 
-    const key = `${VOUCHER_TEMPLATE_KEY_PREFIX}${activeCompany.id}`;
     const existing = JSON.parse(localStorage.getItem(key) ?? "[]");
     const next = [
       ...existing,
@@ -294,7 +293,16 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
       },
     ];
     localStorage.setItem(key, JSON.stringify(next));
-    toast.success("Egen verifikationsmall sparad");
+    toast.success(successMessage);
+  };
+
+  const handleSaveAsTemplate = () => {
+    if (!activeCompany?.id) return;
+    saveTemplate(`${VOUCHER_TEMPLATE_KEY_PREFIX}${activeCompany.id}`, "Egen verifikationsmall sparad");
+  };
+
+  const handleSaveAsStandardTemplate = () => {
+    saveTemplate(STANDARD_VOUCHER_TEMPLATE_KEY, "Färdig standardmall sparad");
   };
 
   return (
@@ -595,6 +603,9 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
       <div className="flex flex-col sm:flex-row sm:justify-end gap-3">
         <Button type="button" variant="secondary" onClick={handleSaveAsTemplate}>
           Spara som egen mall
+        </Button>
+        <Button type="button" variant="outline" onClick={handleSaveAsStandardTemplate}>
+          Spara som färdig mall
         </Button>
         <Button variant="outline" onClick={onCancel}>Cancel</Button>
         <Button onClick={handleSubmit} disabled={!validation.isValid}>

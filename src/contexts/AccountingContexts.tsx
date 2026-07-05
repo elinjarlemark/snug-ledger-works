@@ -162,6 +162,7 @@ interface AccountingContextType {
   createVoucher: (voucher: Omit<Voucher, "id" | "companyId" | "voucherNumber" | "createdAt">) => Voucher | null;
   updateVoucher: (voucherId: string, updates: Partial<Pick<Voucher, "date" | "description" | "lines" | "attachments" | "reversesVoucherId" | "reversesVoucherNumber" | "reversedByVoucherId" | "reversedByVoucherNumber">>) => Voucher | null;
   deleteVoucher: (voucherId: string) => void;
+  reverseVoucher: (voucher: Voucher, date?: string) => Voucher | null;
   getVoucherById: (voucherId: string) => Voucher | undefined;
   getVoucherByNumber: (voucherNumber: number) => Voucher | undefined;
   getAccountStatement: (accountNumber: string, startDate?: string, endDate?: string) => AccountStatement | null;
@@ -499,6 +500,46 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     return updatedVoucher;
   };
 
+
+  const reverseVoucher = (voucher: Voucher, date = new Date().toISOString().split("T")[0]) => {
+    const existingVoucher = vouchers.find((v) => v.id === voucher.id);
+    if (!existingVoucher) return null;
+
+    const reversalVoucher: Voucher = {
+      id: crypto.randomUUID(),
+      companyId,
+      voucherNumber: nextVoucherNumber,
+      date,
+      description: `Reversal of voucher #${existingVoucher.voucherNumber}: ${existingVoucher.description}`,
+      lines: existingVoucher.lines.map((line) => ({
+        id: crypto.randomUUID(),
+        accountNumber: line.accountNumber,
+        accountName: line.accountName,
+        debit: line.credit,
+        credit: line.debit,
+        vatCodeId: line.vatCodeId,
+      })),
+      reversesVoucherId: existingVoucher.id,
+      reversesVoucherNumber: existingVoucher.voucherNumber,
+      createdAt: new Date().toISOString(),
+    };
+
+    const updatedOriginal: Voucher = {
+      ...existingVoucher,
+      reversedByVoucherId: reversalVoucher.id,
+      reversedByVoucherNumber: reversalVoucher.voucherNumber,
+    };
+
+    const newVouchers = vouchers
+      .map((entry) => (entry.id === existingVoucher.id ? updatedOriginal : entry))
+      .concat(reversalVoucher)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime() || a.voucherNumber - b.voucherNumber);
+
+    saveVouchers(newVouchers, nextVoucherNumber + 1);
+    syncSieStateToDatabase(newVouchers, accounts);
+    return reversalVoucher;
+  };
+
   const getVoucherById = (voucherId: string) => {
     return vouchers.find(v => v.id === voucherId);
   };
@@ -720,6 +761,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       createVoucher,
       updateVoucher,
       deleteVoucher,
+      reverseVoucher,
       getVoucherById,
       getVoucherByNumber,
       getAccountStatement,

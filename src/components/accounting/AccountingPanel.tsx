@@ -20,6 +20,7 @@ import { toast } from "sonner";
 
 const VOUCHERS_PER_PAGE = 10;
 const VOUCHER_TEMPLATE_KEY_PREFIX = "accountpro_voucher_templates_";
+const STANDARD_VOUCHER_TEMPLATE_KEY = "accountpro_standard_voucher_templates";
 
 interface StoredVoucherTemplate {
   id: string;
@@ -77,20 +78,24 @@ export function AccountingPanel({
   const [hideReversedVouchers, setHideReversedVouchers] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [customTemplates, setCustomTemplates] = useState<StoredVoucherTemplate[]>([]);
+  const [standardTemplates, setStandardTemplates] = useState<StoredVoucherTemplate[]>([]);
 
   const currentYearLocked = selectedYear !== undefined ? isYearLocked(selectedYear) : false;
 
-  const loadCustomTemplates = () => {
+  const loadVoucherTemplates = () => {
+    const standardRaw = localStorage.getItem(STANDARD_VOUCHER_TEMPLATE_KEY);
+    setStandardTemplates(standardRaw ? JSON.parse(standardRaw) : []);
+
     if (!activeCompany?.id) {
       setCustomTemplates([]);
       return;
     }
-    const raw = localStorage.getItem(`${VOUCHER_TEMPLATE_KEY_PREFIX}${activeCompany.id}`);
-    setCustomTemplates(raw ? JSON.parse(raw) : []);
+    const customRaw = localStorage.getItem(`${VOUCHER_TEMPLATE_KEY_PREFIX}${activeCompany.id}`);
+    setCustomTemplates(customRaw ? JSON.parse(customRaw) : []);
   };
 
   useEffect(() => {
-    loadCustomTemplates();
+    loadVoucherTemplates();
   }, [activeCompany?.id]);
 
   // Auto-open create form from header shortcut
@@ -149,7 +154,7 @@ export function AccountingPanel({
   };
 
   const handleCreateClick = () => {
-    loadCustomTemplates();
+    loadVoucherTemplates();
     setShowCreateChoice(true);
     setShowCreateForm(false);
     setSelectedVoucher(null);
@@ -231,10 +236,23 @@ export function AccountingPanel({
               <span className="font-semibold">Manuell bokföring</span>
               <span className="text-xs text-muted-foreground text-left">Börja med tomma rader.</span>
             </Button>
-            <Button variant="outline" className="h-auto flex-col items-start p-4" disabled>
-              <span className="font-semibold">Färdiga mallar</span>
-              <span className="text-xs text-muted-foreground text-left">Standardmallar läggs in senare.</span>
-            </Button>
+            <div className="rounded-md border p-4 space-y-2">
+              <p className="font-semibold text-sm">Färdiga mallar</p>
+              {standardTemplates.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Inga färdiga mallar ännu. Alla användare kan lägga till dem tillfälligt.</p>
+              ) : (
+                <div className="space-y-2">
+                  {standardTemplates.map((template) => (
+                    <Button key={template.id} variant="ghost" size="sm" className="w-full justify-start" onClick={() => startFromTemplate(template)}>
+                      {template.name}
+                    </Button>
+                  ))}
+                </div>
+              )}
+              <Button size="sm" variant="secondary" onClick={startManualVoucher}>
+                Lägg till färdig mall
+              </Button>
+            </div>
             <div className="rounded-md border p-4 space-y-2">
               <p className="font-semibold text-sm">Egna mallar</p>
               {customTemplates.length === 0 ? (
