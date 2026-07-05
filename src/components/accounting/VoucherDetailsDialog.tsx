@@ -36,6 +36,10 @@ export function VoucherDetailsDialog({
     const reversalVoucher = reverseVoucher(voucher);
 
     if (reversalVoucher) {
+      updateVoucher(voucher.id, {
+        reversedByVoucherId: reversalVoucher.id,
+        reversedByVoucherNumber: reversalVoucher.voucherNumber,
+      });
       toast.success(`Reversal voucher #${reversalVoucher.voucherNumber} created`);
       onOpenChange(false);
     } else {

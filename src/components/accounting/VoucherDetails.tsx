@@ -46,6 +46,10 @@ export function VoucherDetails({ voucher, onClose, onDuplicate }: VoucherDetails
     const reversalVoucher = reverseVoucher(voucher);
 
     if (reversalVoucher) {
+      updateVoucher(voucher.id, {
+        reversedByVoucherId: reversalVoucher.id,
+        reversedByVoucherNumber: reversalVoucher.voucherNumber,
+      });
       addEntry(`Created voucher #${reversalVoucher.voucherNumber}, revert of voucher #${voucher.voucherNumber}`);
       toast.success(`Reversal voucher #${reversalVoucher.voucherNumber} created`);
       onClose();
