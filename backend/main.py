@@ -574,7 +574,11 @@ def create_takeover_request(company_id: int, payload: CompanyLockPayload, db: Se
 
 
 @app.get("/companies/{company_id}/takeover-requests")
-def list_takeover_requests(company_id: int, db: Session = Depends(get_db)):
+def list_takeover_requests(company_id: int, user_id: int, db: Session = Depends(get_db)):
+    # must have access to view takeover requests
+    require_company_access(db, company_id, user_id)
+
+    _cleanup_expired_lock(db, company_id)
     now = datetime.utcnow()
 
     requests = (
@@ -616,6 +620,8 @@ def approve_takeover(request_id: int, payload: CompanyLockPayload, db: Session =
     if not req:
         raise HTTPException(status_code=404, detail="Takeover request not found")
 
+    require_company_access(db, req.company_id, user_id)
+
     if req.status != CompanyLockTakeoverStatus.PENDING:
         return {"success": False}
 
@@ -633,8 +639,8 @@ def approve_takeover(request_id: int, payload: CompanyLockPayload, db: Session =
     req.decided_at = datetime.utcnow()
 
     lock.locked_by_user_id = req.requested_by_user_id
-    lock.locked_at = datetime.utcnow()
-    lock.expires_at = datetime.utcnow() + timedelta(seconds=60)
+    lock.locked_at = _now_utc()
+    lock.expires_at = _lock_expires_at()
 
     db.commit()
 
@@ -649,6 +655,8 @@ def reject_takeover(request_id: int, payload: CompanyLockPayload, db: Session = 
 
     if not req:
         raise HTTPException(status_code=404, detail="Takeover request not found")
+
+    require_company_access(db, req.company_id, user_id)
 
     if req.status != CompanyLockTakeoverStatus.PENDING:
         return {"success": False}

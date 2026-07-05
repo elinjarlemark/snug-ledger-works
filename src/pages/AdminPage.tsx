@@ -16,7 +16,7 @@ interface AdminUser {
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 export default function AdminPage() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const navigate = useNavigate();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +24,7 @@ export default function AdminPage() {
   const [adminToken, setAdminToken] = useState("");
 
   useEffect(() => {
+    if (isLoading) return;
     if (!user || user.role !== "admin") {
       navigate("/login");
       return;
@@ -43,7 +44,7 @@ export default function AdminPage() {
     };
 
     loadUsers();
-  }, [user, navigate]);
+  }, [user, isLoading, navigate]);
 
   const handleRoleChange = async (userId: number | string, role: string) => {
     try {

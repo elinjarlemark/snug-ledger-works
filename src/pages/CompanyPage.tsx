@@ -43,6 +43,7 @@ export default function CompanyPage() {
     deleteCompany,
     setActiveCompany,
     markCompanySetupComplete,
+    isLoading,
   } = useAuth();
 
   const { importSIE, exportSIE, vouchers } = useAccounting();
@@ -54,6 +55,7 @@ export default function CompanyPage() {
   const [showCompanyRequiredAlert, setShowCompanyRequiredAlert] = useState(false);
   const [showAccountingStandardConfirmAlert, setShowAccountingStandardConfirmAlert] = useState(false);
   const [pendingAccountingStandard, setPendingAccountingStandard] = useState<"K2" | "K3" | "" | null>(null);
+  const [pendingSIEImport, setPendingSIEImport] = useState<{ content: string; filename: string } | null>(null);
 
   // Check if we were redirected because company is required
   useEffect(() => {
@@ -96,10 +98,10 @@ export default function CompanyPage() {
   }, [activeCompany]);
 
   useEffect(() => {
-    if (!user) navigate("/login");
-  }, [user, navigate]);
+    if (!isLoading && !user) navigate("/login");
+  }, [user, isLoading, navigate]);
 
-  if (!user) return null;
+  if (isLoading || !user) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,6 +192,31 @@ export default function CompanyPage() {
     toast.info("Fill in company details and save");
   };
 
+  const runSIEImport = (content: string, filename: string) => {
+    const result = importSIE(content);
+
+    if (result.success) {
+      if (authService.isDatabaseConnected() && user) {
+        fetch(API_BASE_URL + '/sie-files', {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: Number(user.id),
+            filename,
+            storage_path: 'browser-upload:' + filename,
+            period: new Date().getFullYear().toString(),
+          }),
+        }).catch(() => undefined);
+      }
+
+      toast.success("SIE import completed. Replaced current bookkeeping with " + result.imported + " imported voucher(s).");
+      if (result.errors.length > 0) result.errors.forEach((err) => toast.warning(err));
+    } else {
+      toast.error("Failed to import SIE file");
+      result.errors.forEach((err) => toast.error(err));
+    }
+  };
+
   const handleSIEUpload = () => {
     const input = document.createElement("input");
     input.type = "file";
@@ -200,29 +227,7 @@ export default function CompanyPage() {
 
       try {
         const content = await file.text();
-        const result = importSIE(content);
-
-        if (result.success) {
-          if (authService.isDatabaseConnected() && user) {
-            fetch(API_BASE_URL + '/sie-files', {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                user_id: Number(user.id),
-                filename: file.name,
-                storage_path: 'browser-upload:' + file.name,
-                period: new Date().getFullYear().toString(),
-              }),
-            }).catch(() => undefined);
-          }
-
-          if (result.imported > 0) toast.success("Imported " + result.imported + " voucher(s) from SIE file");
-          if (result.skipped > 0) toast.info("Skipped " + result.skipped + " duplicate voucher(s)");
-          if (result.errors.length > 0) result.errors.forEach((err) => toast.warning(err));
-        } else {
-          toast.error("Failed to import SIE file");
-          result.errors.forEach((err) => toast.error(err));
-        }
+        setPendingSIEImport({ content, filename: file.name });
       } catch {
         toast.error("Failed to read SIE file");
       }
@@ -291,6 +296,32 @@ export default function CompanyPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogAction onClick={() => setShowCompanyRequiredAlert(false)}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+
+      <AlertDialog open={!!pendingSIEImport} onOpenChange={(open) => {
+        if (!open) setPendingSIEImport(null);
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Importera SIE?</AlertDialogTitle>
+            <AlertDialogDescription>
+              nu ersätts din bokföring med det från SIE filen, vill du fortsätta
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingSIEImport(null)}>Nej</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!pendingSIEImport) return;
+                runSIEImport(pendingSIEImport.content, pendingSIEImport.filename);
+                setPendingSIEImport(null);
+              }}
+            >
+              Ja
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
