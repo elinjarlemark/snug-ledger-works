@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Plus, Eye, Calendar, Search, Lock, Columns2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
@@ -58,6 +59,7 @@ export function AccountingPanel({
     selectedYear ? new Date(selectedYear, 11, 31) : undefined
   );
   const [searchQuery, setSearchQuery] = useState("");
+  const [hideReversedVouchers, setHideReversedVouchers] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
   const currentYearLocked = selectedYear !== undefined ? isYearLocked(selectedYear) : false;
@@ -79,7 +81,7 @@ export function AccountingPanel({
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, voucherStartDate, voucherEndDate]);
+  }, [searchQuery, hideReversedVouchers, voucherStartDate, voucherEndDate]);
 
   useEffect(() => {
     if (incomingDuplicate) {
@@ -95,10 +97,16 @@ export function AccountingPanel({
     const vDate = new Date(v.date);
     if (voucherStartDate && vDate < voucherStartDate) return false;
     if (voucherEndDate && vDate > voucherEndDate) return false;
+    if (hideReversedVouchers && (v.reversesVoucherId || v.reversedByVoucherId)) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
-      if (!v.description.toLowerCase().includes(q) && !v.voucherNumber.toString().includes(q))
+      if (
+        !v.description.toLowerCase().includes(q) &&
+        !v.voucherNumber.toString().includes(q) &&
+        !v.date.includes(q)
+      ) {
         return false;
+      }
     }
     return true;
   });
@@ -274,12 +282,16 @@ export function AccountingPanel({
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="Search by name or number..."
+                  placeholder="Search by name, number or date..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9"
                 />
               </div>
+              <label className="flex items-center gap-2 text-sm text-muted-foreground whitespace-nowrap">
+                <Checkbox checked={hideReversedVouchers} onCheckedChange={(checked) => setHideReversedVouchers(checked === true)} />
+                Dölj vända verifikationer
+              </label>
             </div>
           </div>
 
@@ -315,7 +327,16 @@ export function AccountingPanel({
                           {voucher.voucherNumber}
                         </td>
                         <td className="py-2 px-3 text-muted-foreground">{voucher.date}</td>
-                        <td className="py-2 px-3 text-foreground">{voucher.description}</td>
+                        <td className="py-2 px-3 text-foreground">
+                          <div>{voucher.description}</div>
+                          {(voucher.reversesVoucherNumber || voucher.reversedByVoucherNumber) && (
+                            <div className="text-[11px] text-amber-700">
+                              {voucher.reversesVoucherNumber
+                                ? `Vänder #${voucher.reversesVoucherNumber}`
+                                : `Vänd av #${voucher.reversedByVoucherNumber}`}
+                            </div>
+                          )}
+                        </td>
                         <td className="py-2 px-3 text-right font-mono font-medium">
                           {formatAmount(total)} SEK
                         </td>

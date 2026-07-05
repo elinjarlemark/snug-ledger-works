@@ -122,6 +122,10 @@ export interface Voucher {
   description: string;
   lines: VoucherLine[];
   attachments?: VoucherAttachment[];
+  reversesVoucherId?: string;
+  reversesVoucherNumber?: number;
+  reversedByVoucherId?: string;
+  reversedByVoucherNumber?: number;
   createdAt: string;
 }
 
@@ -156,7 +160,7 @@ interface AccountingContextType {
   addAccount: (account: BASAccount) => void;
   removeAccount: (accountNumber: string) => void;
   createVoucher: (voucher: Omit<Voucher, "id" | "companyId" | "voucherNumber" | "createdAt">) => Voucher | null;
-  updateVoucher: (voucherId: string, updates: Partial<Pick<Voucher, "date" | "description" | "lines" | "attachments">>) => Voucher | null;
+  updateVoucher: (voucherId: string, updates: Partial<Pick<Voucher, "date" | "description" | "lines" | "attachments" | "reversesVoucherId" | "reversesVoucherNumber" | "reversedByVoucherId" | "reversedByVoucherNumber">>) => Voucher | null;
   deleteVoucher: (voucherId: string) => void;
   getVoucherById: (voucherId: string) => Voucher | undefined;
   getVoucherByNumber: (voucherNumber: number) => Voucher | undefined;
@@ -475,7 +479,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     syncSieStateToDatabase(newVouchers, accounts);
   };
 
-  const updateVoucher = (voucherId: string, updates: Partial<Pick<Voucher, "date" | "description" | "lines" | "attachments">>) => {
+  const updateVoucher = (voucherId: string, updates: Partial<Pick<Voucher, "date" | "description" | "lines" | "attachments" | "reversesVoucherId" | "reversesVoucherNumber" | "reversedByVoucherId" | "reversedByVoucherNumber">>) => {
     const existingVoucher = vouchers.find(v => v.id === voucherId);
     if (!existingVoucher) return null;
 
