@@ -25,6 +25,13 @@ const groupByClass = (entries: GeneralLedgerEntry[]) => {
   return groups;
 };
 
+const balanceSide = (entry: GeneralLedgerEntry) => {
+  const amount = entry.totalDebit - entry.totalCredit;
+  if (amount > 0) return { label: "Debet", className: "text-success" };
+  if (amount < 0) return { label: "Kredit", className: "text-primary" };
+  return { label: "Noll", className: "text-muted-foreground" };
+};
+
 interface ReportPanelProps {
   compact?: boolean;
 }
@@ -319,7 +326,10 @@ function ReportPanel({ compact }: ReportPanelProps) {
                         <thead>
                           <tr className="border-b">
                             <th className="text-left py-2 px-3 font-medium">Account</th>
+                            <th className="text-right py-2 px-3 font-medium">Debet</th>
+                            <th className="text-right py-2 px-3 font-medium">Kredit</th>
                             <th className="text-right py-2 px-3 font-medium">Balance</th>
+                            <th className="text-right py-2 px-3 font-medium">Sida</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -329,14 +339,22 @@ function ReportPanel({ compact }: ReportPanelProps) {
                                 <span className="font-mono text-secondary">{entry.accountNumber}</span>
                                 <span className="ml-2 text-muted-foreground">{entry.accountName}</span>
                               </td>
+                              <td className="py-2 px-3 text-right font-mono">{formatAmount(entry.totalDebit)}</td>
+                              <td className="py-2 px-3 text-right font-mono">{formatAmount(entry.totalCredit)}</td>
                               <td className="py-2 px-3 text-right font-mono">{formatAmount(entry.balance)}</td>
+                              <td className={cn("py-2 px-3 text-right text-xs font-semibold", balanceSide(entry).className)}>
+                                {balanceSide(entry).label}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
                         <tfoot>
                           <tr className="bg-secondary/10">
                             <td className="py-2 px-3 font-medium">Total Assets</td>
+                            <td className="py-2 px-3 text-right font-mono font-bold">{formatAmount(balanceSheet.assets.reduce((sum, entry) => sum + entry.totalDebit, 0))}</td>
+                            <td className="py-2 px-3 text-right font-mono font-bold">{formatAmount(balanceSheet.assets.reduce((sum, entry) => sum + entry.totalCredit, 0))}</td>
                             <td className="py-2 px-3 text-right font-mono font-bold">{formatAmount(balanceSheet.totalAssets)}</td>
+                            <td className="py-2 px-3 text-right text-xs font-semibold text-success">Debet</td>
                           </tr>
                         </tfoot>
                       </table>
@@ -363,7 +381,10 @@ function ReportPanel({ compact }: ReportPanelProps) {
                         <thead>
                           <tr className="border-b">
                             <th className="text-left py-2 px-3 font-medium">Account</th>
+                            <th className="text-right py-2 px-3 font-medium">Debet</th>
+                            <th className="text-right py-2 px-3 font-medium">Kredit</th>
                             <th className="text-right py-2 px-3 font-medium">Balance</th>
+                            <th className="text-right py-2 px-3 font-medium">Sida</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -373,14 +394,22 @@ function ReportPanel({ compact }: ReportPanelProps) {
                                 <span className="font-mono text-secondary">{entry.accountNumber}</span>
                                 <span className="ml-2 text-muted-foreground">{entry.accountName}</span>
                               </td>
+                              <td className="py-2 px-3 text-right font-mono">{formatAmount(entry.totalDebit)}</td>
+                              <td className="py-2 px-3 text-right font-mono">{formatAmount(entry.totalCredit)}</td>
                               <td className="py-2 px-3 text-right font-mono">{formatAmount(entry.balance)}</td>
+                              <td className={cn("py-2 px-3 text-right text-xs font-semibold", balanceSide(entry).className)}>
+                                {balanceSide(entry).label}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
                         <tfoot>
                           <tr className="bg-primary/10">
                             <td className="py-2 px-3 font-medium">Total Equity & Liabilities</td>
+                            <td className="py-2 px-3 text-right font-mono font-bold">{formatAmount(balanceSheet.equityLiabilities.reduce((sum, entry) => sum + entry.totalDebit, 0))}</td>
+                            <td className="py-2 px-3 text-right font-mono font-bold">{formatAmount(balanceSheet.equityLiabilities.reduce((sum, entry) => sum + entry.totalCredit, 0))}</td>
                             <td className="py-2 px-3 text-right font-mono font-bold">{formatAmount(balanceSheet.totalEquityLiabilities)}</td>
+                            <td className="py-2 px-3 text-right text-xs font-semibold text-primary">Kredit</td>
                           </tr>
                         </tfoot>
                       </table>
