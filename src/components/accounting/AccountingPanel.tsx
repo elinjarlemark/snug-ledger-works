@@ -305,6 +305,121 @@ export function AccountingPanel({
     }
   };
 
+  const removeTemplateLine = (lineId: string) => {
+    if (templateLines.length <= 1) return;
+    setTemplateLines((currentLines) => currentLines.filter((line) => line.id !== lineId));
+    setSavedTemplate(null);
+  };
+
+  const buildTemplateFromForm = (): StoredVoucherTemplate | null => {
+    const name = templateName.trim();
+    const uniqueAccountNumbers = Array.from(new Set(templateLines.map((line) => line.accountNumber).filter(Boolean)));
+    if (!name) {
+      toast.error("Skriv ett namn på mallen");
+      return null;
+    }
+    if (uniqueAccountNumbers.length === 0) {
+      toast.error("Välj minst ett konto till mallen");
+      return null;
+    }
+
+    return {
+      id: crypto.randomUUID(),
+      name,
+      description: templateDescription.trim() || name,
+      lines: uniqueAccountNumbers.map((accountNumber) => {
+        const account = accounts.find((item) => item.number === accountNumber);
+        return {
+          accountNumber,
+          accountName: account?.name || "",
+          debit: 0,
+          credit: 0,
+        };
+      }),
+    };
+  };
+
+  const saveBuiltTemplate = () => {
+    if (!templateBuilderKind) return;
+    if (templateBuilderKind === "custom" && !activeCompany?.id) return;
+
+    const template = buildTemplateFromForm();
+    if (!template) return;
+
+    const key = templateBuilderKind === "standard"
+      ? STANDARD_VOUCHER_TEMPLATE_KEY
+      : `${VOUCHER_TEMPLATE_KEY_PREFIX}${activeCompany?.id}`;
+    const existing = JSON.parse(localStorage.getItem(key) ?? "[]");
+    localStorage.setItem(key, JSON.stringify([...existing, template]));
+    setSavedTemplate(template);
+    loadVoucherTemplates();
+    toast.success(templateBuilderKind === "standard" ? "Färdig mall sparad" : "Egen mall sparad");
+  };
+
+  const useSavedTemplate = () => {
+    if (savedTemplate) {
+      startFromTemplate(savedTemplate);
+    }
+  };
+
+  const removeTemplateLine = (lineId: string) => {
+    if (templateLines.length <= 1) return;
+    setTemplateLines((currentLines) => currentLines.filter((line) => line.id !== lineId));
+    setSavedTemplate(null);
+  };
+
+  const buildTemplateFromForm = (): StoredVoucherTemplate | null => {
+    const name = templateName.trim();
+    const uniqueAccountNumbers = Array.from(new Set(templateLines.map((line) => line.accountNumber).filter(Boolean)));
+    if (!name) {
+      toast.error("Skriv ett namn på mallen");
+      return null;
+    }
+    if (uniqueAccountNumbers.length === 0) {
+      toast.error("Välj minst ett konto till mallen");
+      return null;
+    }
+
+    return {
+      id: crypto.randomUUID(),
+      name,
+      description: templateDescription.trim() || name,
+      lines: uniqueAccountNumbers.map((accountNumber) => {
+        const account = accounts.find((item) => item.number === accountNumber);
+        return {
+          accountNumber,
+          accountName: account?.name || "",
+          debit: 0,
+          credit: 0,
+        };
+      }),
+    };
+  };
+
+  const saveBuiltTemplate = () => {
+    if (!templateBuilderKind) return;
+    if (templateBuilderKind === "custom" && !activeCompany?.id) return;
+
+    const template = buildTemplateFromForm();
+    if (!template) return;
+
+    const key = templateBuilderKind === "standard"
+      ? STANDARD_VOUCHER_TEMPLATE_KEY
+      : `${VOUCHER_TEMPLATE_KEY_PREFIX}${activeCompany?.id}`;
+    const existing = JSON.parse(localStorage.getItem(key) ?? "[]");
+    localStorage.setItem(key, JSON.stringify([...existing, template]));
+    setSavedTemplate(template);
+    loadVoucherTemplates();
+    toast.success(templateBuilderKind === "standard" ? "Färdig mall sparad" : "Egen mall sparad");
+  };
+
+  const useSavedTemplate = () => {
+    if (savedTemplate) {
+      startFromTemplate(savedTemplate);
+    }
+  };
+
+
   const handleFormCancel = () => {
     setShowCreateForm(false);
     setEditingVoucher(null);
