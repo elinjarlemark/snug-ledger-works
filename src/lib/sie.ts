@@ -17,9 +17,16 @@ export interface SIEVoucher {
   lines: VoucherLine[];
 }
 
+export interface SIEBalance {
+  accountNumber: string;
+  amount: number;
+}
+
 export interface SIEParseResult {
   accounts: SIEAccount[];
   vouchers: SIEVoucher[];
+  openingBalances: SIEBalance[];
+  previousClosingBalances: SIEBalance[];
   metadata: {
     companyName?: string;
     organizationNumber?: string;
@@ -36,6 +43,8 @@ export function parseSIEFile(content: string): SIEParseResult {
   const result: SIEParseResult = {
     accounts: [],
     vouchers: [],
+    openingBalances: [],
+    previousClosingBalances: [],
     metadata: {},
     errors: [],
   };
@@ -149,7 +158,7 @@ export function parseSIEFile(content: string): SIEParseResult {
           if (values[1] === "{}") {
             amountIndex = 2;
           }
-          const amount = parseFloat(values[amountIndex]) || 0;
+          const amount = parseSIEAmount(values[amountIndex]);
 
           if (accountNumber) {
             const account = result.accounts.find(a => a.number === accountNumber);
@@ -161,6 +170,26 @@ export function parseSIEFile(content: string): SIEParseResult {
               credit: amount < 0 ? Math.abs(amount) : 0,
             });
           }
+        }
+        break;
+
+      case "IB":
+        // Opening balance: #IB 0 account_number amount
+        if (values.length >= 3 && values[0] === "0") {
+          result.openingBalances.push({
+            accountNumber: values[1],
+            amount: parseSIEAmount(values[2]),
+          });
+        }
+        break;
+
+      case "UB":
+        // Previous-year closing balance is equivalent to current-year opening balance.
+        if (values.length >= 3 && values[0] === "-1") {
+          result.previousClosingBalances.push({
+            accountNumber: values[1],
+            amount: parseSIEAmount(values[2]),
+          });
         }
         break;
     }
@@ -230,6 +259,11 @@ function parseSIELine(line: string): { command: string; values: string[] } | nul
 /**
  * Parse SIE date format (YYYYMMDD) to ISO format (YYYY-MM-DD)
  */
+function parseSIEAmount(amountStr: string | undefined): number {
+  if (!amountStr) return 0;
+  return Number.parseFloat(amountStr.replace(",", ".")) || 0;
+}
+
 function parseSIEDate(dateStr: string): string | null {
   if (!dateStr || dateStr.length !== 8) return null;
   
@@ -329,10 +363,15 @@ export function generateSIEFile(
   const previousYearStart = `${previousYear}${fiscalStartMonth}${fiscalStartDay}`;
   const previousYearEnd = `${previousYear}${fiscalEndMonth}${fiscalEndDay}`;
 
+  const isSyntheticOpeningBalanceVoucher = (voucher: Voucher) =>
+    voucher.voucherNumber === 0 && voucher.description === "Ingående balans från SIE";
+  const openingBalanceVouchers = vouchers.filter(isSyntheticOpeningBalanceVoucher);
+  const normalVouchers = vouchers.filter((voucher) => !isSyntheticOpeningBalanceVoucher(voucher));
+
   // Filter vouchers into current and previous year
   const currentYearStartDate = `${currentYear}-${fiscalStartMonth}-${fiscalStartDay}`;
-  const currentYearVouchers = vouchers.filter(v => v.date >= currentYearStartDate);
-  const previousYearVouchers = vouchers.filter(v => v.date < currentYearStartDate);
+  const currentYearVouchers = normalVouchers.filter(v => v.date >= currentYearStartDate);
+  const previousYearVouchers = normalVouchers.filter(v => v.date < currentYearStartDate);
 
   // Header
   lines.push('#FLAGGA 0');
@@ -370,6 +409,14 @@ export function generateSIEFile(
 
   // Calculate balances from previous year vouchers
   const previousYearBalances: Record<string, number> = {};
+  openingBalanceVouchers.forEach(v => {
+    v.lines.forEach(l => {
+      if (!previousYearBalances[l.accountNumber]) {
+        previousYearBalances[l.accountNumber] = 0;
+      }
+      previousYearBalances[l.accountNumber] += l.debit - l.credit;
+    });
+  });
   previousYearVouchers.forEach(v => {
     v.lines.forEach(l => {
       if (!previousYearBalances[l.accountNumber]) {
@@ -520,6 +567,44 @@ export function convertSIEVouchersToInternal(
   }
 
   return { newVouchers, skippedDuplicates, nextVoucherNumber };
+}
+
+
+export function convertSIEOpeningBalancesToVoucher(
+  parseResult: SIEParseResult,
+  companyId: string,
+  accounts: BASAccount[]
+): Voucher | null {
+  const sourceBalances = parseResult.openingBalances.length > 0
+    ? parseResult.openingBalances
+    : parseResult.previousClosingBalances;
+
+  const lines = sourceBalances
+    .filter((balance) => Math.abs(balance.amount) > 0.005)
+    .map((balance) => {
+      const account = accounts.find((a) => a.number === balance.accountNumber);
+      return {
+        id: crypto.randomUUID(),
+        accountNumber: balance.accountNumber,
+        accountName: account?.name || `Account ${balance.accountNumber}`,
+        debit: balance.amount > 0 ? balance.amount : 0,
+        credit: balance.amount < 0 ? Math.abs(balance.amount) : 0,
+      };
+    });
+
+  if (lines.length === 0) return null;
+
+  const date = parseResult.metadata.fiscalYearStart || parseResult.vouchers[0]?.date || new Date().toISOString().split("T")[0];
+
+  return {
+    id: crypto.randomUUID(),
+    companyId,
+    voucherNumber: 1,
+    date,
+    description: "Ingående balans från SIE",
+    lines,
+    createdAt: new Date().toISOString(),
+  };
 }
 
 /**

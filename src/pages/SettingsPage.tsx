@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +32,7 @@ import { useFiscalLock } from "@/contexts/FiscalLockContext";
 import { useAccounting as useAccountingMain } from "@/contexts/AccountingContext";
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8000";
+const VOUCHER_CONFIRMATION_KEY = "accountpro_voucher_confirmation_enabled";
 
 export default function SettingsPage() {
   const {
@@ -43,6 +45,7 @@ export default function SettingsPage() {
     setActiveCompany,
     markCompanySetupComplete,
     deleteAccount,
+    isLoading,
   } = useAuth();
 
   const { importSIE, exportSIE, vouchers } = useAccounting();
@@ -63,9 +66,13 @@ export default function SettingsPage() {
   // Delete account flow states
   const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
   const [showDeleteAccountBye, setShowDeleteAccountBye] = useState(false);
+  const [pendingSIEContent, setPendingSIEContent] = useState<string | null>(null);
 
   // Personal settings
   const [personalNumber, setPersonalNumber] = useState("");
+  const [voucherConfirmationEnabled, setVoucherConfirmationEnabledState] = useState(
+    () => localStorage.getItem(VOUCHER_CONFIRMATION_KEY) !== "false"
+  );
 
   useEffect(() => {
     if (user) {
@@ -115,10 +122,10 @@ export default function SettingsPage() {
   }, [isNewCompany, activeCompany, originalCompanyId]);
 
   useEffect(() => {
-    if (!user) navigate("/login");
-  }, [user, navigate]);
+    if (!isLoading && !user) navigate("/login");
+  }, [user, isLoading, navigate]);
 
-  if (!user) return null;
+  if (isLoading || !user) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -178,6 +185,12 @@ export default function SettingsPage() {
     toast.success("Personal settings saved!");
   };
 
+  const setVoucherConfirmationEnabled = (enabled: boolean) => {
+    setVoucherConfirmationEnabledState(enabled);
+    localStorage.setItem(VOUCHER_CONFIRMATION_KEY, enabled ? "true" : "false");
+    toast.success(enabled ? "Extra check aktiverad" : "Extra check inaktiverad");
+  };
+
   const handleAddCompany = () => {
     if (isNewCompany) return;
     const previousId = activeCompany?.id || null;
@@ -191,6 +204,17 @@ export default function SettingsPage() {
     toast.info("Fill in company details and save");
   };
 
+  const runSIEImport = (content: string) => {
+    const result = importSIE(content);
+    if (result.success) {
+      toast.success(`SIE import complete. Replaced current bookkeeping with ${result.imported} voucher(s).`);
+      if (result.errors.length > 0) result.errors.forEach((err) => toast.warning(err));
+    } else {
+      toast.error("Failed to import SIE file");
+      result.errors.forEach((err) => toast.error(err));
+    }
+  };
+
   const handleSIEUpload = () => {
     const input = document.createElement("input");
     input.type = "file";
@@ -200,15 +224,7 @@ export default function SettingsPage() {
       if (!file) return;
       try {
         const content = await file.text();
-        const result = importSIE(content);
-        if (result.success) {
-          if (result.imported > 0) toast.success("Imported " + result.imported + " voucher(s) from SIE file");
-          if (result.skipped > 0) toast.info("Skipped " + result.skipped + " duplicate voucher(s)");
-          if (result.errors.length > 0) result.errors.forEach((err) => toast.warning(err));
-        } else {
-          toast.error("Failed to import SIE file");
-          result.errors.forEach((err) => toast.error(err));
-        }
+        setPendingSIEContent(content);
       } catch { toast.error("Failed to read SIE file"); }
     };
     input.click();
@@ -656,6 +672,18 @@ export default function SettingsPage() {
                       </p>
                     </div>
 
+                    <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                      <div className="space-y-1">
+                        <Label htmlFor="voucherConfirmation">Extra check innan bokföring</Label>
+                        <p className="text-xs text-muted-foreground">Visa popupen där du kontrollerar datum, konton och summor innan en ny verifikation bokförs.</p>
+                      </div>
+                      <Switch
+                        id="voucherConfirmation"
+                        checked={voucherConfirmationEnabled}
+                        onCheckedChange={setVoucherConfirmationEnabled}
+                      />
+                    </div>
+
                     <Button onClick={handleSavePersonal}>
                       <Save className="mr-2 h-4 w-4" />
                       Save Personal Settings
@@ -682,6 +710,30 @@ export default function SettingsPage() {
         </main>
         
       </div>
+
+      {/* Delete Company - Confirm Dialog */}
+      <AlertDialog open={Boolean(pendingSIEContent)} onOpenChange={(open) => !open && setPendingSIEContent(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>nu ersätts din bokföring med det från SIE filen, vill du fortsätta</AlertDialogTitle>
+            <AlertDialogDescription>
+              Importen ersätter alla nuvarande vouchers, konton och balanser i det aktiva bolaget med innehållet från SIE-filen.
+              Välj Nej om du vill behålla nuvarande bokföring.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingSIEContent(null)}>Nej</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingSIEContent) runSIEImport(pendingSIEContent);
+                setPendingSIEContent(null);
+              }}
+            >
+              Ja
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Company - Confirm Dialog */}
       <AlertDialog open={showDeleteCompanyConfirm} onOpenChange={setShowDeleteCompanyConfirm}>
