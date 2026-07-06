@@ -26,7 +26,7 @@ interface VoucherDetailsProps {
 }
 
 export function VoucherDetails({ voucher, onClose, onDuplicate }: VoucherDetailsProps) {
-  const { reverseVoucher } = useAccounting();
+  const { reverseVoucher, updateVoucher } = useAccounting();
   const { addComment, getCommentsForTarget, deleteComment } = useComments();
   const { addEntry } = useAuditTrail();
   const { isYearLocked } = useFiscalLock();
