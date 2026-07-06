@@ -31,8 +31,6 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const VOUCHER_CONFIRMATION_KEY = "accountpro_voucher_confirmation_enabled";
-const VOUCHER_TEMPLATE_KEY_PREFIX = "accountpro_voucher_templates_";
-const STANDARD_VOUCHER_TEMPLATE_KEY = "accountpro_standard_voucher_templates";
 
 function isVoucherConfirmationEnabled() {
   return localStorage.getItem(VOUCHER_CONFIRMATION_KEY) !== "false";
@@ -54,9 +52,10 @@ interface VoucherFormProps {
   onSuccess: () => void;
   editVoucher?: Voucher;
   duplicateFrom?: Voucher;
+  templateName?: string;
 }
 
-export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }: VoucherFormProps) {
+export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom, templateName }: VoucherFormProps) {
   const sourceVoucher = editVoucher || duplicateFrom;
   const { accounts, nextVoucherNumber, createVoucher, updateVoucher, validateVoucher } = useAccounting();
   const { activeCompany } = useAuth();
@@ -266,45 +265,6 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
     postVoucher();
   };
 
-  const saveTemplate = (key: string, successMessage: string) => {
-    const validLines = getValidLines();
-    if (validLines.length < 2) {
-      toast.error("Add at least 2 account rows before saving a template");
-      return;
-    }
-
-    const name = window.prompt("Namn på mall", description.trim() || "Ny verifikationsmall");
-    if (!name?.trim()) return;
-
-    const existing = JSON.parse(localStorage.getItem(key) ?? "[]");
-    const next = [
-      ...existing,
-      {
-        id: crypto.randomUUID(),
-        name: name.trim(),
-        description: description.trim(),
-        lines: validLines.map((line) => ({
-          accountNumber: line.accountNumber,
-          accountName: line.accountName,
-          debit: line.debit,
-          credit: line.credit,
-          vatCodeId: line.vatCodeId,
-        })),
-      },
-    ];
-    localStorage.setItem(key, JSON.stringify(next));
-    toast.success(successMessage);
-  };
-
-  const handleSaveAsTemplate = () => {
-    if (!activeCompany?.id) return;
-    saveTemplate(`${VOUCHER_TEMPLATE_KEY_PREFIX}${activeCompany.id}`, "Egen verifikationsmall sparad");
-  };
-
-  const handleSaveAsStandardTemplate = () => {
-    saveTemplate(STANDARD_VOUCHER_TEMPLATE_KEY, "Färdig standardmall sparad");
-  };
-
   return (
     <div className="bg-card rounded-xl border border-border p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -321,10 +281,22 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
               Verifikation #{nextVoucherNumber}
             </p>
           )}
+          {!editVoucher && templateName && (
+            <p className="mt-1 text-sm font-medium text-primary">
+              Mall: {templateName}
+            </p>
+          )}
         </div>
-        <Button variant="ghost" size="icon" onClick={onCancel}>
-          <X className="h-5 w-5" />
-        </Button>
+        <div className="flex items-center gap-2">
+          {!editVoucher && (
+            <Button variant="outline" size="sm" onClick={onCancel}>
+              Gå tillbaka
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" onClick={onCancel}>
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
       </div>
 
       {/* Header fields */}
@@ -601,13 +573,7 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom }:
 
       {/* Submit */}
       <div className="flex flex-col sm:flex-row sm:justify-end gap-3">
-        <Button type="button" variant="secondary" onClick={handleSaveAsTemplate}>
-          Spara som egen mall
-        </Button>
-        <Button type="button" variant="outline" onClick={handleSaveAsStandardTemplate}>
-          Spara som färdig mall
-        </Button>
-        <Button variant="outline" onClick={onCancel}>Cancel</Button>
+        <Button variant="outline" onClick={onCancel}>Gå tillbaka</Button>
         <Button onClick={handleSubmit} disabled={!validation.isValid}>
           {editVoucher ? "Update Voucher" : confirmationEnabled ? "Spara" : "Bokför"}
         </Button>

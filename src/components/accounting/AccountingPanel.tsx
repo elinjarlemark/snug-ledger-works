@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, Eye, Calendar, Search, Lock, Columns2 } from "lucide-react";
+import { Plus, Eye, Calendar, Search, Lock, Columns2, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,13 @@ interface StoredVoucherTemplate {
   }[];
 }
 
+type TemplateKind = "standard" | "custom";
+
+interface TemplateBuilderLine {
+  id: string;
+  accountNumber: string;
+}
+
 interface AccountingPanelProps {
   compact?: boolean;
   incomingDuplicate?: Voucher | null;
@@ -57,7 +64,7 @@ export function AccountingPanel({
   prefillVoucher,
 }: AccountingPanelProps) {
   const { user, activeCompany } = useAuth();
-  const { vouchers } = useAccounting();
+  const { vouchers, accounts } = useAccounting();
   const { isYearLocked } = useFiscalLock();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showCreateChoice, setShowCreateChoice] = useState(false);
@@ -79,6 +86,15 @@ export function AccountingPanel({
   const [currentPage, setCurrentPage] = useState(1);
   const [customTemplates, setCustomTemplates] = useState<StoredVoucherTemplate[]>([]);
   const [standardTemplates, setStandardTemplates] = useState<StoredVoucherTemplate[]>([]);
+  const [templateBuilderKind, setTemplateBuilderKind] = useState<TemplateKind | null>(null);
+  const [templateName, setTemplateName] = useState("");
+  const [templateDescription, setTemplateDescription] = useState("");
+  const [templateLines, setTemplateLines] = useState<TemplateBuilderLine[]>([
+    { id: crypto.randomUUID(), accountNumber: "" },
+    { id: crypto.randomUUID(), accountNumber: "" },
+  ]);
+  const [savedTemplate, setSavedTemplate] = useState<StoredVoucherTemplate | null>(null);
+  const [activeTemplateName, setActiveTemplateName] = useState("");
 
   const currentYearLocked = selectedYear !== undefined ? isYearLocked(selectedYear) : false;
 
@@ -123,6 +139,7 @@ export function AccountingPanel({
       setShowCreateForm(true);
       setSelectedVoucher(null);
       setEditingVoucher(null);
+      setTemplateBuilderKind(null);
       onClearIncomingDuplicate?.();
     }
   }, [incomingDuplicate]);
@@ -149,6 +166,7 @@ export function AccountingPanel({
     setSelectedVoucher(v);
     setShowCreateForm(false);
     setShowCreateChoice(false);
+    setTemplateBuilderKind(null);
     setEditingVoucher(null);
     setDuplicatingVoucher(null);
   };
@@ -160,6 +178,131 @@ export function AccountingPanel({
     setSelectedVoucher(null);
     setEditingVoucher(null);
     setDuplicatingVoucher(null);
+    setTemplateBuilderKind(null);
+    setActiveTemplateName("");
+  };
+
+  const startManualVoucher = () => {
+    setShowCreateChoice(false);
+    setShowCreateForm(true);
+    setDuplicatingVoucher(null);
+    setTemplateBuilderKind(null);
+    setActiveTemplateName("");
+  };
+
+  const startFromTemplate = (template: StoredVoucherTemplate) => {
+    setShowCreateChoice(false);
+    setTemplateBuilderKind(null);
+    setActiveTemplateName(template.name);
+    setDuplicatingVoucher({
+      id: template.id,
+      companyId: activeCompany?.id || "",
+      voucherNumber: 0,
+      date: new Date().toISOString().split("T")[0],
+      description: template.description || template.name,
+      lines: template.lines.map((line) => ({ ...line, id: crypto.randomUUID() })),
+      createdAt: new Date().toISOString(),
+    });
+    setShowCreateForm(true);
+  };
+
+  const resetTemplateBuilder = () => {
+    setTemplateName("");
+    setTemplateDescription("");
+    setTemplateLines([
+      { id: crypto.randomUUID(), accountNumber: "" },
+      { id: crypto.randomUUID(), accountNumber: "" },
+    ]);
+    setSavedTemplate(null);
+  };
+
+  const startTemplateBuilder = (kind: TemplateKind) => {
+    resetTemplateBuilder();
+    setTemplateBuilderKind(kind);
+    setShowCreateChoice(false);
+    setShowCreateForm(false);
+    setSelectedVoucher(null);
+    setEditingVoucher(null);
+    setDuplicatingVoucher(null);
+  };
+
+  const goBackToCreateChoice = () => {
+    setTemplateBuilderKind(null);
+    setShowCreateChoice(true);
+    setShowCreateForm(false);
+    setSelectedVoucher(null);
+    setEditingVoucher(null);
+    setDuplicatingVoucher(null);
+    setActiveTemplateName("");
+  };
+
+  const updateTemplateLine = (lineId: string, accountNumber: string) => {
+    setTemplateLines((currentLines) =>
+      currentLines.map((line) => line.id === lineId ? { ...line, accountNumber } : line)
+    );
+    setSavedTemplate(null);
+  };
+
+  const addTemplateLine = () => {
+    setTemplateLines((currentLines) => [...currentLines, { id: crypto.randomUUID(), accountNumber: "" }]);
+    setSavedTemplate(null);
+  };
+
+  const removeTemplateLine = (lineId: string) => {
+    if (templateLines.length <= 1) return;
+    setTemplateLines((currentLines) => currentLines.filter((line) => line.id !== lineId));
+    setSavedTemplate(null);
+  };
+
+  const buildTemplateFromForm = (): StoredVoucherTemplate | null => {
+    const name = templateName.trim();
+    const uniqueAccountNumbers = Array.from(new Set(templateLines.map((line) => line.accountNumber).filter(Boolean)));
+    if (!name) {
+      toast.error("Skriv ett namn på mallen");
+      return null;
+    }
+    if (uniqueAccountNumbers.length === 0) {
+      toast.error("Välj minst ett konto till mallen");
+      return null;
+    }
+
+    return {
+      id: crypto.randomUUID(),
+      name,
+      description: templateDescription.trim() || name,
+      lines: uniqueAccountNumbers.map((accountNumber) => {
+        const account = accounts.find((item) => item.number === accountNumber);
+        return {
+          accountNumber,
+          accountName: account?.name || "",
+          debit: 0,
+          credit: 0,
+        };
+      }),
+    };
+  };
+
+  const saveBuiltTemplate = () => {
+    if (!templateBuilderKind) return;
+    if (templateBuilderKind === "custom" && !activeCompany?.id) return;
+
+    const template = buildTemplateFromForm();
+    if (!template) return;
+
+    const key = templateBuilderKind === "standard"
+      ? STANDARD_VOUCHER_TEMPLATE_KEY
+      : `${VOUCHER_TEMPLATE_KEY_PREFIX}${activeCompany?.id}`;
+    const existing = JSON.parse(localStorage.getItem(key) ?? "[]");
+    localStorage.setItem(key, JSON.stringify([...existing, template]));
+    setSavedTemplate(template);
+    loadVoucherTemplates();
+    toast.success(templateBuilderKind === "standard" ? "Färdig mall sparad" : "Egen mall sparad");
+  };
+
+  const useSavedTemplate = () => {
+    if (savedTemplate) {
+      startFromTemplate(savedTemplate);
+    }
   };
 
   const startManualVoucher = () => {
@@ -186,6 +329,8 @@ export function AccountingPanel({
     setShowCreateForm(false);
     setEditingVoucher(null);
     setDuplicatingVoucher(null);
+    setTemplateBuilderKind(null);
+    setActiveTemplateName("");
   };
 
   const handleFormSuccess = () => {
@@ -224,8 +369,113 @@ export function AccountingPanel({
 
   return (
     <div className="space-y-4" ref={listRef}>
+      {templateBuilderKind && (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {templateBuilderKind === "standard" ? "Skapa färdig mall" : "Skapa egen mall"}
+            </CardTitle>
+            <CardDescription>
+              Välj bara mallens namn och vilka konton som ska fyllas i när mallen används.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Mallnamn</label>
+                <Input
+                  value={templateName}
+                  onChange={(event) => {
+                    setTemplateName(event.target.value);
+                    setSavedTemplate(null);
+                  }}
+                  placeholder="Ex. Leverantörsfaktura"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Förifyllt namn på verifikation</label>
+                <Input
+                  value={templateDescription}
+                  onChange={(event) => {
+                    setTemplateDescription(event.target.value);
+                    setSavedTemplate(null);
+                  }}
+                  placeholder="Lämna tomt för att använda mallnamnet"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Konton i mallen</label>
+              <div className="space-y-2">
+                {templateLines.map((line) => (
+                  <div key={line.id} className="flex gap-2">
+                    <select
+                      value={line.accountNumber}
+                      onChange={(event) => updateTemplateLine(line.id, event.target.value)}
+                      className="h-10 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="">Välj konto...</option>
+                      {accounts.map((account) => (
+                        <option key={account.number} value={account.number}>
+                          {account.number} · {account.name}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeTemplateLine(line.id)}
+                      disabled={templateLines.length <= 1}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={addTemplateLine}>
+                <Plus className="h-4 w-4 mr-1" />
+                Lägg till konto
+              </Button>
+            </div>
+
+            {savedTemplate && (
+              <div className="rounded-md border border-success/40 bg-success/10 p-3 text-sm text-success">
+                Mallen “{savedTemplate.name}” är sparad. Du kan använda den direkt eller skapa en ny mall.
+              </div>
+            )}
+
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button variant="outline" onClick={goBackToCreateChoice}>
+                Gå tillbaka
+              </Button>
+              {savedTemplate ? (
+                <>
+                  <Button variant="secondary" onClick={resetTemplateBuilder}>
+                    Gör ny mall
+                  </Button>
+                  <Button onClick={useSavedTemplate}>
+                    Använd mall
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="secondary" onClick={resetTemplateBuilder}>
+                    Rensa
+                  </Button>
+                  <Button onClick={saveBuiltTemplate}>
+                    Spara
+                  </Button>
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Create/Edit/Duplicate Form */}
-      {showCreateChoice && !showCreateForm && !editingVoucher && (
+      {showCreateChoice && !showCreateForm && !editingVoucher && !templateBuilderKind && (
         <Card>
           <CardHeader>
             <CardTitle>Ny verifikation</CardTitle>
@@ -249,7 +499,7 @@ export function AccountingPanel({
                   ))}
                 </div>
               )}
-              <Button size="sm" variant="secondary" onClick={startManualVoucher}>
+              <Button size="sm" variant="secondary" onClick={() => startTemplateBuilder("standard")}>
                 Lägg till färdig mall
               </Button>
             </div>
@@ -266,7 +516,7 @@ export function AccountingPanel({
                   ))}
                 </div>
               )}
-              <Button size="sm" variant="secondary" onClick={startManualVoucher}>
+              <Button size="sm" variant="secondary" onClick={() => startTemplateBuilder("custom")}>
                 Skapa egen mall
               </Button>
             </div>
@@ -274,12 +524,13 @@ export function AccountingPanel({
         </Card>
       )}
 
-      {(showCreateForm || editingVoucher) && (
+      {(showCreateForm || editingVoucher) && !templateBuilderKind && (
         <VoucherForm
           onCancel={handleFormCancel}
           onSuccess={handleFormSuccess}
           editVoucher={editingVoucher || undefined}
           duplicateFrom={duplicatingVoucher || (prefillVoucher ? { ...prefillVoucher, voucherNumber: 0, date: new Date().toISOString().split("T")[0], lines: prefillVoucher.lines.map((l: any) => ({ ...l, id: crypto.randomUUID() })) } as Voucher : undefined)}
+          templateName={activeTemplateName || undefined}
         />
       )}
 
@@ -293,7 +544,7 @@ export function AccountingPanel({
       )}
 
       {/* Voucher List */}
-      {!showCreateForm && !showCreateChoice && !selectedVoucher && !editingVoucher && (
+      {!showCreateForm && !showCreateChoice && !selectedVoucher && !editingVoucher && !templateBuilderKind && (
          <>
 
           {/* Filters */}
