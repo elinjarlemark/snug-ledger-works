@@ -25,26 +25,34 @@ export function VoucherDetailsDialog({
   onOpenChange, 
   voucher 
 }: VoucherDetailsDialogProps) {
-  const { reverseVoucher, deleteVoucher, updateVoucher } = useAccounting();
+  const { deleteVoucher } = useAccounting();
   const { addComment, getCommentsForTarget, deleteComment } = useComments();
   const [isEditing, setIsEditing] = useState(false);
+  const [reversalDraft, setReversalDraft] = useState<Voucher | null>(null);
   const [commentText, setCommentText] = useState("");
 
   if (!voucher) return null;
 
   const handleRevert = () => {
-    const reversalVoucher = reverseVoucher(voucher);
-
-    if (reversalVoucher) {
-      updateVoucher(voucher.id, {
-        reversedByVoucherId: reversalVoucher.id,
-        reversedByVoucherNumber: reversalVoucher.voucherNumber,
-      });
-      toast.success(`Reversal voucher #${reversalVoucher.voucherNumber} created`);
-      onOpenChange(false);
-    } else {
-      toast.error("Failed to create reversal voucher");
-    }
+    setReversalDraft({
+      ...voucher,
+      id: crypto.randomUUID(),
+      voucherNumber: 0,
+      date: new Date().toISOString().split("T")[0],
+      description: `vändning av ${voucher.description}`,
+      lines: voucher.lines.map((line) => ({
+        ...line,
+        id: crypto.randomUUID(),
+        debit: line.credit,
+        credit: line.debit,
+      })),
+      reversesVoucherId: voucher.id,
+      reversesVoucherNumber: voucher.voucherNumber,
+      reversedByVoucherId: undefined,
+      reversedByVoucherNumber: undefined,
+      createdAt: new Date().toISOString(),
+    });
+    toast.info("Kontrollera och spara vändningsverifikationen");
   };
 
   const handleDelete = () => {
@@ -55,6 +63,11 @@ export function VoucherDetailsDialog({
 
   const handleEditComplete = () => {
     setIsEditing(false);
+  };
+
+  const handleReversalComplete = () => {
+    setReversalDraft(null);
+    onOpenChange(false);
   };
 
   const openAttachment = (dataUrl: string) => {
@@ -101,7 +114,14 @@ export function VoucherDetailsDialog({
           </p>
         </DialogHeader>
 
-        {isEditing ? (
+        {reversalDraft ? (
+          <VoucherForm
+            duplicateFrom={reversalDraft}
+            templateName={`Vändning av verifikation #${voucher.voucherNumber}`}
+            onSuccess={handleReversalComplete}
+            onCancel={() => setReversalDraft(null)}
+          />
+        ) : isEditing ? (
           <VoucherForm 
             editVoucher={voucher}
             onSuccess={handleEditComplete}

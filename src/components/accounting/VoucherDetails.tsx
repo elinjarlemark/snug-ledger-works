@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Voucher, useAccounting } from "@/contexts/AccountingContext";
+import { Voucher } from "@/contexts/AccountingContext";
 import { useAuditTrail } from "@/contexts/AuditTrailContext";
 import { useComments } from "@/contexts/CommentsContext";
 import { useFiscalLock } from "@/contexts/FiscalLockContext";
@@ -26,7 +26,6 @@ interface VoucherDetailsProps {
 }
 
 export function VoucherDetails({ voucher, onClose, onDuplicate }: VoucherDetailsProps) {
-  const { reverseVoucher, updateVoucher } = useAccounting();
   const { addComment, getCommentsForTarget, deleteComment } = useComments();
   const { addEntry } = useAuditTrail();
   const { isYearLocked } = useFiscalLock();
@@ -42,20 +41,32 @@ export function VoucherDetails({ voucher, onClose, onDuplicate }: VoucherDetails
 
   const handleRevert = () => {
     if (yearLocked) return;
-
-    const reversalVoucher = reverseVoucher(voucher);
-
-    if (reversalVoucher) {
-      updateVoucher(voucher.id, {
-        reversedByVoucherId: reversalVoucher.id,
-        reversedByVoucherNumber: reversalVoucher.voucherNumber,
-      });
-      addEntry(`Created voucher #${reversalVoucher.voucherNumber}, revert of voucher #${voucher.voucherNumber}`);
-      toast.success(`Reversal voucher #${reversalVoucher.voucherNumber} created`);
-      onClose();
-    } else {
-      toast.error("Failed to create reversal voucher");
+    if (!onDuplicate) {
+      toast.error("Kan inte skapa vändningsutkast härifrån");
+      return;
     }
+
+    onDuplicate({
+      ...voucher,
+      id: crypto.randomUUID(),
+      voucherNumber: 0,
+      date: new Date().toISOString().split("T")[0],
+      description: `vändning av ${voucher.description}`,
+      lines: voucher.lines.map((line) => ({
+        ...line,
+        id: crypto.randomUUID(),
+        debit: line.credit,
+        credit: line.debit,
+      })),
+      reversesVoucherId: voucher.id,
+      reversesVoucherNumber: voucher.voucherNumber,
+      reversedByVoucherId: undefined,
+      reversedByVoucherNumber: undefined,
+      createdAt: new Date().toISOString(),
+    });
+    addEntry(`Started reversal draft for voucher #${voucher.voucherNumber}`);
+    toast.info("Kontrollera och spara vändningsverifikationen");
+    onClose();
   };
 
   const handleAddReceipt = () => {

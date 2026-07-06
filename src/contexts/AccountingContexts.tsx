@@ -465,7 +465,21 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       createdAt: new Date().toISOString(),
     };
 
-    const newVouchers = [...vouchers, newVoucher].sort((a, b) => 
+    const sourceVoucher = voucherData.reversesVoucherId
+      ? vouchers.find((voucher) => voucher.id === voucherData.reversesVoucherId)
+      : undefined;
+    const linkedSourceVoucher = sourceVoucher
+      ? {
+          ...sourceVoucher,
+          reversedByVoucherId: newVoucher.id,
+          reversedByVoucherNumber: newVoucher.voucherNumber,
+        }
+      : undefined;
+
+    const newVouchers = [
+      ...vouchers.map((voucher) => linkedSourceVoucher && voucher.id === linkedSourceVoucher.id ? linkedSourceVoucher : voucher),
+      newVoucher,
+    ].sort((a, b) =>
       new Date(a.date).getTime() - new Date(b.date).getTime() || a.voucherNumber - b.voucherNumber
     );
     

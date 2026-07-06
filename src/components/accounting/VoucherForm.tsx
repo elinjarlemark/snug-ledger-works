@@ -231,6 +231,8 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom, t
         date,
         description: description.trim(),
         lines: validLines,
+        reversesVoucherId: duplicateFrom?.reversesVoucherId,
+        reversesVoucherNumber: duplicateFrom?.reversesVoucherNumber,
       });
 
       if (voucher) {
