@@ -305,25 +305,6 @@ export function AccountingPanel({
     }
   };
 
-  const startManualVoucher = () => {
-    setShowCreateChoice(false);
-    setShowCreateForm(true);
-    setDuplicatingVoucher(null);
-  };
-
-  const startFromTemplate = (template: StoredVoucherTemplate) => {
-    setShowCreateChoice(false);
-    setDuplicatingVoucher({
-      id: template.id,
-      companyId: activeCompany?.id || "",
-      voucherNumber: 0,
-      date: new Date().toISOString().split("T")[0],
-      description: template.description || template.name,
-      lines: template.lines.map((line) => ({ ...line, id: crypto.randomUUID() })),
-      createdAt: new Date().toISOString(),
-    });
-    setShowCreateForm(true);
-  };
 
   const handleFormCancel = () => {
     setShowCreateForm(false);
