@@ -25,7 +25,7 @@ export function VoucherDetailsDialog({
   onOpenChange, 
   voucher 
 }: VoucherDetailsDialogProps) {
-  const { reverseVoucher, deleteVoucher } = useAccounting();
+  const { reverseVoucher, deleteVoucher, updateVoucher } = useAccounting();
   const { addComment, getCommentsForTarget, deleteComment } = useComments();
   const [isEditing, setIsEditing] = useState(false);
   const [commentText, setCommentText] = useState("");
