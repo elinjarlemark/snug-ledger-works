@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useMemo, useEffect } from "react";
+import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,11 +75,6 @@ const chartConfig = {
 export default function EconomyIndex() {
   const { getIncomeStatement } = useAccounting();
   const { user } = useAuth();
-
-  // Scroll to top on mount
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'instant' });
-  }, []);
 
   const currentYear = new Date().getFullYear();
 

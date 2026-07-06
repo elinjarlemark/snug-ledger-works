@@ -1,4 +1,4 @@
-import { useState, useLayoutEffect } from "react";
+import { useState } from "react";
 import { BookOpen, X, Plus, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useOutletContext, useLocation } from "react-router-dom";
@@ -9,19 +9,6 @@ import { AccountingPanel } from "@/components/accounting/AccountingPanel";
 export default function AccountingPage() {
   const { user } = useAuth();
   const location = useLocation();
-
-  useLayoutEffect(() => {
-    const forceScrollTop = () => {
-      window.scrollTo({ top: 0, behavior: "instant" });
-      document.documentElement.scrollTop = 0;
-      document.body.scrollTop = 0;
-    };
-
-    forceScrollTop();
-    const frame = requestAnimationFrame(forceScrollTop);
-
-    return () => cancelAnimationFrame(frame);
-  }, [location.key, location.pathname]);
 
   const [compareMode, setCompareMode] = useState(false);
   const [duplicateToRight, setDuplicateToRight] = useState<Voucher | null>(null);
