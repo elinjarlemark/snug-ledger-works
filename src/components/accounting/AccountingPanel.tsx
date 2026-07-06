@@ -305,6 +305,85 @@ export function AccountingPanel({
     }
   };
 
+  const goBackToCreateChoice = () => {
+    setTemplateBuilderKind(null);
+    setShowCreateChoice(true);
+    setShowCreateForm(false);
+    setSelectedVoucher(null);
+    setEditingVoucher(null);
+    setDuplicatingVoucher(null);
+    setActiveTemplateName("");
+  };
+
+  const updateTemplateLine = (lineId: string, accountNumber: string) => {
+    setTemplateLines((currentLines) =>
+      currentLines.map((line) => line.id === lineId ? { ...line, accountNumber } : line)
+    );
+    setSavedTemplate(null);
+  };
+
+  const addTemplateLine = () => {
+    setTemplateLines((currentLines) => [...currentLines, { id: crypto.randomUUID(), accountNumber: "" }]);
+    setSavedTemplate(null);
+  };
+
+  const removeTemplateLine = (lineId: string) => {
+    if (templateLines.length <= 1) return;
+    setTemplateLines((currentLines) => currentLines.filter((line) => line.id !== lineId));
+    setSavedTemplate(null);
+  };
+
+  const buildTemplateFromForm = (): StoredVoucherTemplate | null => {
+    const name = templateName.trim();
+    const uniqueAccountNumbers = Array.from(new Set(templateLines.map((line) => line.accountNumber).filter(Boolean)));
+    if (!name) {
+      toast.error("Skriv ett namn på mallen");
+      return null;
+    }
+    if (uniqueAccountNumbers.length === 0) {
+      toast.error("Välj minst ett konto till mallen");
+      return null;
+    }
+
+    return {
+      id: crypto.randomUUID(),
+      name,
+      description: templateDescription.trim() || name,
+      lines: uniqueAccountNumbers.map((accountNumber) => {
+        const account = accounts.find((item) => item.number === accountNumber);
+        return {
+          accountNumber,
+          accountName: account?.name || "",
+          debit: 0,
+          credit: 0,
+        };
+      }),
+    };
+  };
+
+  const saveBuiltTemplate = () => {
+    if (!templateBuilderKind) return;
+    if (templateBuilderKind === "custom" && !activeCompany?.id) return;
+
+    const template = buildTemplateFromForm();
+    if (!template) return;
+
+    const key = templateBuilderKind === "standard"
+      ? STANDARD_VOUCHER_TEMPLATE_KEY
+      : `${VOUCHER_TEMPLATE_KEY_PREFIX}${activeCompany?.id}`;
+    const existing = JSON.parse(localStorage.getItem(key) ?? "[]");
+    localStorage.setItem(key, JSON.stringify([...existing, template]));
+    setSavedTemplate(template);
+    loadVoucherTemplates();
+    toast.success(templateBuilderKind === "standard" ? "Färdig mall sparad" : "Egen mall sparad");
+  };
+
+  const useSavedTemplate = () => {
+    if (savedTemplate) {
+      startFromTemplate(savedTemplate);
+    }
+  };
+
   const removeTemplateLine = (lineId: string) => {
     if (templateLines.length <= 1) return;
     setTemplateLines((currentLines) => currentLines.filter((line) => line.id !== lineId));
@@ -439,8 +518,18 @@ export function AccountingPanel({
     if (onDuplicateToOther) {
       onDuplicateToOther(voucher);
     } else {
-      setDuplicatingVoucher(voucher);
-      setActiveTemplateName(voucher.reversesVoucherNumber ? `Vändning av verifikation #${voucher.reversesVoucherNumber}` : "");
+      const isExplicitReversalDraft = voucher.voucherNumber === 0 && Boolean(voucher.reversesVoucherId);
+      const duplicateVoucher = isExplicitReversalDraft
+        ? voucher
+        : {
+            ...voucher,
+            reversesVoucherId: undefined,
+            reversesVoucherNumber: undefined,
+            reversedByVoucherId: undefined,
+            reversedByVoucherNumber: undefined,
+          };
+      setDuplicatingVoucher(duplicateVoucher);
+      setActiveTemplateName(isExplicitReversalDraft && voucher.reversesVoucherNumber ? `Vändning av verifikation #${voucher.reversesVoucherNumber}` : "");
       setShowCreateForm(true);
       setSelectedVoucher(null);
       setEditingVoucher(null);

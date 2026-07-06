@@ -363,10 +363,15 @@ export function generateSIEFile(
   const previousYearStart = `${previousYear}${fiscalStartMonth}${fiscalStartDay}`;
   const previousYearEnd = `${previousYear}${fiscalEndMonth}${fiscalEndDay}`;
 
+  const isSyntheticOpeningBalanceVoucher = (voucher: Voucher) =>
+    voucher.voucherNumber === 0 && voucher.description === "Ingående balans från SIE";
+  const openingBalanceVouchers = vouchers.filter(isSyntheticOpeningBalanceVoucher);
+  const normalVouchers = vouchers.filter((voucher) => !isSyntheticOpeningBalanceVoucher(voucher));
+
   // Filter vouchers into current and previous year
   const currentYearStartDate = `${currentYear}-${fiscalStartMonth}-${fiscalStartDay}`;
-  const currentYearVouchers = vouchers.filter(v => v.date >= currentYearStartDate);
-  const previousYearVouchers = vouchers.filter(v => v.date < currentYearStartDate);
+  const currentYearVouchers = normalVouchers.filter(v => v.date >= currentYearStartDate);
+  const previousYearVouchers = normalVouchers.filter(v => v.date < currentYearStartDate);
 
   // Header
   lines.push('#FLAGGA 0');
@@ -404,6 +409,14 @@ export function generateSIEFile(
 
   // Calculate balances from previous year vouchers
   const previousYearBalances: Record<string, number> = {};
+  openingBalanceVouchers.forEach(v => {
+    v.lines.forEach(l => {
+      if (!previousYearBalances[l.accountNumber]) {
+        previousYearBalances[l.accountNumber] = 0;
+      }
+      previousYearBalances[l.accountNumber] += l.debit - l.credit;
+    });
+  });
   previousYearVouchers.forEach(v => {
     v.lines.forEach(l => {
       if (!previousYearBalances[l.accountNumber]) {
