@@ -66,6 +66,7 @@ export default function SettingsPage() {
   // Delete account flow states
   const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
   const [showDeleteAccountBye, setShowDeleteAccountBye] = useState(false);
+  const [pendingSIEContent, setPendingSIEContent] = useState<string | null>(null);
 
   // Personal settings
   const [personalNumber, setPersonalNumber] = useState("");
@@ -203,6 +204,17 @@ export default function SettingsPage() {
     toast.info("Fill in company details and save");
   };
 
+  const runSIEImport = (content: string) => {
+    const result = importSIE(content);
+    if (result.success) {
+      toast.success(`SIE import complete. Replaced current bookkeeping with ${result.imported} voucher(s).`);
+      if (result.errors.length > 0) result.errors.forEach((err) => toast.warning(err));
+    } else {
+      toast.error("Failed to import SIE file");
+      result.errors.forEach((err) => toast.error(err));
+    }
+  };
+
   const handleSIEUpload = () => {
     const input = document.createElement("input");
     input.type = "file";
@@ -212,15 +224,7 @@ export default function SettingsPage() {
       if (!file) return;
       try {
         const content = await file.text();
-        const result = importSIE(content);
-        if (result.success) {
-          if (result.imported > 0) toast.success("Imported " + result.imported + " voucher(s) from SIE file");
-          if (result.skipped > 0) toast.info("Skipped " + result.skipped + " duplicate voucher(s)");
-          if (result.errors.length > 0) result.errors.forEach((err) => toast.warning(err));
-        } else {
-          toast.error("Failed to import SIE file");
-          result.errors.forEach((err) => toast.error(err));
-        }
+        setPendingSIEContent(content);
       } catch { toast.error("Failed to read SIE file"); }
     };
     input.click();
@@ -706,6 +710,30 @@ export default function SettingsPage() {
         </main>
         
       </div>
+
+      {/* Delete Company - Confirm Dialog */}
+      <AlertDialog open={Boolean(pendingSIEContent)} onOpenChange={(open) => !open && setPendingSIEContent(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>nu ersätts din bokföring med det från SIE filen, vill du fortsätta</AlertDialogTitle>
+            <AlertDialogDescription>
+              Importen ersätter alla nuvarande vouchers, konton och balanser i det aktiva bolaget med innehållet från SIE-filen.
+              Välj Nej om du vill behålla nuvarande bokföring.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingSIEContent(null)}>Nej</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingSIEContent) runSIEImport(pendingSIEContent);
+                setPendingSIEContent(null);
+              }}
+            >
+              Ja
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Company - Confirm Dialog */}
       <AlertDialog open={showDeleteCompanyConfirm} onOpenChange={setShowDeleteCompanyConfirm}>

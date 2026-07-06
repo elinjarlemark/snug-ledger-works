@@ -38,7 +38,7 @@ export function VoucherDetailsDialog({
       ...voucher,
       id: crypto.randomUUID(),
       voucherNumber: 0,
-      date: new Date().toISOString().split("T")[0],
+      date: voucher.date,
       description: `vändning av ${voucher.description}`,
       lines: voucher.lines.map((line) => ({
         ...line,
@@ -103,7 +103,7 @@ export function VoucherDetailsDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(open) => { if (!open) setIsEditing(false); onOpenChange(open); }}>
+    <Dialog open={open} onOpenChange={(open) => { if (!open) { setIsEditing(false); setReversalDraft(null); } onOpenChange(open); }}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>

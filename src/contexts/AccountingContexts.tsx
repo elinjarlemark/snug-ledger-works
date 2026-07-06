@@ -489,7 +489,20 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteVoucher = (voucherId: string) => {
-    const newVouchers = vouchers.filter(v => v.id !== voucherId);
+    const deletedVoucher = vouchers.find((voucher) => voucher.id === voucherId);
+    const newVouchers = vouchers
+      .filter((voucher) => voucher.id !== voucherId)
+      .map((voucher) => {
+        if (voucher.reversedByVoucherId === voucherId) {
+          const { reversedByVoucherId, reversedByVoucherNumber, ...rest } = voucher;
+          return rest;
+        }
+        if (deletedVoucher && voucher.reversesVoucherId === voucherId) {
+          const { reversesVoucherId, reversesVoucherNumber, ...rest } = voucher;
+          return rest;
+        }
+        return voucher;
+      });
     saveVouchers(newVouchers, nextVoucherNumber);
     syncSieStateToDatabase(newVouchers, accounts);
   };

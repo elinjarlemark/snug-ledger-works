@@ -50,7 +50,7 @@ export function VoucherDetails({ voucher, onClose, onDuplicate }: VoucherDetails
       ...voucher,
       id: crypto.randomUUID(),
       voucherNumber: 0,
-      date: new Date().toISOString().split("T")[0],
+      date: voucher.date,
       description: `vändning av ${voucher.description}`,
       lines: voucher.lines.map((line) => ({
         ...line,
