@@ -311,15 +311,6 @@ export function AccountingPanel({
     }
   };
 
-  const goBackToCreateChoice = () => {
-    setTemplateBuilderKind(null);
-    setShowCreateChoice(true);
-    setShowCreateForm(false);
-    setSelectedVoucher(null);
-    setEditingVoucher(null);
-    setDuplicatingVoucher(null);
-    setActiveTemplateName("");
-  };
 
 
 
