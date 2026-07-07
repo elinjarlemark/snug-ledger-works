@@ -689,7 +689,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
   const importSIE = (fileContent: string): { success: boolean; imported: number; skipped: number; errors: string[] } => {
     const parseResult = parseSIEFile(fileContent);
 
-    if (parseResult.errors.length > 0 && parseResult.vouchers.length === 0) {
+    if (parseResult.errors.length > 0) {
       return {
         success: false,
         imported: 0,

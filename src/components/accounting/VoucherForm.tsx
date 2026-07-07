@@ -70,8 +70,8 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom, t
   const creditInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
   const accountButtonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   
-  const [date, setDate] = useState(editVoucher?.date || "");
-  const [description, setDescription] = useState(editVoucher?.description || "");
+  const [date, setDate] = useState(sourceVoucher?.date || "");
+  const [description, setDescription] = useState(sourceVoucher?.description || "");
   const [lines, setLines] = useState<VoucherLine[]>(
     sourceVoucher?.lines.map(l => ({ ...l, id: crypto.randomUUID() })) || [
       { id: crypto.randomUUID(), accountNumber: "", accountName: "", debit: 0, credit: 0 },
