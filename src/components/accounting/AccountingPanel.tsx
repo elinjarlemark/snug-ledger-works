@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, Eye, Calendar, Search, Lock, Columns2 } from "lucide-react";
+import { Plus, Eye, Calendar, Search, Lock, Columns2, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
@@ -18,6 +19,28 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 
 const VOUCHERS_PER_PAGE = 10;
+const VOUCHER_TEMPLATE_KEY_PREFIX = "accountpro_voucher_templates_";
+const STANDARD_VOUCHER_TEMPLATE_KEY = "accountpro_standard_voucher_templates";
+
+interface StoredVoucherTemplate {
+  id: string;
+  name: string;
+  description: string;
+  lines: {
+    accountNumber: string;
+    accountName: string;
+    debit: number;
+    credit: number;
+    vatCodeId?: string;
+  }[];
+}
+
+type TemplateKind = "standard" | "custom";
+
+interface TemplateBuilderLine {
+  id: string;
+  accountNumber: string;
+}
 
 interface AccountingPanelProps {
   compact?: boolean;
@@ -40,10 +63,11 @@ export function AccountingPanel({
   onToggleCompare,
   prefillVoucher,
 }: AccountingPanelProps) {
-  const { user } = useAuth();
-  const { vouchers } = useAccounting();
+  const { user, activeCompany } = useAuth();
+  const { vouchers, accounts } = useAccounting();
   const { isYearLocked } = useFiscalLock();
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showCreateChoice, setShowCreateChoice] = useState(false);
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
   const [editingVoucher, setEditingVoucher] = useState<Voucher | null>(null);
   const [duplicatingVoucher, setDuplicatingVoucher] = useState<Voucher | null>(null);
@@ -58,9 +82,37 @@ export function AccountingPanel({
     selectedYear ? new Date(selectedYear, 11, 31) : undefined
   );
   const [searchQuery, setSearchQuery] = useState("");
+  const [hideReversedVouchers, setHideReversedVouchers] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [customTemplates, setCustomTemplates] = useState<StoredVoucherTemplate[]>([]);
+  const [standardTemplates, setStandardTemplates] = useState<StoredVoucherTemplate[]>([]);
+  const [templateBuilderKind, setTemplateBuilderKind] = useState<TemplateKind | null>(null);
+  const [templateName, setTemplateName] = useState("");
+  const [templateDescription, setTemplateDescription] = useState("");
+  const [templateLines, setTemplateLines] = useState<TemplateBuilderLine[]>([
+    { id: crypto.randomUUID(), accountNumber: "" },
+    { id: crypto.randomUUID(), accountNumber: "" },
+  ]);
+  const [savedTemplate, setSavedTemplate] = useState<StoredVoucherTemplate | null>(null);
+  const [activeTemplateName, setActiveTemplateName] = useState("");
 
   const currentYearLocked = selectedYear !== undefined ? isYearLocked(selectedYear) : false;
+
+  const loadVoucherTemplates = () => {
+    const standardRaw = localStorage.getItem(STANDARD_VOUCHER_TEMPLATE_KEY);
+    setStandardTemplates(standardRaw ? JSON.parse(standardRaw) : []);
+
+    if (!activeCompany?.id) {
+      setCustomTemplates([]);
+      return;
+    }
+    const customRaw = localStorage.getItem(`${VOUCHER_TEMPLATE_KEY_PREFIX}${activeCompany.id}`);
+    setCustomTemplates(customRaw ? JSON.parse(customRaw) : []);
+  };
+
+  useEffect(() => {
+    loadVoucherTemplates();
+  }, [activeCompany?.id]);
 
   // Auto-open create form from header shortcut
   useEffect(() => {
@@ -79,14 +131,21 @@ export function AccountingPanel({
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, voucherStartDate, voucherEndDate]);
+  }, [searchQuery, hideReversedVouchers, voucherStartDate, voucherEndDate]);
 
   useEffect(() => {
     if (incomingDuplicate) {
-      setDuplicatingVoucher(incomingDuplicate);
+      setDuplicatingVoucher({
+        ...incomingDuplicate,
+        reversesVoucherId: undefined,
+        reversesVoucherNumber: undefined,
+        reversedByVoucherId: undefined,
+        reversedByVoucherNumber: undefined,
+      });
       setShowCreateForm(true);
       setSelectedVoucher(null);
       setEditingVoucher(null);
+      setTemplateBuilderKind(null);
       onClearIncomingDuplicate?.();
     }
   }, [incomingDuplicate]);
@@ -95,10 +154,16 @@ export function AccountingPanel({
     const vDate = new Date(v.date);
     if (voucherStartDate && vDate < voucherStartDate) return false;
     if (voucherEndDate && vDate > voucherEndDate) return false;
+    if (hideReversedVouchers && (v.reversesVoucherId || v.reversedByVoucherId)) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
-      if (!v.description.toLowerCase().includes(q) && !v.voucherNumber.toString().includes(q))
+      if (
+        !v.description.toLowerCase().includes(q) &&
+        !v.voucherNumber.toString().includes(q) &&
+        !v.date.includes(q)
+      ) {
         return false;
+      }
     }
     return true;
   });
@@ -106,21 +171,152 @@ export function AccountingPanel({
   const handleVoucherClick = (v: Voucher) => {
     setSelectedVoucher(v);
     setShowCreateForm(false);
+    setShowCreateChoice(false);
+    setTemplateBuilderKind(null);
     setEditingVoucher(null);
     setDuplicatingVoucher(null);
   };
 
   const handleCreateClick = () => {
-    setShowCreateForm(true);
+    loadVoucherTemplates();
+    setShowCreateChoice(true);
+    setShowCreateForm(false);
     setSelectedVoucher(null);
     setEditingVoucher(null);
     setDuplicatingVoucher(null);
+    setTemplateBuilderKind(null);
+    setActiveTemplateName("");
+  };
+
+  const startManualVoucher = () => {
+    setShowCreateChoice(false);
+    setShowCreateForm(true);
+    setDuplicatingVoucher(null);
+    setTemplateBuilderKind(null);
+    setActiveTemplateName("");
+  };
+
+  const startFromTemplate = (template: StoredVoucherTemplate) => {
+    setShowCreateChoice(false);
+    setTemplateBuilderKind(null);
+    setActiveTemplateName(template.name);
+    setDuplicatingVoucher({
+      id: template.id,
+      companyId: activeCompany?.id || "",
+      voucherNumber: 0,
+      date: new Date().toISOString().split("T")[0],
+      description: template.description || template.name,
+      lines: template.lines.map((line) => ({ ...line, id: crypto.randomUUID() })),
+      createdAt: new Date().toISOString(),
+    });
+    setShowCreateForm(true);
+  };
+
+  const resetTemplateBuilder = () => {
+    setTemplateName("");
+    setTemplateDescription("");
+    setTemplateLines([
+      { id: crypto.randomUUID(), accountNumber: "" },
+      { id: crypto.randomUUID(), accountNumber: "" },
+    ]);
+    setSavedTemplate(null);
+  };
+
+  const startTemplateBuilder = (kind: TemplateKind) => {
+    resetTemplateBuilder();
+    setTemplateBuilderKind(kind);
+    setShowCreateChoice(false);
+    setShowCreateForm(false);
+    setSelectedVoucher(null);
+    setEditingVoucher(null);
+    setDuplicatingVoucher(null);
+  };
+
+  const goBackToCreateChoice = () => {
+    setTemplateBuilderKind(null);
+    setShowCreateChoice(true);
+    setShowCreateForm(false);
+    setSelectedVoucher(null);
+    setEditingVoucher(null);
+    setDuplicatingVoucher(null);
+    setActiveTemplateName("");
+  };
+
+  const updateTemplateLine = (lineId: string, accountNumber: string) => {
+    setTemplateLines((currentLines) =>
+      currentLines.map((line) => line.id === lineId ? { ...line, accountNumber } : line)
+    );
+    setSavedTemplate(null);
+  };
+
+  const addTemplateLine = () => {
+    setTemplateLines((currentLines) => [...currentLines, { id: crypto.randomUUID(), accountNumber: "" }]);
+    setSavedTemplate(null);
+  };
+
+  const removeTemplateLine = (lineId: string) => {
+    if (templateLines.length <= 1) return;
+    setTemplateLines((currentLines) => currentLines.filter((line) => line.id !== lineId));
+    setSavedTemplate(null);
+  };
+
+  const buildTemplateFromForm = (): StoredVoucherTemplate | null => {
+    const name = templateName.trim();
+    const uniqueAccountNumbers = Array.from(new Set(templateLines.map((line) => line.accountNumber).filter(Boolean)));
+    if (!name) {
+      toast.error("Skriv ett namn på mallen");
+      return null;
+    }
+    if (uniqueAccountNumbers.length === 0) {
+      toast.error("Välj minst ett konto till mallen");
+      return null;
+    }
+
+    return {
+      id: crypto.randomUUID(),
+      name,
+      description: templateDescription.trim() || name,
+      lines: uniqueAccountNumbers.map((accountNumber) => {
+        const account = accounts.find((item) => item.number === accountNumber);
+        return {
+          accountNumber,
+          accountName: account?.name || "",
+          debit: 0,
+          credit: 0,
+        };
+      }),
+    };
+  };
+
+  const saveBuiltTemplate = () => {
+    if (!templateBuilderKind) return;
+    if (templateBuilderKind === "custom" && !activeCompany?.id) return;
+
+    const template = buildTemplateFromForm();
+    if (!template) return;
+
+    const key = templateBuilderKind === "standard"
+      ? STANDARD_VOUCHER_TEMPLATE_KEY
+      : `${VOUCHER_TEMPLATE_KEY_PREFIX}${activeCompany?.id}`;
+    const existing = JSON.parse(localStorage.getItem(key) ?? "[]");
+    localStorage.setItem(key, JSON.stringify([...existing, template]));
+    setSavedTemplate(template);
+    loadVoucherTemplates();
+    toast.success(templateBuilderKind === "standard" ? "Färdig mall sparad" : "Egen mall sparad");
+  };
+
+  const useSavedTemplate = () => {
+    if (savedTemplate) {
+      startFromTemplate(savedTemplate);
+    }
   };
 
   const handleFormCancel = () => {
     setShowCreateForm(false);
     setEditingVoucher(null);
     setDuplicatingVoucher(null);
+    setTemplateBuilderKind(null);
+    setActiveTemplateName("");
   };
 
   const handleFormSuccess = () => {
@@ -131,13 +327,27 @@ export function AccountingPanel({
   };
 
   const handleDuplicateVoucher = (voucher: Voucher) => {
+    const isExplicitReversalDraft = voucher.voucherNumber === 0 && Boolean(voucher.reversesVoucherId);
+    const duplicateVoucher = isExplicitReversalDraft
+      ? voucher
+      : {
+          ...voucher,
+          reversesVoucherId: undefined,
+          reversesVoucherNumber: undefined,
+          reversedByVoucherId: undefined,
+          reversedByVoucherNumber: undefined,
+        };
+
     if (onDuplicateToOther) {
-      onDuplicateToOther(voucher);
+      onDuplicateToOther(duplicateVoucher);
     } else {
-      setDuplicatingVoucher(voucher);
+      setDuplicatingVoucher(duplicateVoucher);
+      setActiveTemplateName(isExplicitReversalDraft && voucher.reversesVoucherNumber ? `Vändning av verifikation #${voucher.reversesVoucherNumber}` : "");
       setShowCreateForm(true);
       setSelectedVoucher(null);
       setEditingVoucher(null);
+      setShowCreateChoice(false);
+      setTemplateBuilderKind(null);
     }
   };
 
@@ -159,13 +369,168 @@ export function AccountingPanel({
 
   return (
     <div className="space-y-4" ref={listRef}>
+      {templateBuilderKind && (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {templateBuilderKind === "standard" ? "Skapa färdig mall" : "Skapa egen mall"}
+            </CardTitle>
+            <CardDescription>
+              Välj bara mallens namn och vilka konton som ska fyllas i när mallen används.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Mallnamn</label>
+                <Input
+                  value={templateName}
+                  onChange={(event) => {
+                    setTemplateName(event.target.value);
+                    setSavedTemplate(null);
+                  }}
+                  placeholder="Ex. Leverantörsfaktura"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Förifyllt namn på verifikation</label>
+                <Input
+                  value={templateDescription}
+                  onChange={(event) => {
+                    setTemplateDescription(event.target.value);
+                    setSavedTemplate(null);
+                  }}
+                  placeholder="Lämna tomt för att använda mallnamnet"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Konton i mallen</label>
+              <div className="space-y-2">
+                {templateLines.map((line) => (
+                  <div key={line.id} className="flex gap-2">
+                    <select
+                      value={line.accountNumber}
+                      onChange={(event) => updateTemplateLine(line.id, event.target.value)}
+                      className="h-10 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="">Välj konto...</option>
+                      {accounts.map((account) => (
+                        <option key={account.number} value={account.number}>
+                          {account.number} · {account.name}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeTemplateLine(line.id)}
+                      disabled={templateLines.length <= 1}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={addTemplateLine}>
+                <Plus className="h-4 w-4 mr-1" />
+                Lägg till konto
+              </Button>
+            </div>
+
+            {savedTemplate && (
+              <div className="rounded-md border border-success/40 bg-success/10 p-3 text-sm text-success">
+                Mallen “{savedTemplate.name}” är sparad. Du kan använda den direkt eller skapa en ny mall.
+              </div>
+            )}
+
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button variant="outline" onClick={goBackToCreateChoice}>
+                Gå tillbaka
+              </Button>
+              {savedTemplate ? (
+                <>
+                  <Button variant="secondary" onClick={resetTemplateBuilder}>
+                    Gör ny mall
+                  </Button>
+                  <Button onClick={useSavedTemplate}>
+                    Använd mall
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="secondary" onClick={resetTemplateBuilder}>
+                    Rensa
+                  </Button>
+                  <Button onClick={saveBuiltTemplate}>
+                    Spara
+                  </Button>
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Create/Edit/Duplicate Form */}
-      {(showCreateForm || editingVoucher) && (
+      {showCreateChoice && !showCreateForm && !editingVoucher && !templateBuilderKind && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Ny verifikation</CardTitle>
+            <CardDescription>Välj hur du vill skapa verifikationen.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-3">
+            <Button variant="outline" className="h-auto flex-col items-start p-4" onClick={startManualVoucher}>
+              <span className="font-semibold">Manuell bokföring</span>
+              <span className="text-xs text-muted-foreground text-left">Börja med tomma rader.</span>
+            </Button>
+            <div className="rounded-md border p-4 space-y-2">
+              <p className="font-semibold text-sm">Färdiga mallar</p>
+              {standardTemplates.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Inga färdiga mallar ännu. Alla användare kan lägga till dem tillfälligt.</p>
+              ) : (
+                <div className="space-y-2">
+                  {standardTemplates.map((template) => (
+                    <Button key={template.id} variant="ghost" size="sm" className="w-full justify-start" onClick={() => startFromTemplate(template)}>
+                      {template.name}
+                    </Button>
+                  ))}
+                </div>
+              )}
+              <Button size="sm" variant="secondary" onClick={() => startTemplateBuilder("standard")}>
+                Lägg till färdig mall
+              </Button>
+            </div>
+            <div className="rounded-md border p-4 space-y-2">
+              <p className="font-semibold text-sm">Egna mallar</p>
+              {customTemplates.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Inga egna mallar ännu. Skapa en manuellt och klicka “Spara som egen mall”.</p>
+              ) : (
+                <div className="space-y-2">
+                  {customTemplates.map((template) => (
+                    <Button key={template.id} variant="ghost" size="sm" className="w-full justify-start" onClick={() => startFromTemplate(template)}>
+                      {template.name}
+                    </Button>
+                  ))}
+                </div>
+              )}
+              <Button size="sm" variant="secondary" onClick={() => startTemplateBuilder("custom")}>
+                Skapa egen mall
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {(showCreateForm || editingVoucher) && !templateBuilderKind && (
         <VoucherForm
           onCancel={handleFormCancel}
           onSuccess={handleFormSuccess}
           editVoucher={editingVoucher || undefined}
           duplicateFrom={duplicatingVoucher || (prefillVoucher ? { ...prefillVoucher, voucherNumber: 0, date: new Date().toISOString().split("T")[0], lines: prefillVoucher.lines.map((l: any) => ({ ...l, id: crypto.randomUUID() })) } as Voucher : undefined)}
+          templateName={activeTemplateName || undefined}
         />
       )}
 
@@ -179,7 +544,7 @@ export function AccountingPanel({
       )}
 
       {/* Voucher List */}
-      {!showCreateForm && !selectedVoucher && !editingVoucher && (
+      {!showCreateForm && !showCreateChoice && !selectedVoucher && !editingVoucher && !templateBuilderKind && (
          <>
 
           {/* Filters */}
@@ -264,6 +629,10 @@ export function AccountingPanel({
               Vouchers ({filteredVouchers.length})
             </h2>
             <div className="flex items-center gap-2">
+              <Button variant="default" size="sm" onClick={handleCreateClick}>
+                <Plus className="h-4 w-4 mr-2" />
+                Ny verifikation
+              </Button>
               {onToggleCompare && (
                 <Button variant="outline" size="sm" onClick={onToggleCompare}>
                   <Columns2 className="h-4 w-4 mr-2" />
@@ -274,12 +643,16 @@ export function AccountingPanel({
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="Search by name or number..."
+                  placeholder="Search by name, number or date..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9"
                 />
               </div>
+              <label className="flex items-center gap-2 text-sm text-muted-foreground whitespace-nowrap">
+                <Checkbox checked={hideReversedVouchers} onCheckedChange={(checked) => setHideReversedVouchers(checked === true)} />
+                Dölj vända verifikationer
+              </label>
             </div>
           </div>
 
@@ -315,7 +688,16 @@ export function AccountingPanel({
                           {voucher.voucherNumber}
                         </td>
                         <td className="py-2 px-3 text-muted-foreground">{voucher.date}</td>
-                        <td className="py-2 px-3 text-foreground">{voucher.description}</td>
+                        <td className="py-2 px-3 text-foreground">
+                          <div>{voucher.description}</div>
+                          {(voucher.reversesVoucherNumber || voucher.reversedByVoucherNumber) && (
+                            <div className="text-[11px] text-amber-700">
+                              {voucher.reversesVoucherNumber
+                                ? `Vänder #${voucher.reversesVoucherNumber}`
+                                : `Vänd av #${voucher.reversedByVoucherNumber}`}
+                            </div>
+                          )}
+                        </td>
                         <td className="py-2 px-3 text-right font-mono font-medium">
                           {formatAmount(total)} SEK
                         </td>

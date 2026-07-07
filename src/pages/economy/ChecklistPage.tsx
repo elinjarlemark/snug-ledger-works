@@ -36,10 +36,6 @@ export default function ChecklistPage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "instant" });
-  }, []);
-
-  useEffect(() => {
     if (adding) inputRef.current?.focus();
   }, [adding]);
 

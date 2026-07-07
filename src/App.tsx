@@ -14,6 +14,7 @@ import { VatPeriodLockProvider } from "@/contexts/VatPeriodLockContext";
 import { ChecklistProvider } from "@/contexts/ChecklistContext";
 import { RecurringBillingProvider } from "@/contexts/RecurringBillingContext";
 import { SmartChecklistProvider } from "@/contexts/SmartChecklistContext";
+import { CommentsProvider } from "@/contexts/CommentsContext";
 import { PublicLayout } from "@/components/layout/PublicLayout";
 import { EconomyLayout } from "@/components/layout/EconomyLayout";
 import { SidebarShell } from "@/components/layout/SidebarShell";
@@ -45,6 +46,7 @@ import MomsPage from "./pages/economy/MomsPage";
 import ChecklistPage from "./pages/economy/ChecklistPage";
 import AdminPage from "./pages/AdminPage";
 import AuditTrailPage from "./pages/AuditTrailPage";
+import CommentsPage from "./pages/CommentsPage";
 import PreviewPage from "./pages/PreviewPage";
 import AboutPage from "./pages/AboutPage";
 import PricingPage from "./pages/PricingPage";
@@ -66,6 +68,7 @@ const App = () => (
                 <ChecklistProvider>
                 <RecurringBillingProvider>
                 <SmartChecklistProvider>
+                <CommentsProvider>
                 <TooltipProvider>
                   <Toaster />
                   <Sonner />
@@ -113,6 +116,7 @@ const App = () => (
                         <Route path="/settings" element={<SettingsPage />} />
                         <Route path="/admin" element={<AdminPage />} />
                         <Route path="/audit-trail" element={<AuditTrailPage />} />
+                        <Route path="/comments" element={<CommentsPage />} />
 
                         {/* Legacy redirect */}
                         <Route path="/company" element={<SettingsPage />} />
@@ -128,6 +132,7 @@ const App = () => (
                     </ViewModeProvider>
                   </BrowserRouter>
                 </TooltipProvider>
+                </CommentsProvider>
                 </SmartChecklistProvider>
                 </RecurringBillingProvider>
                 </ChecklistProvider>
