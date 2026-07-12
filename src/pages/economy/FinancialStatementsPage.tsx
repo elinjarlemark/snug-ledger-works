@@ -65,8 +65,32 @@ function ReportPanel({ compact }: ReportPanelProps) {
   const endDateStr = endDate ? format(endDate, "yyyy-MM-dd") : undefined;
 
   const incomeStatement = getIncomeStatement(startDateStr, endDateStr);
-  const balanceSheet = getBalanceSheet();
+  const balanceSheet = getBalanceSheet(endDateStr);
   const generalLedger = getGeneralLedger(startDateStr, endDateStr);
+
+  const beforeStartDateStr = startDate ? format(new Date(startDate.getTime() - 24 * 60 * 60 * 1000), "yyyy-MM-dd") : undefined;
+  const openingLedger = getGeneralLedger(undefined, beforeStartDateStr);
+  const periodLedger = getGeneralLedger(startDateStr, endDateStr);
+  const closingLedger = getGeneralLedger(undefined, endDateStr);
+
+  const balanceRows = [
+    ...new Set([...openingLedger, ...periodLedger, ...closingLedger].map((entry) => entry.accountNumber).filter((number) => number.startsWith("1") || number.startsWith("2")))
+  ].sort().map((accountNumber) => {
+    const opening = openingLedger.find((entry) => entry.accountNumber === accountNumber);
+    const change = periodLedger.find((entry) => entry.accountNumber === accountNumber);
+    const closing = closingLedger.find((entry) => entry.accountNumber === accountNumber);
+    const accountName = closing?.accountName || change?.accountName || opening?.accountName || "Unknown";
+    const signed = (amount: number) => accountNumber.startsWith("2") ? -amount : amount;
+    const closingSigned = signed(closing?.balance || 0);
+    return {
+      accountNumber, accountName,
+      opening: signed(opening?.balance || 0),
+      change: signed(change?.balance || 0),
+      closing: closingSigned,
+      side: closingSigned > 0 ? "Debet" : closingSigned < 0 ? "Kredit" : "Noll",
+    };
+  });
+  const balanceDiff = (field: "opening" | "change" | "closing") => balanceRows.reduce((sum, row) => sum + row[field], 0);
 
   const totalRevenue = incomeStatement.revenues.reduce((sum, e) => sum + e.balance, 0);
   const totalExpenses = incomeStatement.expenses.reduce((sum, e) => sum + e.balance, 0);
@@ -306,116 +330,40 @@ function ReportPanel({ compact }: ReportPanelProps) {
                 </div>
               </div>
 
-              <div className={cn("gap-6", compact ? "space-y-6" : "grid md:grid-cols-2")}>
-                {/* Assets */}
-                <div>
-                  <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-secondary"></span>
-                    Assets (Tillgångar) - Class 1
-                  </h3>
-                  {!compact && (
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Asset accounts increase in debit.
-                    </p>
-                  )}
-                  {balanceSheet.assets.length === 0 ? (
-                    <p className="text-muted-foreground text-sm py-4">No asset transactions</p>
-                  ) : (
-                    <div className="bg-muted/30 rounded-lg overflow-hidden">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="border-b">
-                            <th className="text-left py-2 px-3 font-medium">Account</th>
-                            <th className="text-right py-2 px-3 font-medium">Debet</th>
-                            <th className="text-right py-2 px-3 font-medium">Kredit</th>
-                            <th className="text-right py-2 px-3 font-medium">Balance</th>
-                            <th className="text-right py-2 px-3 font-medium">Sida</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {balanceSheet.assets.map((entry) => (
-                            <tr key={entry.accountNumber} className="border-b border-border/50">
-                              <td className="py-2 px-3">
-                                <span className="font-mono text-secondary">{entry.accountNumber}</span>
-                                <span className="ml-2 text-muted-foreground">{entry.accountName}</span>
-                              </td>
-                              <td className="py-2 px-3 text-right font-mono">{formatAmount(entry.totalDebit)}</td>
-                              <td className="py-2 px-3 text-right font-mono">{formatAmount(entry.totalCredit)}</td>
-                              <td className="py-2 px-3 text-right font-mono">{formatAmount(entry.balance)}</td>
-                              <td className={cn("py-2 px-3 text-right text-xs font-semibold", balanceSide(entry).className)}>
-                                {balanceSide(entry).label}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot>
-                          <tr className="bg-secondary/10">
-                            <td className="py-2 px-3 font-medium">Total Assets</td>
-                            <td className="py-2 px-3 text-right font-mono font-bold">{formatAmount(balanceSheet.assets.reduce((sum, entry) => sum + entry.totalDebit, 0))}</td>
-                            <td className="py-2 px-3 text-right font-mono font-bold">{formatAmount(balanceSheet.assets.reduce((sum, entry) => sum + entry.totalCredit, 0))}</td>
-                            <td className="py-2 px-3 text-right font-mono font-bold">{formatAmount(balanceSheet.totalAssets)}</td>
-                            <td className="py-2 px-3 text-right text-xs font-semibold text-success">Debet</td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </div>
-                  )}
-                </div>
-
-                {/* Equity & Liabilities */}
-                <div>
-                  <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-primary"></span>
-                    Equity & Liabilities - Class 2
-                  </h3>
-                  {!compact && (
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Equity and liability accounts increase in credit.
-                    </p>
-                  )}
-                  {balanceSheet.equityLiabilities.length === 0 ? (
-                    <p className="text-muted-foreground text-sm py-4">No equity/liability transactions</p>
-                  ) : (
-                    <div className="bg-muted/30 rounded-lg overflow-hidden">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="border-b">
-                            <th className="text-left py-2 px-3 font-medium">Account</th>
-                            <th className="text-right py-2 px-3 font-medium">Debet</th>
-                            <th className="text-right py-2 px-3 font-medium">Kredit</th>
-                            <th className="text-right py-2 px-3 font-medium">Balance</th>
-                            <th className="text-right py-2 px-3 font-medium">Sida</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {balanceSheet.equityLiabilities.map((entry) => (
-                            <tr key={entry.accountNumber} className="border-b border-border/50">
-                              <td className="py-2 px-3">
-                                <span className="font-mono text-secondary">{entry.accountNumber}</span>
-                                <span className="ml-2 text-muted-foreground">{entry.accountName}</span>
-                              </td>
-                              <td className="py-2 px-3 text-right font-mono">{formatAmount(entry.totalDebit)}</td>
-                              <td className="py-2 px-3 text-right font-mono">{formatAmount(entry.totalCredit)}</td>
-                              <td className="py-2 px-3 text-right font-mono">{formatAmount(entry.balance)}</td>
-                              <td className={cn("py-2 px-3 text-right text-xs font-semibold", balanceSide(entry).className)}>
-                                {balanceSide(entry).label}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot>
-                          <tr className="bg-primary/10">
-                            <td className="py-2 px-3 font-medium">Total Equity & Liabilities</td>
-                            <td className="py-2 px-3 text-right font-mono font-bold">{formatAmount(balanceSheet.equityLiabilities.reduce((sum, entry) => sum + entry.totalDebit, 0))}</td>
-                            <td className="py-2 px-3 text-right font-mono font-bold">{formatAmount(balanceSheet.equityLiabilities.reduce((sum, entry) => sum + entry.totalCredit, 0))}</td>
-                            <td className="py-2 px-3 text-right font-mono font-bold">{formatAmount(balanceSheet.totalEquityLiabilities)}</td>
-                            <td className="py-2 px-3 text-right text-xs font-semibold text-primary">Kredit</td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </div>
-                  )}
-                </div>
+              <div className="bg-muted/30 rounded-lg overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 px-3 font-medium">Konto</th>
+                      <th className="text-right py-2 px-3 font-medium">Ingående balans</th>
+                      <th className="text-right py-2 px-3 font-medium">Förändring</th>
+                      <th className="text-right py-2 px-3 font-medium">Utgående balans</th>
+                      <th className="text-right py-2 px-3 font-medium">Debet/Kredit</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {balanceRows.length === 0 ? (
+                      <tr><td colSpan={5} className="py-6 px-3 text-center text-muted-foreground">Inga balanskonton i perioden</td></tr>
+                    ) : balanceRows.map((row) => (
+                      <tr key={row.accountNumber} className="border-b border-border/50">
+                        <td className="py-2 px-3"><span className="font-mono text-secondary">{row.accountNumber}</span><span className="ml-2 text-muted-foreground">{row.accountName}</span></td>
+                        <td className="py-2 px-3 text-right font-mono">{formatAmount(row.opening)}</td>
+                        <td className="py-2 px-3 text-right font-mono">{formatAmount(row.change)}</td>
+                        <td className="py-2 px-3 text-right font-mono font-medium">{formatAmount(row.closing)}</td>
+                        <td className={cn("py-2 px-3 text-right text-xs font-semibold", row.side === "Debet" ? "text-success" : row.side === "Kredit" ? "text-primary" : "text-muted-foreground")}>{row.side}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-primary/10">
+                      <td className="py-2 px-3 font-medium">Skillnad klass 1 och 2</td>
+                      <td className="py-2 px-3 text-right font-mono font-bold">{formatAmount(balanceDiff("opening"))}</td>
+                      <td className="py-2 px-3 text-right font-mono font-bold">{formatAmount(balanceDiff("change"))}</td>
+                      <td className="py-2 px-3 text-right font-mono font-bold">{formatAmount(balanceDiff("closing"))}</td>
+                      <td className="py-2 px-3 text-right text-xs text-muted-foreground">Ska vara 0</td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             </CardContent>
           </Card>
