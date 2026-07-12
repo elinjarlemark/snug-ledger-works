@@ -53,9 +53,10 @@ interface VoucherFormProps {
   editVoucher?: Voucher;
   duplicateFrom?: Voucher;
   templateName?: string;
+  onSaveDraft?: (draft: Omit<Voucher, "id" | "companyId" | "voucherNumber" | "createdAt">) => void;
 }
 
-export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom, templateName }: VoucherFormProps) {
+export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom, templateName, onSaveDraft }: VoucherFormProps) {
   const sourceVoucher = editVoucher || duplicateFrom;
   const { accounts, nextVoucherNumber, createVoucher, updateVoucher, validateVoucher } = useAccounting();
   const { activeCompany } = useAuth();
@@ -209,6 +210,23 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom, t
       return false;
     }
     return true;
+  };
+
+  const buildDraftPayload = () => ({
+    date,
+    description: description.trim(),
+    lines,
+    attachments: pendingAttachments,
+    reversesVoucherId: duplicateFrom?.reversesVoucherId,
+    reversesVoucherNumber: duplicateFrom?.reversesVoucherNumber,
+  });
+
+  const handleSaveDraft = () => {
+    if (!date && !description.trim() && lines.every((line) => !line.accountNumber && !line.debit && !line.credit)) {
+      toast.error("Fyll i något innan du sparar ett utkast");
+      return;
+    }
+    onSaveDraft?.(buildDraftPayload());
   };
 
   const postVoucher = () => {
@@ -575,6 +593,9 @@ export function VoucherForm({ onCancel, onSuccess, editVoucher, duplicateFrom, t
 
       {/* Submit */}
       <div className="flex flex-col sm:flex-row sm:justify-end gap-3">
+        {!editVoucher && onSaveDraft && (
+          <Button variant="secondary" onClick={handleSaveDraft}>Spara som utkast</Button>
+        )}
         <Button variant="outline" onClick={onCancel}>Gå tillbaka</Button>
         <Button onClick={handleSubmit} disabled={!validation.isValid}>
           {editVoucher ? "Update Voucher" : confirmationEnabled ? "Spara" : "Bokför"}
