@@ -168,7 +168,7 @@ interface AccountingContextType {
   getAccountStatement: (accountNumber: string, startDate?: string, endDate?: string) => AccountStatement | null;
   getGeneralLedger: (startDate?: string, endDate?: string) => GeneralLedgerEntry[];
   getIncomeStatement: (startDate?: string, endDate?: string) => { revenues: GeneralLedgerEntry[]; expenses: GeneralLedgerEntry[]; netResult: number };
-  getBalanceSheet: () => { assets: GeneralLedgerEntry[]; equityLiabilities: GeneralLedgerEntry[]; totalAssets: number; totalEquityLiabilities: number; isBalanced: boolean };
+  getBalanceSheet: (endDate?: string) => { assets: GeneralLedgerEntry[]; equityLiabilities: GeneralLedgerEntry[]; totalAssets: number; totalEquityLiabilities: number; isBalanced: boolean };
   validateVoucher: (lines: VoucherLine[]) => { isValid: boolean; totalDebit: number; totalCredit: number; difference: number };
   importSIE: (fileContent: string) => { success: boolean; imported: number; skipped: number; errors: string[] };
   exportSIE: () => string;
@@ -671,8 +671,8 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     return { revenues, expenses, netResult };
   };
 
-  const getBalanceSheet = () => {
-    const ledger = getGeneralLedger();
+  const getBalanceSheet = (endDate?: string) => {
+    const ledger = getGeneralLedger(undefined, endDate);
     
     const assets = ledger.filter(e => e.accountNumber.startsWith("1"));
     const equityLiabilities = ledger.filter(e => e.accountNumber.startsWith("2"));

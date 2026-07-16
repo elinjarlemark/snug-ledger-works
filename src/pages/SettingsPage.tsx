@@ -22,7 +22,7 @@ import { useAccounting } from "@/contexts/AccountingContexts";
 import { useAuditTrail } from "@/contexts/AuditTrailContext";
 import { authService } from "@/services/auth";
 import { toast } from "sonner";
-import { Building, Save, ArrowLeft, Plus, Trash2, Check, Upload, Download, User, Calendar, Lock, Unlock } from "lucide-react";
+import { Building, Save, ArrowLeft, Plus, Trash2, Check, Upload, Download, User, Calendar, Lock, Unlock, Receipt, BookOpen, MessageSquare } from "lucide-react";
 
 
 import { TakeoverPopup } from "@/components/company/TakeoverPopup";
@@ -33,6 +33,9 @@ import { useAccounting as useAccountingMain } from "@/contexts/AccountingContext
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8000";
 const VOUCHER_CONFIRMATION_KEY = "accountpro_voucher_confirmation_enabled";
+const DEFAULT_BILLING_SETTINGS = { approvedForFtax: false, paymentTermsDays: "30", reminderFee: "60", firstReminderFree: true, nextInvoiceNumber: "1", nextCustomerNumber: "1", nextQuoteNumber: "1", nextOrderNumber: "1" };
+const DEFAULT_BOOKKEEPING_SETTINGS = { voucherSeries: "A", defaultVatMethod: "Faktureringsmetoden", resultAccount: "2099", roundingAccount: "3740", fiscalLockReminder: true };
+const DEFAULT_MISC_SETTINGS = { invoicePhrase: "Tack för ditt förtroende.", quotePhrase: "Offerten gäller i 30 dagar.", reminderPhrase: "Vänligen betala snarast.", deliveryPhrase: "" };
 
 export default function SettingsPage() {
   const {
@@ -69,10 +72,36 @@ export default function SettingsPage() {
   const [pendingSIEContent, setPendingSIEContent] = useState<string | null>(null);
 
   // Personal settings
+  const [billingSettings, setBillingSettings] = useState(() => DEFAULT_BILLING_SETTINGS);
+  const [bookkeepingSettings, setBookkeepingSettings] = useState(() => DEFAULT_BOOKKEEPING_SETTINGS);
+  const [miscSettings, setMiscSettings] = useState(() => DEFAULT_MISC_SETTINGS);
   const [personalNumber, setPersonalNumber] = useState("");
   const [voucherConfirmationEnabled, setVoucherConfirmationEnabledState] = useState(
     () => localStorage.getItem(VOUCHER_CONFIRMATION_KEY) !== "false"
   );
+
+  useEffect(() => {
+    if (activeCompany?.id) {
+      const savedBilling = localStorage.getItem(`accountpro_billing_settings_${activeCompany.id}`);
+      const savedBookkeeping = localStorage.getItem(`accountpro_bookkeeping_settings_${activeCompany.id}`);
+      const savedMisc = localStorage.getItem(`accountpro_misc_settings_${activeCompany.id}`);
+      setBillingSettings(savedBilling ? { ...DEFAULT_BILLING_SETTINGS, ...JSON.parse(savedBilling) } : DEFAULT_BILLING_SETTINGS);
+      setBookkeepingSettings(savedBookkeeping ? { ...DEFAULT_BOOKKEEPING_SETTINGS, ...JSON.parse(savedBookkeeping) } : DEFAULT_BOOKKEEPING_SETTINGS);
+      setMiscSettings(savedMisc ? { ...DEFAULT_MISC_SETTINGS, ...JSON.parse(savedMisc) } : DEFAULT_MISC_SETTINGS);
+      return;
+    }
+    setBillingSettings(DEFAULT_BILLING_SETTINGS);
+    setBookkeepingSettings(DEFAULT_BOOKKEEPING_SETTINGS);
+    setMiscSettings(DEFAULT_MISC_SETTINGS);
+  }, [activeCompany?.id]);
+
+  const saveExtraSettings = () => {
+    if (!activeCompany?.id) return;
+    localStorage.setItem(`accountpro_billing_settings_${activeCompany.id}`, JSON.stringify(billingSettings));
+    localStorage.setItem(`accountpro_bookkeeping_settings_${activeCompany.id}`, JSON.stringify(bookkeepingSettings));
+    localStorage.setItem(`accountpro_misc_settings_${activeCompany.id}`, JSON.stringify(miscSettings));
+    toast.success("Inställningar sparade");
+  };
 
   useEffect(() => {
     if (user) {
@@ -83,6 +112,13 @@ export default function SettingsPage() {
 
   const [formData, setFormData] = useState({
     companyName: "",
+    phone: "",
+    mobile: "",
+    email: "",
+    website: "",
+    bankgiro: "",
+    plusgiro: "",
+    swish: "",
     organizationNumber: "",
     address: "",
     postalCode: "",
@@ -98,6 +134,13 @@ export default function SettingsPage() {
     if (activeCompany) {
       setFormData({
         companyName: activeCompany.companyName,
+        phone: (activeCompany as any).phone || "",
+        mobile: (activeCompany as any).mobile || "",
+        email: (activeCompany as any).email || "",
+        website: (activeCompany as any).website || "",
+        bankgiro: (activeCompany as any).bankgiro || "",
+        plusgiro: (activeCompany as any).plusgiro || "",
+        swish: (activeCompany as any).swish || "",
         organizationNumber: activeCompany.organizationNumber,
         address: activeCompany.address,
         postalCode: activeCompany.postalCode,
@@ -353,6 +396,9 @@ export default function SettingsPage() {
                   <User className="h-4 w-4" />
                   Personal Settings
                 </TabsTrigger>
+                <TabsTrigger value="billing" className="flex-1 gap-2"><Receipt className="h-4 w-4" />Faktura</TabsTrigger>
+                <TabsTrigger value="bookkeeping" className="flex-1 gap-2"><BookOpen className="h-4 w-4" />Bokföring</TabsTrigger>
+                <TabsTrigger value="misc" className="flex-1 gap-2"><MessageSquare className="h-4 w-4" />Övrigt</TabsTrigger>
               </TabsList>
 
               <TabsContent value="company" className="space-y-6 mt-6">
@@ -416,13 +462,28 @@ export default function SettingsPage() {
                     </CardHeader>
                     <CardContent>
                       <form onSubmit={handleSubmit} className="space-y-6">
-                        <div className="grid md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="companyName">Company Name *</Label>
-                            <Input id="companyName" value={formData.companyName} onChange={(e) => handleChange("companyName", e.target.value)} placeholder="Your Company AB" />
+                        <div className="space-y-4">
+                          <h3 className="font-semibold">Kontaktuppgifter</h3>
+                          <div className="grid md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="companyName">Företagsnamn *</Label>
+                              <Input id="companyName" value={formData.companyName} onChange={(e) => handleChange("companyName", e.target.value)} placeholder="Your Company AB" />
+                            </div>
+                            <div className="space-y-2"><Label htmlFor="address">Postadress *</Label><Input id="address" value={formData.address} onChange={(e) => handleChange("address", e.target.value)} placeholder="Storgatan 1" /></div>
+                            <div className="space-y-2"><Label htmlFor="postalCode">Postnummer *</Label><Input id="postalCode" value={formData.postalCode} onChange={(e) => handleChange("postalCode", e.target.value)} placeholder="123 45" /></div>
+                            <div className="space-y-2"><Label htmlFor="city">Postort *</Label><Input id="city" value={formData.city} onChange={(e) => handleChange("city", e.target.value)} placeholder="Stockholm" /></div>
+                            <div className="space-y-2"><Label htmlFor="phone">Telefonnummer</Label><Input id="phone" value={formData.phone} onChange={(e) => handleChange("phone", e.target.value)} /></div>
+                            <div className="space-y-2"><Label htmlFor="mobile">Mobilnummer</Label><Input id="mobile" value={formData.mobile} onChange={(e) => handleChange("mobile", e.target.value)} /></div>
+                            <div className="space-y-2"><Label htmlFor="email">E-postadress</Label><Input id="email" value={formData.email} onChange={(e) => handleChange("email", e.target.value)} /></div>
+                            <div className="space-y-2"><Label htmlFor="website">Webbplats</Label><Input id="website" value={formData.website} onChange={(e) => handleChange("website", e.target.value)} /></div>
                           </div>
+                        </div>
+
+                        <div className="space-y-4">
+                          <h3 className="font-semibold">Företagsuppgifter</h3>
+                          <div className="grid md:grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label htmlFor="organizationNumber">Organization Number *</Label>
+                            <Label htmlFor="organizationNumber">Organisationsnummer *</Label>
                             <Input id="organizationNumber" value={formData.organizationNumber} onChange={(e) => handleOrganizationNumberChange(e.target.value)} placeholder="XXXXXX-XXXX" maxLength={11} required disabled={isExistingCompany} className={isExistingCompany ? "bg-muted cursor-not-allowed" : ""} />
                             {isExistingCompany ? (
                               <p className="text-xs text-muted-foreground">Organization number cannot be changed after creation</p>
@@ -432,29 +493,12 @@ export default function SettingsPage() {
                           </div>
                         </div>
 
-                        <div className="space-y-2">
-                          <Label htmlFor="address">Street Address *</Label>
-                          <Input id="address" value={formData.address} onChange={(e) => handleChange("address", e.target.value)} placeholder="Storgatan 1" />
-                        </div>
-
-                        <div className="grid md:grid-cols-3 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="postalCode">Postal Code *</Label>
-                            <Input id="postalCode" value={formData.postalCode} onChange={(e) => handleChange("postalCode", e.target.value)} placeholder="123 45" />
+                          <div className="space-y-2"><Label htmlFor="vatNumber">Momsregistreringsnummer</Label><Input id="vatNumber" value={formData.vatNumber} onChange={(e) => handleChange("vatNumber", e.target.value)} placeholder="SE123456789001" /></div>
+                          <div className="space-y-2"><Label htmlFor="bankgiro">Bankgiro</Label><Input id="bankgiro" value={formData.bankgiro} onChange={(e) => handleChange("bankgiro", e.target.value)} /></div>
+                          <div className="space-y-2"><Label htmlFor="plusgiro">Plusgiro</Label><Input id="plusgiro" value={formData.plusgiro} onChange={(e) => handleChange("plusgiro", e.target.value)} /></div>
+                          <div className="space-y-2"><Label htmlFor="swish">Swish</Label><Input id="swish" value={formData.swish} onChange={(e) => handleChange("swish", e.target.value)} /></div>
+                          <div className="space-y-2"><Label htmlFor="country">Land *</Label><Input id="country" value={formData.country} onChange={(e) => handleChange("country", e.target.value)} placeholder="Sweden" /></div>
                           </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="city">City *</Label>
-                            <Input id="city" value={formData.city} onChange={(e) => handleChange("city", e.target.value)} placeholder="Stockholm" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="country">Country *</Label>
-                            <Input id="country" value={formData.country} onChange={(e) => handleChange("country", e.target.value)} placeholder="Sweden" />
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="vatNumber">VAT Number</Label>
-                          <Input id="vatNumber" value={formData.vatNumber} onChange={(e) => handleChange("vatNumber", e.target.value)} placeholder="SE123456789001" />
                         </div>
 
                         <div className="space-y-2">
@@ -705,6 +749,18 @@ export default function SettingsPage() {
                   </CardContent>
                 </Card>
               </TabsContent>
+
+              <TabsContent value="billing" className="space-y-6 mt-6">
+                <Card><CardHeader><CardTitle>Faktureringsuppgifter</CardTitle><CardDescription>Standardvärden för fakturor, kunder och nummerserier.</CardDescription></CardHeader><CardContent className="space-y-4">
+                  <div className="flex items-center justify-between rounded-lg border p-4"><Label>Godkänd för F-skatt</Label><Switch checked={billingSettings.approvedForFtax} onCheckedChange={(v) => setBillingSettings((p) => ({ ...p, approvedForFtax: v }))} /></div>
+                  <div className="grid md:grid-cols-2 gap-4"><div className="space-y-2"><Label>Standard betalningsvillkor (dagar)</Label><Input value={billingSettings.paymentTermsDays} onChange={(e) => setBillingSettings((p) => ({ ...p, paymentTermsDays: e.target.value }))} /></div><div className="space-y-2"><Label>Påminnelseavgift</Label><Input value={billingSettings.reminderFee} onChange={(e) => setBillingSettings((p) => ({ ...p, reminderFee: e.target.value }))} /></div></div>
+                  <div className="flex items-center justify-between rounded-lg border p-4"><Label>Första påminnelsen utan avgift</Label><Switch checked={billingSettings.firstReminderFree} onCheckedChange={(v) => setBillingSettings((p) => ({ ...p, firstReminderFree: v }))} /></div>
+                  <div className="grid md:grid-cols-2 gap-4"><div className="space-y-2"><Label>Nästa fakturanummer</Label><Input value={billingSettings.nextInvoiceNumber} onChange={(e) => setBillingSettings((p) => ({ ...p, nextInvoiceNumber: e.target.value }))} /></div><div className="space-y-2"><Label>Nästa kundnummer</Label><Input value={billingSettings.nextCustomerNumber} onChange={(e) => setBillingSettings((p) => ({ ...p, nextCustomerNumber: e.target.value }))} /></div><div className="space-y-2"><Label>Nästa offertnummer</Label><Input value={billingSettings.nextQuoteNumber} onChange={(e) => setBillingSettings((p) => ({ ...p, nextQuoteNumber: e.target.value }))} /></div><div className="space-y-2"><Label>Nästa ordernummer</Label><Input value={billingSettings.nextOrderNumber} onChange={(e) => setBillingSettings((p) => ({ ...p, nextOrderNumber: e.target.value }))} /></div></div>
+                  <Button onClick={saveExtraSettings}><Save className="mr-2 h-4 w-4" />Spara</Button>
+                </CardContent></Card>
+              </TabsContent>
+              <TabsContent value="bookkeeping" className="space-y-6 mt-6"><Card><CardHeader><CardTitle>Bokföringsuppgifter</CardTitle><CardDescription>Passande standardinställningar för aktiebolag.</CardDescription></CardHeader><CardContent className="space-y-4"><div className="grid md:grid-cols-2 gap-4">{Object.entries(bookkeepingSettings).filter(([k]) => k !== "fiscalLockReminder").map(([key, value]) => <div className="space-y-2" key={key}><Label>{key}</Label><Input value={String(value)} onChange={(e) => setBookkeepingSettings((p) => ({ ...p, [key]: e.target.value }))} /></div>)}</div><div className="flex items-center justify-between rounded-lg border p-4"><Label>Påminn om låsning av räkenskapsår</Label><Switch checked={bookkeepingSettings.fiscalLockReminder} onCheckedChange={(v) => setBookkeepingSettings((p) => ({ ...p, fiscalLockReminder: v }))} /></div><Button onClick={saveExtraSettings}><Save className="mr-2 h-4 w-4" />Spara</Button></CardContent></Card></TabsContent>
+              <TabsContent value="misc" className="space-y-6 mt-6"><Card><CardHeader><CardTitle>Övrigt</CardTitle><CardDescription>Standardfraser för fakturor, offerter och påminnelser.</CardDescription></CardHeader><CardContent className="space-y-4">{Object.entries(miscSettings).map(([key, value]) => <div className="space-y-2" key={key}><Label>{key}</Label><Input value={String(value)} onChange={(e) => setMiscSettings((p) => ({ ...p, [key]: e.target.value }))} /></div>)}<Button onClick={saveExtraSettings}><Save className="mr-2 h-4 w-4" />Spara</Button></CardContent></Card></TabsContent>
             </Tabs>
           </div>
         </main>

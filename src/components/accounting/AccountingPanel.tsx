@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, Eye, Calendar, Search, Lock, Columns2, Trash2 } from "lucide-react";
+import { Plus, Eye, Calendar, Search, Lock, Columns2, Trash2, FileText } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 
 const VOUCHERS_PER_PAGE = 10;
+const VOUCHER_DRAFT_KEY_PREFIX = "accountpro_voucher_drafts_";
 const VOUCHER_TEMPLATE_KEY_PREFIX = "accountpro_voucher_templates_";
 const STANDARD_VOUCHER_TEMPLATE_KEY = "accountpro_standard_voucher_templates";
 
@@ -95,8 +96,22 @@ export function AccountingPanel({
   ]);
   const [savedTemplate, setSavedTemplate] = useState<StoredVoucherTemplate | null>(null);
   const [activeTemplateName, setActiveTemplateName] = useState("");
+  const [drafts, setDrafts] = useState<Voucher[]>([]);
+  const [showDrafts, setShowDrafts] = useState(false);
 
   const currentYearLocked = selectedYear !== undefined ? isYearLocked(selectedYear) : false;
+  const draftStorageKey = activeCompany?.id ? `${VOUCHER_DRAFT_KEY_PREFIX}${activeCompany.id}` : "";
+
+  const loadDrafts = () => {
+    if (!draftStorageKey) { setDrafts([]); return; }
+    setDrafts(JSON.parse(localStorage.getItem(draftStorageKey) ?? "[]"));
+  };
+
+  const persistDrafts = (nextDrafts: Voucher[]) => {
+    if (!draftStorageKey) return;
+    localStorage.setItem(draftStorageKey, JSON.stringify(nextDrafts));
+    setDrafts(nextDrafts);
+  };
 
   const loadVoucherTemplates = () => {
     const standardRaw = localStorage.getItem(STANDARD_VOUCHER_TEMPLATE_KEY);
@@ -112,7 +127,8 @@ export function AccountingPanel({
 
   useEffect(() => {
     loadVoucherTemplates();
-  }, [activeCompany?.id]);
+    loadDrafts();
+  }, [activeCompany?.id, draftStorageKey]);
 
   // Auto-open create form from header shortcut
   useEffect(() => {
@@ -135,7 +151,8 @@ export function AccountingPanel({
 
   useEffect(() => {
     if (incomingDuplicate) {
-      setDuplicatingVoucher({
+      const isExplicitReversalDraft = incomingDuplicate.voucherNumber === 0 && Boolean(incomingDuplicate.reversesVoucherId);
+      setDuplicatingVoucher(isExplicitReversalDraft ? incomingDuplicate : {
         ...incomingDuplicate,
         reversesVoucherId: undefined,
         reversesVoucherNumber: undefined,
@@ -324,10 +341,47 @@ export function AccountingPanel({
   };
 
   const handleFormSuccess = () => {
+    if (duplicatingVoucher?.voucherNumber === 0) {
+      persistDrafts(drafts.filter((draft) => draft.id !== duplicatingVoucher.id));
+    }
     setShowCreateForm(false);
     setEditingVoucher(null);
     setDuplicatingVoucher(null);
     window.scrollTo({ top: 0, behavior: "instant" });
+  };
+
+  const handleSaveDraft = (draftData: Omit<Voucher, "id" | "companyId" | "voucherNumber" | "createdAt">) => {
+    if (!activeCompany?.id) return;
+    const existingDraftId = duplicatingVoucher?.voucherNumber === 0 && drafts.some((draft) => draft.id === duplicatingVoucher.id)
+      ? duplicatingVoucher.id
+      : crypto.randomUUID();
+    const draft: Voucher = {
+      ...draftData,
+      id: existingDraftId,
+      companyId: activeCompany.id,
+      voucherNumber: 0,
+      createdAt: duplicatingVoucher?.createdAt || new Date().toISOString(),
+    };
+    const nextDrafts = [draft, ...drafts.filter((item) => item.id !== draft.id)];
+    persistDrafts(nextDrafts);
+    toast.success("Utkast sparat");
+    handleFormCancel();
+  };
+
+  const openDraft = (draft: Voucher) => {
+    setDuplicatingVoucher(draft);
+    setActiveTemplateName("Utkast");
+    setShowDrafts(false);
+    setShowCreateForm(true);
+    setSelectedVoucher(null);
+    setEditingVoucher(null);
+    setShowCreateChoice(false);
+    setTemplateBuilderKind(null);
+  };
+
+  const deleteDraft = (draftId: string) => {
+    persistDrafts(drafts.filter((draft) => draft.id !== draftId));
+    toast.success("Utkast raderat");
   };
 
   const handleDuplicateVoucher = (voucher: Voucher) => {
@@ -478,6 +532,30 @@ export function AccountingPanel({
         </Card>
       )}
 
+      <div className="flex flex-wrap gap-2">
+        <Button variant={!showDrafts ? "default" : "outline"} size="sm" onClick={() => setShowDrafts(false)}>Verifikationer</Button>
+        <Button variant={showDrafts ? "default" : "outline"} size="sm" onClick={() => { setShowDrafts(true); setShowCreateForm(false); setShowCreateChoice(false); setSelectedVoucher(null); }}>
+          <FileText className="h-4 w-4 mr-1" /> Utkast ({drafts.length})
+        </Button>
+      </div>
+
+      {showDrafts && (
+        <Card>
+          <CardHeader><CardTitle>Utkast</CardTitle><CardDescription>Sparade verifikationsutkast som kan bokföras senare.</CardDescription></CardHeader>
+          <CardContent className="space-y-2">
+            {drafts.length === 0 ? <p className="text-sm text-muted-foreground">Inga utkast ännu.</p> : drafts.map((draft) => (
+              <div key={draft.id} className="flex items-center justify-between rounded-md border p-3 text-sm">
+                <button className="text-left" onClick={() => openDraft(draft)}>
+                  <div className="font-medium">{draft.description || "Namnlöst utkast"}</div>
+                  <div className="text-xs text-muted-foreground">{draft.date || "Datum saknas"} · {draft.lines.length} rader</div>
+                </button>
+                <Button variant="ghost" size="icon" onClick={() => deleteDraft(draft.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Create/Edit/Duplicate Form */}
       {showCreateChoice && !showCreateForm && !editingVoucher && !templateBuilderKind && (
         <Card>
@@ -535,6 +613,7 @@ export function AccountingPanel({
           editVoucher={editingVoucher || undefined}
           duplicateFrom={duplicatingVoucher || (prefillVoucher ? { ...prefillVoucher, voucherNumber: 0, date: new Date().toISOString().split("T")[0], lines: prefillVoucher.lines.map((l: any) => ({ ...l, id: crypto.randomUUID() })) } as Voucher : undefined)}
           templateName={activeTemplateName || undefined}
+          onSaveDraft={handleSaveDraft}
         />
       )}
 
