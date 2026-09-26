@@ -1,281 +1,81 @@
-import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { cn } from "@/lib/utils";
-import {
-  LayoutDashboard,
-  BookOpen,
-  FileText,
-  Users,
-  FileCheck,
-  BarChart3,
-  Wallet,
-  ChevronLeft,
-  ChevronRight,
-  Shield,
-  Receipt,
-  Calculator,
-  ListChecks,
-  Settings,
-  LogOut,
-  User,
-  ClipboardList,
-  MessageSquare,
-  ChevronDown,
-  Search,
-  Check,
-  Plus,
-} from "lucide-react";
+import { BookOpen, FileText, Users, FileCheck, BarChart3, Wallet, ChevronLeft, ChevronRight, Shield, Receipt, Calculator, ListChecks, Settings, LogOut, User, ClipboardList, MessageSquare, Plus, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChecklist } from "@/contexts/ChecklistContext";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
-interface EconomySidebarProps {
-  collapsed: boolean;
-  onToggle: () => void;
-}
+interface EconomySidebarProps { collapsed: boolean; onToggle: () => void; }
 
-const navItems = [
-  { name: "Overview", href: "/economy", icon: LayoutDashboard },
-  { name: "Checklist", href: "/economy/checklist", icon: ListChecks },
-  { name: "Accounting", href: "/economy/accounting", icon: BookOpen },
-  { name: "Billing", href: "/economy/billing", icon: FileText },
-  { name: "Receipts", href: "/economy/receipts", icon: Receipt },
-  { name: "Salary", href: "/economy/salary", icon: Users },
-  { name: "Declaration", href: "/economy/declaration", icon: FileCheck },
-  { name: "Moms", href: "/economy/moms", icon: Calculator },
-  { name: "VAT Report", href: "/economy/vat-report", icon: FileCheck },
-  { name: "Financial Statements", href: "/economy/financial-statements", icon: BarChart3 },
-  { name: "Annual Reports", href: "/economy/annual-reports", icon: FileText },
-  { name: "Accounts", href: "/economy/accounts", icon: Wallet },
+const groups = [
+  { label: "Översikt", items: [
+    { name: "Översikt", href: "/economy", icon: LayoutDashboard },
+    { name: "Checklista", href: "/economy/checklist", icon: ListChecks },
+  ] },
+  { label: "Löpande arbete", items: [
+    { name: "Bokföring", href: "/economy/accounting", icon: BookOpen },
+    { name: "Fakturering", href: "/economy/billing", icon: FileText },
+    { name: "Kvitton", href: "/economy/receipts", icon: Receipt },
+    { name: "Löner", href: "/economy/salary", icon: Users },
+  ] },
+  { label: "Rapporter & avslut", items: [
+    { name: "Moms", href: "/economy/moms", icon: Calculator },
+    { name: "Momsrapport", href: "/economy/vat-report", icon: FileCheck },
+    { name: "Deklaration", href: "/economy/declaration", icon: FileCheck },
+    { name: "Finansiella rapporter", href: "/economy/financial-statements", icon: BarChart3 },
+    { name: "Årsredovisning", href: "/economy/annual-reports", icon: FileText },
+    { name: "Konton", href: "/economy/accounts", icon: Wallet },
+  ] },
+  { label: "Administration", items: [
+    { name: "Kommentarer", href: "/comments", icon: MessageSquare },
+    { name: "Ändringslogg", href: "/audit-trail", icon: ClipboardList },
+    { name: "Inställningar", href: "/settings", icon: Settings },
+  ] },
 ];
 
-const MAX_COMPANIES_SHOWN = 5;
-
 export function EconomySidebar({ collapsed, onToggle }: EconomySidebarProps) {
-  const location = useLocation();
+  const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { user, logout, companies, activeCompany, setActiveCompany } = useAuth();
-  const { items: checklistItems } = useChecklist();
-  const activeChecklistCount = checklistItems.filter((i) => !i.done).length;
-  const [companySearch, setCompanySearch] = useState("");
-
-  const isExpanded = !collapsed;
-
-  const allNavItems = user?.role === "admin"
-    ? [...navItems, { name: "Admin Panel", href: "/admin", icon: Shield }]
-    : navItems;
-
-  const handleLogout = () => {
-    logout();
-    navigate("/");
-  };
-
-  const filteredCompanies = companies.filter(c => {
-    if (!companySearch.trim()) return true;
-    const q = companySearch.toLowerCase();
-    return (c.companyName || "").toLowerCase().includes(q) || (c.organizationNumber || "").includes(q);
-  });
-
-  const showCompanySearch = companies.length > MAX_COMPANIES_SHOWN;
-  const displayedCompanies = showCompanySearch ? filteredCompanies : companies.slice(0, MAX_COMPANIES_SHOWN);
-
-  if (!user) {
-    return (
-      <aside
-        className={cn(
-          "fixed left-0 top-0 h-screen bg-sidebar border-r border-sidebar-border z-40 transition-all duration-300 ease-in-out flex flex-col",
-          collapsed ? "w-sidebar-collapsed" : "w-sidebar"
-        )}
-      >
-        <div className="flex items-center justify-between p-4 border-b border-sidebar-border shrink-0">
-          <span className={cn("font-semibold text-sidebar-foreground transition-opacity duration-200", !isExpanded && "opacity-0 w-0 overflow-hidden")}>
-            AccountPro
-          </span>
-          <Button variant="ghost" size="icon" onClick={onToggle} className="text-sidebar-foreground hover:bg-sidebar-accent shrink-0 h-8 w-8">
-            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-          </Button>
-        </div>
-        <div className={cn("flex-1 p-4 overflow-y-auto scrollbar-hide transition-opacity duration-200", !isExpanded && "opacity-0")}>
-          <p className="text-sm text-sidebar-foreground/60">Log in to access economy tools.</p>
-        </div>
-        <div className={cn("p-3 border-t border-sidebar-border shrink-0", !isExpanded && "opacity-0")}>
-          <Button variant="default" size="sm" className="w-full" asChild>
-            <Link to="/login">Sign In</Link>
-          </Button>
-        </div>
-      </aside>
-    );
-  }
-
+  const { user, logout } = useAuth();
+  const { items } = useChecklist();
+  const count = items.filter(item => !item.done).length;
   return (
-    <aside
-      className={cn(
-        "fixed left-0 top-0 h-screen bg-sidebar border-r border-sidebar-border z-40 transition-all duration-300 ease-in-out flex flex-col",
-        collapsed ? "w-sidebar-collapsed" : "w-sidebar"
-      )}
-    >
-      {/* User section at top */}
-      <div className={cn(
-        "flex items-center gap-3 p-4 border-b border-sidebar-border shrink-0",
-        collapsed && "justify-center px-2"
-      )}>
-        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-sidebar-primary/15 text-sidebar-primary shrink-0">
-          <User className="h-4 w-4" />
-        </div>
-        <div className={cn("flex flex-col min-w-0 transition-opacity duration-200", !isExpanded && "opacity-0 w-0 overflow-hidden")}>
-          <span className="text-sm font-semibold text-sidebar-foreground truncate">{user.name}</span>
-          <span className="text-[11px] text-sidebar-foreground/50 truncate">{user.email}</span>
-        </div>
-        <Button variant="ghost" size="icon" onClick={onToggle} className={cn("text-sidebar-foreground/60 hover:bg-sidebar-accent shrink-0 h-7 w-7 ml-auto", !isExpanded && "hidden")}>
-          <ChevronLeft className="h-4 w-4" />
+    <aside className={cn("workspace-sidebar fixed inset-y-0 left-0 z-40 flex flex-col bg-sidebar transition-[width] duration-200", collapsed ? "w-sidebar-collapsed" : "w-sidebar")}>
+      <div className={cn("flex shrink-0 items-center gap-2 px-5 py-5", collapsed && "justify-center px-2")}>
+        {!collapsed && <Link to="/economy" className="min-w-0 flex-1 text-lg font-semibold tracking-tight text-foreground">Account<span className="text-primary">Pro</span></Link>}
+        <Button variant="ghost" size="icon" onClick={onToggle} aria-label={collapsed ? "Visa meny" : "Fäll ihop meny"} className="h-8 w-8 shrink-0 text-muted-foreground">
+          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </Button>
-        {collapsed && (
-          <Button variant="ghost" size="icon" onClick={onToggle} className="text-sidebar-foreground/60 hover:bg-sidebar-accent shrink-0 h-7 w-7 absolute right-1 top-4">
-            <ChevronRight className="h-3.5 w-3.5" />
-          </Button>
-        )}
       </div>
-
-      {/* Quick Actions (collapsed: show icon, expanded: show dropdown) */}
-      {isExpanded && (
-        <div className="px-3 pt-3 pb-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground/70 border-sidebar-border hover:bg-sidebar-accent">
-                <Plus className="h-4 w-4" />
-                Quick Actions
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-48">
-              <DropdownMenuItem onClick={() => navigate("/economy/accounting", { state: { openCreateVoucher: true } })}>
-                <BookOpen className="h-4 w-4 mr-2" />
-                Create Voucher
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate("/economy/billing", { state: { openCreateInvoice: true } })}>
-                <FileText className="h-4 w-4 mr-2" />
-                Create Invoice
-              </DropdownMenuItem>
+      {user ? <>
+        <div className="px-3 pb-2">
+          <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" aria-label="Snabbåtgärder" className={cn("w-full gap-2", collapsed ? "px-0" : "justify-start")}><Plus className="h-4 w-4" />{!collapsed && "Snabbåtgärder"}</Button></DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={() => navigate("/economy/accounting", { state: { openCreateVoucher: true } })}><BookOpen className="mr-2 h-4 w-4" />Ny verifikation</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/economy/billing", { state: { openCreateInvoice: true } })}><FileText className="mr-2 h-4 w-4" />Ny faktura</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      )}
-
-      {/* Navigation */}
-      <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto scrollbar-hide">
-        {isExpanded && (
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40 px-3 pt-2 pb-1">Navigation</p>
-        )}
-        {allNavItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = location.pathname === item.href;
-          const isChecklist = item.href === "/economy/checklist";
-          const showBadge = isChecklist && activeChecklistCount > 0;
-
-          return (
-            <Link
-              key={item.href}
-              to={item.href}
-              className={cn("economy-sidebar-link group", !isExpanded && "justify-center px-0 gap-0", isActive && "active")}
-              title={collapsed ? item.name : undefined}
-            >
-              <div className="relative shrink-0">
-                <Icon className={cn("h-[18px] w-[18px]", isActive && "text-sidebar-primary")} />
-                {showBadge && (
-                  <span
-                    className="absolute -top-1.5 -right-1.5 min-w-[1rem] h-4 px-1 flex items-center justify-center rounded-full text-[10px] font-bold bg-sidebar-primary text-sidebar-primary-foreground"
-                    aria-label={`${activeChecklistCount} active checklist items`}
-                  >
-                    {activeChecklistCount > 99 ? "99+" : activeChecklistCount}
-                  </span>
-                )}
-              </div>
-              <span className={cn("transition-opacity duration-200 whitespace-nowrap", !isExpanded && "opacity-0 w-0 overflow-hidden")}>
-                {item.name}
-                {showBadge && isExpanded && (
-                  <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sidebar-primary/15 text-sidebar-primary">
-                    {activeChecklistCount}
-                  </span>
-                )}
-              </span>
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Sticky bottom section: Settings */}
-      <div className="shrink-0 border-t border-sidebar-border">
-        {isExpanded && (
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40 px-6 pt-3 pb-1">Settings</p>
-        )}
-        <div className="px-3 py-1 space-y-0.5">
-          <Link
-            to="/settings"
-            className={cn(
-              "economy-sidebar-link group",
-              !isExpanded && "justify-center px-0 gap-0",
-              location.pathname === "/settings" && "active"
-            )}
-            title={collapsed ? "Settings" : undefined}
-          >
-            <Settings className={cn("h-[18px] w-[18px] shrink-0", location.pathname === "/settings" && "text-sidebar-primary")} />
-            <span className={cn("transition-opacity duration-200 whitespace-nowrap", !isExpanded && "opacity-0 w-0 overflow-hidden")}>
-              Settings
-            </span>
-          </Link>
-          <Link
-            to="/audit-trail"
-            className={cn(
-              "economy-sidebar-link group",
-              !isExpanded && "justify-center px-0 gap-0",
-              location.pathname === "/audit-trail" && "active"
-            )}
-            title={collapsed ? "Audit Trail" : undefined}
-          >
-            <ClipboardList className={cn("h-[18px] w-[18px] shrink-0", location.pathname === "/audit-trail" && "text-sidebar-primary")} />
-            <span className={cn("transition-opacity duration-200 whitespace-nowrap", !isExpanded && "opacity-0 w-0 overflow-hidden")}>
-              Audit Trail
-            </span>
-          </Link>
-          <Link
-            to="/comments"
-            className={cn(
-              "economy-sidebar-link group",
-              !isExpanded && "justify-center px-0 gap-0",
-              location.pathname === "/comments" && "active"
-            )}
-            title={collapsed ? "Kommentarer" : undefined}
-          >
-            <MessageSquare className={cn("h-[18px] w-[18px] shrink-0", location.pathname === "/comments" && "text-sidebar-primary")} />
-            <span className={cn("transition-opacity duration-200 whitespace-nowrap", !isExpanded && "opacity-0 w-0 overflow-hidden")}>
-              Kommentarer
-            </span>
-          </Link>
+        <nav aria-label="Huvudnavigation" className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+          {groups.map((group, index) => <div key={group.label} className={cn(index > 0 && "mt-4")}>
+            {!collapsed && index > 0 && <p className="px-3 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{group.label}</p>}
+            {group.items.map(({ name, href, icon: Icon }) => {
+              const active = pathname === href;
+              const badge = href === "/economy/checklist" && count > 0;
+              return <Link key={href} to={href} aria-current={active ? "page" : undefined} aria-label={collapsed ? name : undefined} title={collapsed ? name : undefined} className={cn("economy-sidebar-link", active && "active", collapsed && "justify-center px-0")}>
+                <span className="relative shrink-0"><Icon className="h-4 w-4" aria-hidden="true" />{badge && collapsed && <span className="absolute -right-2 -top-2 rounded-full bg-primary px-1 text-[10px] text-primary-foreground">{count > 99 ? "99+" : count}</span>}</span>
+                {!collapsed && <><span className="min-w-0 flex-1">{name}</span>{badge && <span className="rounded-full bg-sidebar-accent px-1.5 text-xs tabular-nums text-sidebar-primary">{count > 99 ? "99+" : count}</span>}</>}
+              </Link>;
+            })}
+          </div>)}
+          {user.role === "admin" && <Link to="/admin" aria-label="Adminpanel" title={collapsed ? "Adminpanel" : undefined} aria-current={pathname === "/admin" ? "page" : undefined} className={cn("economy-sidebar-link mt-1", pathname === "/admin" && "active", collapsed && "justify-center px-0")}><Shield className="h-4 w-4 shrink-0" />{!collapsed && "Adminpanel"}</Link>}
+        </nav>
+        <div className="shrink-0 border-t border-sidebar-border px-3 py-3">
+          {!collapsed && <div className="mb-2 flex items-center gap-2 px-3"><User className="h-4 w-4 shrink-0 text-muted-foreground" /><div className="min-w-0"><p className="truncate text-sm font-medium text-foreground">{user.name}</p><p className="truncate text-xs text-muted-foreground">{user.email}</p></div></div>}
+          <button type="button" aria-label="Logga ut" title={collapsed ? "Logga ut" : undefined} className={cn("economy-sidebar-link w-full", collapsed && "justify-center px-0")} onClick={() => { logout(); navigate("/"); }}><LogOut className="h-4 w-4" />{!collapsed && "Logga ut"}</button>
         </div>
-
-        {/* Sign out */}
-        <div className="px-3 py-3">
-          <button
-            onClick={handleLogout}
-            className={cn(
-              "economy-sidebar-link group w-full text-destructive/70 hover:text-destructive hover:bg-destructive/5",
-              !isExpanded && "justify-center px-0 gap-0"
-            )}
-            title={collapsed ? "Sign Out" : undefined}
-          >
-            <LogOut className="h-[18px] w-[18px] shrink-0" />
-            <span className={cn("transition-opacity duration-200 whitespace-nowrap", !isExpanded && "opacity-0 w-0 overflow-hidden")}>
-              Sign Out
-            </span>
-          </button>
-        </div>
-      </div>
+      </> : <div className="px-3"><p className={cn("mb-4 text-sm text-muted-foreground", collapsed && "sr-only")}>Logga in för att komma åt ekonomiverktygen.</p><Button asChild size="sm"><Link to="/login" aria-label="Logga in">{collapsed ? <User className="h-4 w-4" /> : "Logga in"}</Link></Button></div>}
     </aside>
   );
 }

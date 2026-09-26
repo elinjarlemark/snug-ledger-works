@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ThemeSwitch } from "./ThemeSwitch";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   HoverCard,
@@ -87,6 +88,7 @@ export function Header() {
         </div>
 
         <nav className="flex items-center gap-8">
+          <ThemeSwitch />
           {(user ? loggedInNavItems : loggedOutNavItems).map((item) => (
             <Link
               key={item.href}

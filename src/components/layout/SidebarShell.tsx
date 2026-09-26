@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Outlet, Link } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { EconomySidebar } from "./EconomySidebar";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChevronDown, Check, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ThemeSwitch } from "./ThemeSwitch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,44 +30,39 @@ export function SidebarShell() {
   const displayedCompanies = showCompanySearch ? filteredCompanies : companies.slice(0, MAX_COMPANIES_SHOWN);
 
   return (
-    <div className="min-h-screen flex">
+    <div className="workspace min-h-screen flex">
       <EconomySidebar
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
       <main
         className={cn(
-          "flex-1 transition-all duration-300 ease-in-out min-h-screen",
+          "workspace-page min-w-0 flex-1 transition-all duration-300 ease-in-out",
           sidebarCollapsed ? "ml-sidebar-collapsed" : "ml-sidebar"
         )}
       >
         {/* Top bar */}
-        <div className="sticky top-0 z-30 flex items-center justify-between px-6 py-3 bg-background/80 backdrop-blur-sm">
-          <div className="flex-1" />
-          <Link
-            to="/economy"
-            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {activeCompany?.companyName || "My Company"}
-          </Link>
-          <div className="flex-1 flex justify-end">
+        <div className="workspace-topbar sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <div className="min-w-0">
+            <p className="px-3 text-xs text-muted-foreground">Aktivt företag</p>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="gap-1.5 text-foreground/70 hover:text-foreground">
                   <span className="text-sm font-medium truncate max-w-[180px]">
-                    {activeCompany?.companyName || "Select Company"}
+                    {activeCompany?.companyName || "Välj företag"}
                   </span>
                   <ChevronDown className="h-3.5 w-3.5" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64 p-2">
-                <p className="text-xs text-muted-foreground px-2 py-1 font-medium">Switch Company</p>
+                <p className="text-xs text-muted-foreground px-2 py-1 font-medium">Byt företag</p>
                 {showCompanySearch && (
                   <div className="px-2 pb-1">
                     <div className="relative">
                       <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
                       <Input
-                        placeholder="Search companies..."
+                        placeholder="Sök företag..."
+                        aria-label="Sök företag"
                         value={companySearch}
                         onChange={(e) => setCompanySearch(e.target.value)}
                         className="h-7 pl-7 text-xs"
@@ -89,7 +85,7 @@ export function SidebarShell() {
                       <Check className="h-4 w-4 shrink-0" />
                     )}
                     <div className={cn(company.id !== activeCompany?.id && "ml-6")}>
-                      <p className="font-medium truncate">{company.companyName || "Unnamed Company"}</p>
+                      <p className="font-medium truncate">{company.companyName || "Namnlöst företag"}</p>
                       {company.organizationNumber && (
                         <p className="text-xs text-muted-foreground">{company.organizationNumber}</p>
                       )}
@@ -99,9 +95,10 @@ export function SidebarShell() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+          <ThemeSwitch />
         </div>
 
-        <div className="container py-8">
+        <div className="workspace-content">
           <Outlet context={{ sidebarCollapsed, setSidebarCollapsed }} />
         </div>
       </main>
