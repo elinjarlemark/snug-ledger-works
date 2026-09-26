@@ -1,0 +1,101 @@
+/* Shared appearance tokens. Light surfaces are warm grey, never pure white. */
+:root {
+  --background: 40 14% 94%;
+  --foreground: 225 9% 16%;
+  --card: 40 20% 97%;
+  --card-foreground: 225 9% 16%;
+  --popover: 40 20% 97%;
+  --popover-foreground: 225 9% 16%;
+  --primary: 250 39% 45%;
+  --primary-foreground: 40 20% 98%;
+  --secondary: 250 28% 43%;
+  --secondary-foreground: 40 20% 98%;
+  --muted: 40 10% 91%;
+  --muted-foreground: 225 6% 40%;
+  --accent: 250 39% 45%;
+  --accent-foreground: 40 20% 98%;
+  --border: 40 7% 84%;
+  --input: 40 7% 84%;
+  --ring: 250 39% 45%;
+  --success: 154 37% 31%;
+  --warning: 35 75% 31%;
+  --destructive: 5 58% 40%;
+  --sidebar-background: 40 14% 94%;
+  --sidebar-foreground: 225 7% 33%;
+  --sidebar-primary: 250 39% 45%;
+  --sidebar-primary-foreground: 40 20% 98%;
+  --sidebar-accent: 250 22% 91%;
+  --sidebar-accent-foreground: 225 9% 16%;
+  --sidebar-border: 40 7% 84%;
+  --sidebar-ring: 250 39% 45%;
+  --sidebar-width: 14rem;
+  --radius: .5rem;
+  --gradient-mesh: none;
+  --gradient-card: linear-gradient(hsl(var(--card)), hsl(var(--card)));
+  --gradient-subtle: linear-gradient(hsl(var(--card)), hsl(var(--card)));
+  --shadow-card: 0 1px 2px hsl(225 10% 15% / .03);
+  --shadow-glow: 0 0 0 transparent;
+  --shadow-glow-strong: 0 0 0 transparent;
+}
+
+.dark {
+  --background: 225 8% 10%;
+  --foreground: 240 6% 93%;
+  --card: 225 7% 14%;
+  --card-foreground: 240 6% 93%;
+  --popover: 225 7% 16%;
+  --popover-foreground: 240 6% 93%;
+  --primary: 253 65% 79%;
+  --primary-foreground: 250 24% 15%;
+  --secondary: 253 48% 77%;
+  --secondary-foreground: 250 24% 15%;
+  --muted: 225 7% 19%;
+  --muted-foreground: 225 8% 69%;
+  --accent: 253 65% 79%;
+  --accent-foreground: 250 24% 15%;
+  --border: 225 7% 25%;
+  --input: 225 7% 29%;
+  --ring: 253 65% 79%;
+  --success: 154 35% 65%;
+  --success-foreground: 154 25% 12%;
+  --warning: 38 65% 67%;
+  --warning-foreground: 38 30% 12%;
+  --destructive: 5 68% 73%;
+  --destructive-foreground: 5 30% 12%;
+  --sidebar-background: 225 8% 10%;
+  --sidebar-foreground: 225 8% 74%;
+  --sidebar-primary: 253 65% 79%;
+  --sidebar-primary-foreground: 250 24% 15%;
+  --sidebar-accent: 253 17% 23%;
+  --sidebar-accent-foreground: 240 6% 93%;
+  --sidebar-border: 225 7% 25%;
+  --sidebar-ring: 253 65% 79%;
+}
+
+.workspace h1, .workspace h2, .workspace h3, .workspace h4 { font-family: Inter, system-ui, sans-serif; }
+.workspace h1 { font-size: 1.75rem; font-weight: 600; letter-spacing: -.035em; }
+.workspace .gradient-text { background: none; color: hsl(var(--foreground)); -webkit-text-fill-color: currentColor; }
+.workspace .economy-sidebar-link { font-size: .8125rem; font-weight: 400; border-radius: .45rem; }
+.workspace .economy-sidebar-link.active { background: hsl(var(--sidebar-accent)); color: hsl(var(--sidebar-primary)); font-weight: 600; }
+.workspace .workspace-page { margin-top: .5rem; margin-right: .5rem; margin-bottom: .5rem; min-height: calc(100vh - 1rem); border: 1px solid hsl(var(--border)); border-radius: .75rem; background: hsl(var(--card)); }
+.workspace .workspace-topbar { background: hsl(var(--card)); border-bottom: 1px solid hsl(var(--border)); border-radius: .75rem .75rem 0 0; }
+.workspace .workspace-content { padding: 2rem; }
+.workspace table { font-size: .8125rem; }
+.workspace th { color: hsl(var(--muted-foreground)); font-weight: 500; }
+.workspace td { padding-top: .75rem; padding-bottom: .75rem; }
+.workspace td.font-mono { font-family: Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+.workspace .feature-card { background: hsl(var(--card)); box-shadow: none; }
+.workspace .feature-card::before { display: none; }
+.workspace .feature-card:hover { transform: none; }
+.workspace .shadow-md, .workspace .shadow-lg { box-shadow: var(--shadow-card); }
+.workspace .bg-gradient-accent { background: hsl(var(--primary)); }
+.workspace .workspace-sidebar { border-right: 0; }
+.workspace .workspace-sidebar nav { scrollbar-width: thin; }
+@media(max-width: 767px) {
+  .workspace { --sidebar-width: 12rem; }
+  .workspace .workspace-content { padding: 1rem; }
+  .workspace h1 { font-size: 1.5rem; }
+}
+@media(prefers-reduced-motion: reduce) {
+  .workspace *, .workspace *::before, .workspace *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
