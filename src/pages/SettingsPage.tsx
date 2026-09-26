@@ -484,8 +484,6 @@ export default function SettingsPage() {
                               <p className="text-xs text-muted-foreground">{formData.organizationNumber.replace(/-/g, "").length}/10 digits</p>
                             )}
                           </div>
-                        </div>
-
                           <div className="space-y-2"><Label htmlFor="vatNumber">Momsregistreringsnummer</Label><Input id="vatNumber" value={formData.vatNumber} onChange={(e) => handleChange("vatNumber", e.target.value)} placeholder="SE123456789001" /></div>
                           <div className="space-y-2"><Label htmlFor="bankgiro">Bankgiro</Label><Input id="bankgiro" value={formData.bankgiro} onChange={(e) => handleChange("bankgiro", e.target.value)} /></div>
                           <div className="space-y-2"><Label htmlFor="plusgiro">Plusgiro</Label><Input id="plusgiro" value={formData.plusgiro} onChange={(e) => handleChange("plusgiro", e.target.value)} /></div>

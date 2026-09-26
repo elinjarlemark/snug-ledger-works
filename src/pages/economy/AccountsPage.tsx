@@ -56,7 +56,7 @@ export default function AccountsPage() {
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="space-y-1">
-        <h1 className="text-3xl font-bold gradient-text">Accounts</h1>
+        <h1 className="text-3xl font-bold gradient-text">Konton</h1>
         <p className="text-sm text-muted-foreground">BAS-kontoplan och kontoöversikt.</p>
       </div>
 

@@ -35,11 +35,11 @@ export default function AccountingPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <BookOpen className="h-6 w-6 text-secondary" />
-            <h1 className="text-2xl font-bold text-foreground">Accounting — Compare</h1>
+            <h1 className="text-2xl font-bold text-foreground">Bokföring — jämför</h1>
           </div>
           <Button variant="outline" onClick={handleExitCompare}>
             <X className="h-4 w-4 mr-2" />
-            Exit Compare
+            Avsluta jämförelse
           </Button>
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -68,7 +68,7 @@ export default function AccountingPage() {
     return (
       <div className="space-y-6 animate-fade-in">
         <div className="space-y-1">
-          <h1 className="text-3xl font-bold gradient-text">Accounting</h1>
+          <h1 className="text-3xl font-bold gradient-text">Bokföring</h1>
           <p className="text-sm text-muted-foreground">Daglig bokföring enligt svensk BAS-standard.</p>
         </div>
 
@@ -78,9 +78,9 @@ export default function AccountingPage() {
               <Lock className="h-6 w-6 text-primary" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-foreground mb-2">Start Bookkeeping</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-2">Börja bokföra</h3>
               <Button asChild>
-                <Link to="/login">Sign In</Link>
+                <Link to="/login">Logga in</Link>
               </Button>
             </div>
           </div>
@@ -96,17 +96,18 @@ export default function AccountingPage() {
       {!isFormOpen && (
         <div className="flex items-center justify-between gap-4">
           <div className="space-y-1 min-w-0">
-            <h1 className="text-3xl font-bold gradient-text">Accounting</h1>
+            <h1 className="text-3xl font-bold gradient-text">Bokföring</h1>
             <p className="text-sm text-muted-foreground">Daglig bokföring enligt svensk BAS-standard.</p>
           </div>
           <Button size="sm" onClick={() => setTriggerCreate(true)} className="shrink-0 shadow-md hover:shadow-glow transition-shadow">
             <Plus className="h-4 w-4 mr-1" />
-            Create Voucher
+            Ny verifikation
           </Button>
         </div>
       )}
 
       <AccountingPanel
+        hideCreateAction
         autoOpenCreate={autoOpenCreate}
         onAutoOpenCreateConsumed={() => setTriggerCreate(false)}
         onToggleCompare={handleToggleCompare}

@@ -108,7 +108,7 @@ export default function VATReportPage() {
             <FileCheck className="h-5 w-5 text-secondary" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-foreground">VAT Report</h1>
+            <h1 className="text-xl font-bold text-foreground">Momsrapport</h1>
             <p className="text-sm text-muted-foreground">Momsredovisning</p>
           </div>
         </div>
@@ -138,7 +138,7 @@ export default function VATReportPage() {
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="space-y-1">
-        <h1 className="text-3xl font-bold gradient-text">VAT Report</h1>
+        <h1 className="text-3xl font-bold gradient-text">Momsrapport</h1>
         <p className="text-sm text-muted-foreground">Momsredovisning per period.</p>
       </div>
 

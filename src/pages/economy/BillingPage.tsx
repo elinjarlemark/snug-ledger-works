@@ -674,7 +674,7 @@ export default function BillingPage() {
             <FileText className="h-5 w-5 text-secondary" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-foreground">Billing</h1>
+            <h1 className="text-xl font-bold text-foreground">Fakturering</h1>
             <p className="text-sm text-muted-foreground">Invoice management and payment tracking</p>
           </div>
         </div>
@@ -698,7 +698,7 @@ export default function BillingPage() {
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="space-y-1">
-        <h1 className="text-3xl font-bold gradient-text">Billing</h1>
+        <h1 className="text-3xl font-bold gradient-text">Fakturering</h1>
         <p className="text-sm text-muted-foreground">Hantera fakturor, offerter, kunder & produkter.</p>
       </div>
 

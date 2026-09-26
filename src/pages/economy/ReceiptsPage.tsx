@@ -59,7 +59,7 @@ export default function ReceiptsPage() {
               <ReceiptIcon className="h-6 w-6 text-secondary" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-foreground">Receipts</h1>
+              <h1 className="text-3xl font-bold text-foreground">Kvitton</h1>
               <p className="text-muted-foreground">Manage uploaded receipts</p>
             </div>
           </div>
@@ -117,7 +117,7 @@ export default function ReceiptsPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="space-y-1">
-        <h1 className="text-3xl font-bold gradient-text">Receipts</h1>
+        <h1 className="text-3xl font-bold gradient-text">Kvitton</h1>
         <p className="text-sm text-muted-foreground">Hantera och koppla uppladdade kvitton.</p>
       </div>
 

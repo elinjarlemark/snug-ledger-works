@@ -5,6 +5,7 @@ import { Receipt, Upload, LogOut, Camera, CheckCircle2, Loader2 } from "lucide-r
 import { useAuth } from "@/contexts/AuthContext";
 import { useReceipts } from "@/contexts/ReceiptsContext";
 import { toast } from "sonner";
+import { ThemeSwitch } from "@/components/layout/ThemeSwitch";
 
 export default function MobileUpload() {
   const { user, activeCompany, logout } = useAuth();
@@ -88,6 +89,7 @@ export default function MobileUpload() {
           Logga ut
         </Button>
       </header>
+      <div className="flex justify-end px-4 py-3"><ThemeSwitch /></div>
 
       {/* Main content */}
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-8 space-y-8">

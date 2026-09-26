@@ -217,7 +217,7 @@ export default function SalaryPage() {
             <Users className="h-5 w-5 text-secondary" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-foreground">Salary</h1>
+            <h1 className="text-xl font-bold text-foreground">Löner</h1>
             <p className="text-sm text-muted-foreground">Payroll processing and employee management</p>
           </div>
         </div>
@@ -246,7 +246,7 @@ export default function SalaryPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="space-y-1 min-w-0">
-          <h1 className="text-3xl font-bold gradient-text">Salary</h1>
+          <h1 className="text-3xl font-bold gradient-text">Löner</h1>
           <p className="text-sm text-muted-foreground">Lönehantering och anställda.</p>
         </div>
         <Button size="sm" onClick={() => { setEditingEmployee(undefined); setDialogOpen(true); }} className="shrink-0 shadow-md hover:shadow-glow transition-shadow">

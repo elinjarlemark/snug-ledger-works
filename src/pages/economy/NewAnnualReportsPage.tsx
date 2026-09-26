@@ -221,7 +221,7 @@ export default function NewAnnualReportsPage() {
             <FileText className="h-5 w-5 text-secondary" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-foreground">Annual Reports</h1>
+            <h1 className="text-xl font-bold text-foreground">Årsredovisning</h1>
           </div>
         </div>
 
@@ -246,7 +246,7 @@ export default function NewAnnualReportsPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-1">
-          <h1 className="text-3xl font-bold gradient-text">Annual Reports</h1>
+          <h1 className="text-3xl font-bold gradient-text">Årsredovisning</h1>
           <p className="text-sm text-muted-foreground">
             Den här sidan läser nu frågorna direkt från v7 och låter användaren fylla i dem här. SIE-koppling och DOCX-generering kopplar vi på i nästa steg.
           </p>

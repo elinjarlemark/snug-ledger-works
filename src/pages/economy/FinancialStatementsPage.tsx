@@ -469,7 +469,7 @@ export default function FinancialStatementsPage() {
             <BarChart3 className="h-5 w-5 text-secondary" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-foreground">Financial Statements</h1>
+            <h1 className="text-xl font-bold text-foreground">Finansiella rapporter</h1>
             <p className="text-sm text-muted-foreground">Financial statements and year-end procedures</p>
           </div>
         </div>
@@ -499,7 +499,7 @@ export default function FinancialStatementsPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <BarChart3 className="h-6 w-6 text-secondary" />
-            <h1 className="text-2xl font-bold text-foreground">Financial Statements — Compare</h1>
+            <h1 className="text-2xl font-bold text-foreground">Finansiella rapporter — jämför</h1>
           </div>
           <Button variant="outline" onClick={() => setCompareMode(false)}>
             <X className="h-4 w-4 mr-2" />
@@ -523,7 +523,7 @@ export default function FinancialStatementsPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="space-y-1 min-w-0">
-          <h1 className="text-3xl font-bold gradient-text">Financial Statements</h1>
+          <h1 className="text-3xl font-bold gradient-text">Finansiella rapporter</h1>
           <p className="text-sm text-muted-foreground">Resultat- och balansräkning, bokslutsperioder.</p>
         </div>
         <Button variant="outline" size="sm" onClick={handleToggleCompare} className="shrink-0">

@@ -81,7 +81,7 @@ export default function ChecklistPage() {
       {/* Header — matches BillingPage / other economy pages */}
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1 min-w-0">
-          <h1 className="text-3xl font-bold text-foreground">Checklist</h1>
+          <h1 className="text-3xl font-bold text-foreground">Checklista</h1>
           <p className="text-sm text-muted-foreground">
             Hantera saker som behöver göras. Bocka av när de är klara.
           </p>

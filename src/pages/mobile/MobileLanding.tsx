@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Receipt, ArrowRight, Smartphone } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
+import { ThemeSwitch } from "@/components/layout/ThemeSwitch";
 
 export default function MobileLanding() {
   const { user } = useAuth();
@@ -12,7 +13,8 @@ export default function MobileLanding() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-hero text-primary-foreground flex flex-col">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
+      <div className="flex justify-end px-4 py-4"><ThemeSwitch /></div>
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center space-y-8">
         <div className="w-20 h-20 rounded-2xl bg-secondary/20 backdrop-blur-sm flex items-center justify-center border border-secondary/30">
           <Receipt className="h-10 w-10 text-secondary" />
@@ -22,7 +24,7 @@ export default function MobileLanding() {
           <h1 className="text-3xl font-bold leading-tight">
             Account<span className="text-secondary">Pro</span>
           </h1>
-          <p className="text-lg text-primary-foreground/80 max-w-sm">
+          <p className="text-lg text-muted-foreground max-w-sm">
             Ladda upp kvitton snabbt och enkelt från din mobil.
           </p>
         </div>
@@ -36,7 +38,7 @@ export default function MobileLanding() {
           </Button>
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-primary-foreground/60 pt-8">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground pt-8">
           <Smartphone className="h-4 w-4" />
           <span>Mobil-läge aktiverat</span>
         </div>
