@@ -1,3 +1,4 @@
+import { appStorage } from "@/lib/appStorage";
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -67,7 +68,12 @@ const storageKey = (companyId: string) => `checklist_items_${companyId}`;
 
 export function ChecklistProvider({ children }: { children: ReactNode }) {
   const { activeCompany } = useAuth();
-  const [items, setItems] = useState<ChecklistItem[]>([]);
+  const [items, setItems] = useState<ChecklistItem[]>(() => {
+    try {
+      const raw = activeCompany ? appStorage.getItem(storageKey(activeCompany.id)) : null;
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  });
 
   useEffect(() => {
     if (!activeCompany) {
@@ -75,7 +81,7 @@ export function ChecklistProvider({ children }: { children: ReactNode }) {
       return;
     }
     try {
-      const raw = localStorage.getItem(storageKey(activeCompany.id));
+      const raw = appStorage.getItem(storageKey(activeCompany.id));
       setItems(raw ? JSON.parse(raw) : []);
     } catch {
       setItems([]);
@@ -86,7 +92,7 @@ export function ChecklistProvider({ children }: { children: ReactNode }) {
     (next: ChecklistItem[]) => {
       setItems(next);
       if (activeCompany) {
-        localStorage.setItem(storageKey(activeCompany.id), JSON.stringify(next));
+        appStorage.setItem(storageKey(activeCompany.id), JSON.stringify(next));
       }
     },
     [activeCompany?.id]

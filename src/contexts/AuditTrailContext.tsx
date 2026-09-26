@@ -1,3 +1,4 @@
+import { appStorage } from "@/lib/appStorage";
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useAuth } from "./AuthContext";
 
@@ -29,7 +30,7 @@ export function AuditTrailProvider({ children }: { children: ReactNode }) {
       setEntries([]);
       return;
     }
-    const stored = localStorage.getItem(`accountpro_audit_trail_${companyId}`);
+    const stored = appStorage.getItem(`accountpro_audit_trail_${companyId}`);
     if (stored) {
       setEntries(JSON.parse(stored));
     } else {
@@ -51,7 +52,7 @@ export function AuditTrailProvider({ children }: { children: ReactNode }) {
 
     const newEntries = [entry, ...entries];
     setEntries(newEntries);
-    localStorage.setItem(`accountpro_audit_trail_${companyId}`, JSON.stringify(newEntries));
+    appStorage.setItem(`accountpro_audit_trail_${companyId}`, JSON.stringify(newEntries));
   };
 
   return (

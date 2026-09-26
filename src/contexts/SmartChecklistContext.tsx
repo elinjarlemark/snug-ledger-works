@@ -1,3 +1,4 @@
+import { appStorage } from "@/lib/appStorage";
 import { createContext, useContext, useEffect, useState, useMemo, useRef, ReactNode, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccounting } from "@/contexts/AccountingContext";
@@ -50,7 +51,7 @@ export function SmartChecklistProvider({ children }: { children: ReactNode }) {
       return;
     }
     try {
-      const raw = localStorage.getItem(storageKey(activeCompany.id));
+      const raw = appStorage.getItem(storageKey(activeCompany.id));
       if (raw) {
         const stored: SmartRuleConfig[] = JSON.parse(raw);
         // Merge with defaults to add any new templates introduced after the user first loaded
@@ -71,7 +72,7 @@ export function SmartChecklistProvider({ children }: { children: ReactNode }) {
       setRules(next);
       if (activeCompany) {
         try {
-          localStorage.setItem(storageKey(activeCompany.id), JSON.stringify(next));
+          appStorage.setItem(storageKey(activeCompany.id), JSON.stringify(next));
         } catch (err) {
           console.error("Failed to persist smart rules:", err);
         }

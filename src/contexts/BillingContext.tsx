@@ -1,3 +1,4 @@
+import { appStorage } from "@/lib/appStorage";
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Customer, Product, Invoice, VoucherTemplate } from "@/lib/billing/types";
 import { useAuth } from "./AuthContext";
@@ -91,10 +92,10 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const storedInvoices = localStorage.getItem(`billing_invoices_${companyId}`);
-    const storedNextNumber = localStorage.getItem(`billing_next_invoice_${companyId}`);
-    const storedTemplates = localStorage.getItem(`billing_templates_${companyId}`);
-    const storedFirstSet = localStorage.getItem(`billing_first_invoice_set_${companyId}`);
+    const storedInvoices = appStorage.getItem(`billing_invoices_${companyId}`);
+    const storedNextNumber = appStorage.getItem(`billing_next_invoice_${companyId}`);
+    const storedTemplates = appStorage.getItem(`billing_templates_${companyId}`);
+    const storedFirstSet = appStorage.getItem(`billing_first_invoice_set_${companyId}`);
 
     if (storedInvoices) setInvoices(JSON.parse(storedInvoices));
     else setInvoices([]);
@@ -144,8 +145,8 @@ export function BillingProvider({ children }: { children: ReactNode }) {
 
     }
 
-    const storedCustomers = localStorage.getItem(`billing_customers_${companyId}`);
-    const storedProducts = localStorage.getItem(`billing_products_${companyId}`);
+    const storedCustomers = appStorage.getItem(`billing_customers_${companyId}`);
+    const storedProducts = appStorage.getItem(`billing_products_${companyId}`);
 
     if (storedCustomers) setCustomers(JSON.parse(storedCustomers));
     else setCustomers([]);
@@ -161,14 +162,14 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   const saveCustomers = (newCustomers: Customer[]) => {
     setCustomers(newCustomers);
     if (companyId) {
-      localStorage.setItem(`billing_customers_${companyId}`, JSON.stringify(newCustomers));
+      appStorage.setItem(`billing_customers_${companyId}`, JSON.stringify(newCustomers));
     }
   };
 
   const saveProducts = (newProducts: Product[]) => {
     setProducts(newProducts);
     if (companyId) {
-      localStorage.setItem(`billing_products_${companyId}`, JSON.stringify(newProducts));
+      appStorage.setItem(`billing_products_${companyId}`, JSON.stringify(newProducts));
     }
   };
 
@@ -176,8 +177,8 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     setInvoices(newInvoices);
     setNextInvoiceNumberState(newNextNumber);
     if (companyId) {
-      localStorage.setItem(`billing_invoices_${companyId}`, JSON.stringify(newInvoices));
-      localStorage.setItem(`billing_next_invoice_${companyId}`, newNextNumber.toString());
+      appStorage.setItem(`billing_invoices_${companyId}`, JSON.stringify(newInvoices));
+      appStorage.setItem(`billing_next_invoice_${companyId}`, newNextNumber.toString());
     }
   };
 
@@ -187,9 +188,9 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     if (!opts?.allowLower && intN < nextInvoiceNumber) return false;
     setNextInvoiceNumberState(intN);
     if (companyId) {
-      localStorage.setItem(`billing_next_invoice_${companyId}`, intN.toString());
+      appStorage.setItem(`billing_next_invoice_${companyId}`, intN.toString());
       if (opts?.markFirstSet) {
-        localStorage.setItem(`billing_first_invoice_set_${companyId}`, "1");
+        appStorage.setItem(`billing_first_invoice_set_${companyId}`, "1");
         setFirstInvoiceNumberSet(true);
       }
     }
@@ -371,7 +372,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     saveInvoices([...invoices, newInvoice], nextInvoiceNumber + 1);
     // Mark the first-invoice setting prompt as resolved (so we don't ask again).
     if (!firstInvoiceNumberSet && companyId) {
-      localStorage.setItem(`billing_first_invoice_set_${companyId}`, "1");
+      appStorage.setItem(`billing_first_invoice_set_${companyId}`, "1");
       setFirstInvoiceNumberSet(true);
     }
     return newInvoice;
@@ -413,7 +414,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   const saveTemplates = (newTemplates: VoucherTemplate[]) => {
     setTemplates(newTemplates);
     if (companyId) {
-      localStorage.setItem(`billing_templates_${companyId}`, JSON.stringify(newTemplates));
+      appStorage.setItem(`billing_templates_${companyId}`, JSON.stringify(newTemplates));
     }
   };
 

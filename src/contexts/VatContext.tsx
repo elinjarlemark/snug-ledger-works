@@ -1,3 +1,4 @@
+import { appStorage } from "@/lib/appStorage";
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { useAuth } from "./AuthContext";
 import { DEFAULT_VAT_CODES, VatCode } from "@/lib/vat/codes";
@@ -28,7 +29,7 @@ export function VatProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const storedCodes = localStorage.getItem(`vat_codes_${companyId}`);
+    const storedCodes = appStorage.getItem(`vat_codes_${companyId}`);
     if (storedCodes) {
       try {
         setVatCodes(JSON.parse(storedCodes));
@@ -39,7 +40,7 @@ export function VatProvider({ children }: { children: ReactNode }) {
       setVatCodes(DEFAULT_VAT_CODES);
     }
 
-    const storedSettings = localStorage.getItem(`vat_settings_${companyId}`);
+    const storedSettings = appStorage.getItem(`vat_settings_${companyId}`);
     if (storedSettings) {
       try {
         setVatSettingsState({ ...DEFAULT_VAT_SETTINGS, ...JSON.parse(storedSettings) });
@@ -53,7 +54,7 @@ export function VatProvider({ children }: { children: ReactNode }) {
 
   const persistCodes = useCallback((next: VatCode[]) => {
     setVatCodes(next);
-    if (companyId) localStorage.setItem(`vat_codes_${companyId}`, JSON.stringify(next));
+    if (companyId) appStorage.setItem(`vat_codes_${companyId}`, JSON.stringify(next));
   }, [companyId]);
 
   const updateVatCode = (code: VatCode) => {
@@ -71,7 +72,7 @@ export function VatProvider({ children }: { children: ReactNode }) {
 
   const setVatSettings = (settings: VatSettings) => {
     setVatSettingsState(settings);
-    if (companyId) localStorage.setItem(`vat_settings_${companyId}`, JSON.stringify(settings));
+    if (companyId) appStorage.setItem(`vat_settings_${companyId}`, JSON.stringify(settings));
   };
 
   return (

@@ -7,6 +7,7 @@ import { Mail, Lock, ArrowRight, User } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffectiveIsMobile } from '@/contexts/ViewModeContext';
 import { toast } from 'sonner';
+import { shouldUseLocalStorageMode } from '@/lib/runtimeMode';
 
 export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -33,6 +34,7 @@ export default function LoginPage() {
     try {
       // Reset password
       if (isReset) {
+        if (shouldUseLocalStorageMode()) throw new Error('Återställning via server finns endast i databasläget. Använd testkontot i förhandsvisningen.');
         const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
         const response = await fetch(apiBase + '/auth/reset', {
           method: 'POST',

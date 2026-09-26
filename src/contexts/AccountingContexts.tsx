@@ -1,3 +1,4 @@
+import { appStorage } from "@/lib/appStorage";
 import { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
 import { BASAccount, getAccountClass, calculateBalance, getLatestBASAccounts } from "@/lib/bas-accounts";
 import { useAuth } from "./AuthContext";
@@ -19,7 +20,7 @@ function isQuotaError(err: unknown): boolean {
 
 function storeAttachmentExternally(companyId: string, voucherId: string, attId: string, dataUrl: string): boolean {
   try {
-    localStorage.setItem(`${ATTACH_KEY_PREFIX}${companyId}_${voucherId}_${attId}`, dataUrl);
+    appStorage.setItem(`${ATTACH_KEY_PREFIX}${companyId}_${voucherId}_${attId}`, dataUrl);
     return true;
   } catch {
     return false;
@@ -28,7 +29,7 @@ function storeAttachmentExternally(companyId: string, voucherId: string, attId: 
 
 function loadExternalAttachment(companyId: string, voucherId: string, attId: string): string | null {
   try {
-    return localStorage.getItem(`${ATTACH_KEY_PREFIX}${companyId}_${voucherId}_${attId}`);
+    return appStorage.getItem(`${ATTACH_KEY_PREFIX}${companyId}_${voucherId}_${attId}`);
   } catch {
     return null;
   }
@@ -39,17 +40,17 @@ function persistAccounts(companyId: string, accounts: BASAccount[], basNumbers: 
   const custom = accounts.filter((a) => !basNumbers.has(a.number));
   const key = `accountpro_accounts_${companyId}`;
   try {
-    localStorage.setItem(key, JSON.stringify(custom));
+    appStorage.setItem(key, JSON.stringify(custom));
   } catch (err) {
     console.error("Failed to persist accounts:", err);
-    try { localStorage.removeItem(key); } catch {}
+    try { appStorage.removeItem(key); } catch {}
   }
 }
 
 function persistVouchers(companyId: string, vouchers: any[]): void {
   const key = `accountpro_vouchers_${companyId}`;
   try {
-    localStorage.setItem(key, JSON.stringify(vouchers));
+    appStorage.setItem(key, JSON.stringify(vouchers));
     return;
   } catch (err) {
     if (!isQuotaError(err)) {
@@ -75,7 +76,7 @@ function persistVouchers(companyId: string, vouchers: any[]): void {
   });
 
   try {
-    localStorage.setItem(key, JSON.stringify(slim));
+    appStorage.setItem(key, JSON.stringify(slim));
   } catch (err) {
     console.error("Vouchers still exceed quota after externalizing attachments:", err);
   }
@@ -230,11 +231,11 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const storedAccounts = localStorage.getItem(`accountpro_accounts_${companyId}`);
-    const storedVouchers = localStorage.getItem(`accountpro_vouchers_${companyId}`);
-    const storedNextNumber = localStorage.getItem(`accountpro_next_voucher_${companyId}`);
+    const storedAccounts = appStorage.getItem(`accountpro_accounts_${companyId}`);
+    const storedVouchers = appStorage.getItem(`accountpro_vouchers_${companyId}`);
+    const storedNextNumber = appStorage.getItem(`accountpro_next_voucher_${companyId}`);
     const removedBasAccountNumbers = new Set<string>(
-      JSON.parse(localStorage.getItem(removedBasAccountsStorageKey) ?? "[]") as string[]
+      JSON.parse(appStorage.getItem(removedBasAccountsStorageKey) ?? "[]") as string[]
     );
 
     const basAccountNumbers = new Set(latestK3Accounts.map((account) => account.number));
@@ -251,8 +252,8 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     let initialNextNumber = storedNextNumber ? parseInt(storedNextNumber) : 1;
 
     // Seed demo data for the hardcoded test account so all reports populate.
-    const isTestUser = user?.email?.toLowerCase() === "test@test.com";
-    const hasImportedSIE = localStorage.getItem(`accountpro_sie_imported_${companyId}`) === "true";
+    const isTestUser = !authService.isDatabaseConnected() && user?.email?.toLowerCase() === "test@test.com";
+    const hasImportedSIE = appStorage.getItem(`accountpro_sie_imported_${companyId}`) === "true";
     if (isTestUser && !hasImportedSIE && initialVouchers.length === 0) {
       const today = new Date().toISOString().split("T")[0];
       const seedAccount = mergedAccounts.find((a) => a.number === "1930");
@@ -290,7 +291,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         initialVouchers = seeded;
         initialNextNumber = voucherNo;
         persistVouchers(companyId, seeded);
-        localStorage.setItem(`accountpro_next_voucher_${companyId}`, String(voucherNo));
+        appStorage.setItem(`accountpro_next_voucher_${companyId}`, String(voucherNo));
       }
     }
 
@@ -299,7 +300,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
 
     const numericUserId = Number(user?.id);
     const numericCompanyId = Number(companyId);
-    if (!authService.isDatabaseConnected() || !Number.isFinite(numericUserId) || !Number.isFinite(numericCompanyId)) {
+    if (storedVouchers !== null || !authService.isDatabaseConnected() || !Number.isFinite(numericUserId) || !Number.isFinite(numericCompanyId)) {
       return;
     }
 
@@ -376,7 +377,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
         setNextVoucherNumber(converted.nextVoucherNumber);
         persistAccounts(requestedCompanyId, nextAccounts, basAccountNumbers);
         persistVouchers(requestedCompanyId, dbVouchers);
-        localStorage.setItem(`accountpro_next_voucher_${requestedCompanyId}`, converted.nextVoucherNumber.toString());
+        appStorage.setItem(`accountpro_next_voucher_${requestedCompanyId}`, converted.nextVoucherNumber.toString());
       })
       .catch((error) => {
         if (error?.name === "AbortError") {
@@ -403,7 +404,7 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     setNextVoucherNumber(newNextNumber);
     if (companyId) {
       persistVouchers(companyId, newVouchers);
-      localStorage.setItem(`accountpro_next_voucher_${companyId}`, newNextNumber.toString());
+      appStorage.setItem(`accountpro_next_voucher_${companyId}`, newNextNumber.toString());
     }
   };
 
@@ -414,10 +415,10 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     const basAccountNumbers = new Set(getLatestBASAccounts("K3").map((entry) => entry.number));
     if (companyId && basAccountNumbers.has(account.number)) {
       const removedBasAccountNumbers = new Set<string>(
-        JSON.parse(localStorage.getItem(removedBasAccountsStorageKey) ?? "[]") as string[]
+        JSON.parse(appStorage.getItem(removedBasAccountsStorageKey) ?? "[]") as string[]
       );
       removedBasAccountNumbers.delete(account.number);
-      localStorage.setItem(removedBasAccountsStorageKey, JSON.stringify([...removedBasAccountNumbers]));
+      appStorage.setItem(removedBasAccountsStorageKey, JSON.stringify([...removedBasAccountNumbers]));
     }
     
     const newAccounts = [...accounts, account].sort((a, b) => a.number.localeCompare(b.number));
@@ -434,10 +435,10 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     const basAccountNumbers = new Set(getLatestBASAccounts("K3").map((entry) => entry.number));
     if (companyId && basAccountNumbers.has(accountNumber)) {
       const removedBasAccountNumbers = new Set<string>(
-        JSON.parse(localStorage.getItem(removedBasAccountsStorageKey) ?? "[]") as string[]
+        JSON.parse(appStorage.getItem(removedBasAccountsStorageKey) ?? "[]") as string[]
       );
       removedBasAccountNumbers.add(accountNumber);
-      localStorage.setItem(removedBasAccountsStorageKey, JSON.stringify([...removedBasAccountNumbers]));
+      appStorage.setItem(removedBasAccountsStorageKey, JSON.stringify([...removedBasAccountNumbers]));
     }
     
     const newAccounts = accounts.filter(a => a.number !== accountNumber);
@@ -751,8 +752,8 @@ export function AccountingProvider({ children }: { children: ReactNode }) {
     );
 
     if (companyId) {
-      localStorage.removeItem(removedBasAccountsStorageKey);
-      localStorage.setItem(`accountpro_sie_imported_${companyId}`, "true");
+      appStorage.removeItem(removedBasAccountsStorageKey);
+      appStorage.setItem(`accountpro_sie_imported_${companyId}`, "true");
     }
 
     saveAccounts(replacementAccounts);

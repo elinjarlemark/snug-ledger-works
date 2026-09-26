@@ -6,13 +6,13 @@ import { shouldUseLocalStorageMode } from "@/lib/runtimeMode";
 // For now, we use hardcoded values that can be easily replaced
 export const authConfig: AuthConfig = {
   // Test account configuration
-  enableTestAccount: true,
+  enableTestAccount: shouldUseLocalStorageMode(),
   testAccountEmail: import.meta.env.VITE_TEST_ACCOUNT_EMAIL ?? "test@test.com",
   testAccountPassword: import.meta.env.VITE_TEST_ACCOUNT_PASSWORD ?? "test",
 
   // Database configuration - can be forced off in Lovable/local mode
   databaseConnected:
-    (import.meta.env.VITE_DATABASE_CONNECTED ?? "false") === "true" && !shouldUseLocalStorageMode(),
+    !shouldUseLocalStorageMode(),
 };
 
 // Helper to check if we should use database auth

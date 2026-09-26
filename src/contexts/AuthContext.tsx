@@ -1,3 +1,4 @@
+import { authStorage } from "@/lib/authStorage";
 // src/contexts/AuthContext.tsx
 import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { authService, User } from '@/services/auth';
@@ -153,7 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const controller = new AbortController();
     companyUpdateControllersRef.current[companyId] = controller;
 
-    return fetch(API_BASE_URL + '/companies/' + companyId, {
+    return fetch(API_BASE_URL + '/companies/' + companyId + '?user_id=' + user?.id, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(toCompanyRequestBody(company)),
@@ -186,7 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    const storedPending = localStorage.getItem(PENDING_SIGNUP_KEY);
+    const storedPending = authStorage.getItem(PENDING_SIGNUP_KEY);
     if (storedPending) {
       try {
         const parsedPending = JSON.parse(storedPending);
@@ -194,14 +195,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setPendingSignup(parsedPending);
         }
       } catch {
-        localStorage.removeItem(PENDING_SIGNUP_KEY);
+        authStorage.removeItem(PENDING_SIGNUP_KEY);
       }
     }
 
-    const storedUser = localStorage.getItem('accountpro_user');
-    const storedCompanies = localStorage.getItem('accountpro_companies');
-    const storedActiveCompanyId = localStorage.getItem('accountpro_active_company');
-    const storedFirstTime = localStorage.getItem('accountpro_first_time');
+    const storedUser = authStorage.getItem('accountpro_user');
+    const storedCompanies = authStorage.getItem('accountpro_companies');
+    const storedActiveCompanyId = authStorage.getItem('accountpro_active_company');
+    const storedFirstTime = authStorage.getItem('accountpro_first_time');
 
     if (storedUser) {
       const parsedUser = JSON.parse(storedUser);
@@ -228,19 +229,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .then((payload) => {
             const apiCompanies = Array.isArray(payload) ? payload.map(mapCompanyFromApi) : [];
             setCompanies(apiCompanies);
-            localStorage.setItem('accountpro_companies', JSON.stringify(apiCompanies));
+            authStorage.setItem('accountpro_companies', JSON.stringify(apiCompanies));
 
             if (apiCompanies.length > 0) {
-              const storedActiveId = localStorage.getItem('accountpro_active_company');
+              const storedActiveId = authStorage.getItem('accountpro_active_company');
               if (storedActiveId && apiCompanies.some((c) => c.id === storedActiveId)) {
                 setActiveCompanyId(storedActiveId);
               } else {
                 setActiveCompanyId(apiCompanies[0].id);
-                localStorage.setItem('accountpro_active_company', apiCompanies[0].id);
+                authStorage.setItem('accountpro_active_company', apiCompanies[0].id);
               }
             } else {
               setActiveCompanyId(null);
-              localStorage.removeItem('accountpro_active_company');
+              authStorage.removeItem('accountpro_active_company');
             }
           })
           .catch(() => undefined);
@@ -252,7 +253,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const saveCompanies = (newCompanies: CompanyProfile[]) => {
     setCompanies(newCompanies);
-    localStorage.setItem('accountpro_companies', JSON.stringify(newCompanies));
+    authStorage.setItem('accountpro_companies', JSON.stringify(newCompanies));
   };
 
   const login = async (email: string, password: string) => {
@@ -264,7 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const newUser = result.user;
     setUser(newUser);
-    localStorage.setItem('accountpro_user', JSON.stringify(newUser));
+    authStorage.setItem('accountpro_user', JSON.stringify(newUser));
 
     const isTestUser = email.toLowerCase() === TEST_USER_EMAIL;
     const isAdminUser = email.toLowerCase() === 'admin@snug.local';
@@ -277,20 +278,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (apiCompanies.length > 0) {
           setCompanies(apiCompanies);
-          localStorage.setItem('accountpro_companies', JSON.stringify(apiCompanies));
+          authStorage.setItem('accountpro_companies', JSON.stringify(apiCompanies));
 
-          const storedActiveId = localStorage.getItem('accountpro_active_company');
+          const storedActiveId = authStorage.getItem('accountpro_active_company');
           if (storedActiveId && apiCompanies.some((c) => c.id === storedActiveId)) {
             setActiveCompanyId(storedActiveId);
           } else {
             setActiveCompanyId(apiCompanies[0].id);
-            localStorage.setItem('accountpro_active_company', apiCompanies[0].id);
+            authStorage.setItem('accountpro_active_company', apiCompanies[0].id);
           }
         } else {
           setCompanies([]);
           setActiveCompanyId(null);
-          localStorage.setItem('accountpro_companies', JSON.stringify([]));
-          localStorage.removeItem('accountpro_active_company');
+          authStorage.setItem('accountpro_companies', JSON.stringify([]));
+          authStorage.removeItem('accountpro_active_company');
         }
         return;
       } catch {
@@ -298,11 +299,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    const storedCompanies = localStorage.getItem('accountpro_companies');
+    const storedCompanies = authStorage.getItem('accountpro_companies');
     if (storedCompanies) {
       const parsed = JSON.parse(storedCompanies);
       setCompanies(parsed);
-      const storedActiveId = localStorage.getItem('accountpro_active_company');
+      const storedActiveId = authStorage.getItem('accountpro_active_company');
       if (storedActiveId && parsed.some((c: CompanyProfile) => c.id === storedActiveId)) {
         setActiveCompanyId(storedActiveId);
       } else if (parsed.length > 0) {
@@ -314,12 +315,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         id: crypto.randomUUID(),
       };
       if (isAdminUser) {
-        localStorage.setItem('accountpro_active_company', defaultCompany.id);
+        authStorage.setItem('accountpro_active_company', defaultCompany.id);
       }
       setCompanies([defaultCompany]);
       setActiveCompanyId(defaultCompany.id);
-      localStorage.setItem('accountpro_companies', JSON.stringify([defaultCompany]));
-      localStorage.setItem('accountpro_active_company', defaultCompany.id);
+      authStorage.setItem('accountpro_companies', JSON.stringify([defaultCompany]));
+      authStorage.setItem('accountpro_active_company', defaultCompany.id);
     }
   };
 
@@ -332,7 +333,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const newUser = result.user;
     setUser(newUser);
-    localStorage.setItem('accountpro_user', JSON.stringify(newUser));
+    authStorage.setItem('accountpro_user', JSON.stringify(newUser));
 
     const defaultCompany: CompanyProfile = {
       ...DEFAULT_COMPANY_PROFILE,
@@ -373,14 +374,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCompanies([defaultCompany]);
     setActiveCompanyId(defaultCompany.id);
     setIsFirstTimeUser(true);
-    localStorage.setItem('accountpro_companies', JSON.stringify([defaultCompany]));
-    localStorage.setItem('accountpro_active_company', defaultCompany.id);
-    localStorage.setItem('accountpro_first_time', 'true');
+    authStorage.setItem('accountpro_companies', JSON.stringify([defaultCompany]));
+    authStorage.setItem('accountpro_active_company', defaultCompany.id);
+    authStorage.setItem('accountpro_first_time', 'true');
   };
 
   const markCompanySetupComplete = () => {
     setIsFirstTimeUser(false);
-    localStorage.removeItem('accountpro_first_time');
+    authStorage.removeItem('accountpro_first_time');
   };
 
 	const logout = () => {
@@ -397,10 +398,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		setActiveCompanyId(null);
 		setIsFirstTimeUser(false);
 
-		localStorage.removeItem("accountpro_user");
-		localStorage.removeItem("accountpro_first_time");
-		localStorage.removeItem("accountpro_companies");
-		localStorage.removeItem("accountpro_active_company");
+		authStorage.removeItem("accountpro_user");
+		authStorage.removeItem("accountpro_first_time");
+		authStorage.removeItem("accountpro_companies");
+		authStorage.removeItem("accountpro_active_company");
 	};
 
 	const deleteAccount = async () => {
@@ -412,13 +413,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		
 		// Clean up all user-related localStorage
 		const keysToRemove: string[] = [];
-		for (let i = 0; i < localStorage.length; i++) {
-			const key = localStorage.key(i);
+		for (let i = 0; i < authStorage.length; i++) {
+			const key = authStorage.key(i);
 			if (key && (key.includes(userId) || key.startsWith('accountpro_'))) {
 				keysToRemove.push(key);
 			}
 		}
-		keysToRemove.forEach((key) => localStorage.removeItem(key));
+		keysToRemove.forEach((key) => authStorage.removeItem(key));
 		
 		// Reset state
 		setUser(null);
@@ -430,17 +431,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const beginSignup = (email: string, password: string, name: string) => {
     const payload = { email: email.trim(), password, name: name.trim() };
     setPendingSignup(payload);
-    localStorage.setItem(PENDING_SIGNUP_KEY, JSON.stringify(payload));
+    authStorage.setItem(PENDING_SIGNUP_KEY, JSON.stringify(payload));
   };
 
   const cancelSignup = () => {
     setPendingSignup(null);
-    localStorage.removeItem(PENDING_SIGNUP_KEY);
+    authStorage.removeItem(PENDING_SIGNUP_KEY);
   };
 
   const completeSignupWithCompany = async (company: Omit<CompanyProfile, 'id'>) => {
     if (!pendingSignup) throw new Error('No pending signup found');
-    if (!authService.isDatabaseConnected()) throw new Error('Database auth must be enabled for this flow');
+    if (!authService.isDatabaseConnected()) {
+      const result = await authService.signup(pendingSignup.email, pendingSignup.password, pendingSignup.name);
+      if (!result.success || !result.user) throw new Error(result.error || 'Kunde inte skapa konto');
+      const created = { ...company, id: crypto.randomUUID() };
+      setUser(result.user);
+      setCompanies([created]);
+      setActiveCompanyId(created.id);
+      authStorage.setItem('accountpro_user', JSON.stringify(result.user));
+      authStorage.setItem('accountpro_companies', JSON.stringify([created]));
+      authStorage.setItem('accountpro_active_company', created.id);
+      cancelSignup();
+      return;
+    }
 
     const signupRes = await authService.signup(pendingSignup.email, pendingSignup.password, pendingSignup.name);
     if (!signupRes.success || !signupRes.user) {
@@ -449,7 +462,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const newUser = signupRes.user;
     setUser(newUser);
-    localStorage.setItem('accountpro_user', JSON.stringify(newUser));
+    authStorage.setItem('accountpro_user', JSON.stringify(newUser));
 
     const createCompanyRes = await fetch(API_BASE_URL + '/companies', {
       method: 'POST',
@@ -467,23 +480,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const apiCompanies = Array.isArray(listPayload) ? listPayload.map(mapCompanyFromApi) : [];
 
     setCompanies(apiCompanies);
-    localStorage.setItem('accountpro_companies', JSON.stringify(apiCompanies));
+    authStorage.setItem('accountpro_companies', JSON.stringify(apiCompanies));
 
     if (apiCompanies.length > 0) {
       setActiveCompanyId(apiCompanies[0].id);
-      localStorage.setItem('accountpro_active_company', apiCompanies[0].id);
+      authStorage.setItem('accountpro_active_company', apiCompanies[0].id);
     } else {
       setActiveCompanyId(null);
-      localStorage.removeItem('accountpro_active_company');
+      authStorage.removeItem('accountpro_active_company');
     }
 
     cancelSignup();
     setIsFirstTimeUser(false);
-    localStorage.removeItem('accountpro_first_time');
+    authStorage.removeItem('accountpro_first_time');
   };
 
   // IMPORTANT: This now creates a JOIN REQUEST (does NOT join directly)
   const completeSignupWithJoin = async (organizationNumber: string) => {
+		if (!authService.isDatabaseConnected()) throw new Error('Anslutning till andra användares bolag kräver lokal databas. Skapa ett eget testbolag i förhandsvisningen.');
 		if (!pendingSignup) throw new Error('Ingen pågående registrering');
 
 		const result = await authService.signup(
@@ -498,7 +512,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 		const newUser = result.user;
 		setUser(newUser);
-		localStorage.setItem('accountpro_user', JSON.stringify(newUser));
+		authStorage.setItem('accountpro_user', JSON.stringify(newUser));
 
 		if (!authService.isDatabaseConnected()) {
 			throw new Error('Database auth must be enabled for this flow');
@@ -522,12 +536,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		// Viktigt: du är INTE medlem än, så vi ska INTE lägga in companies i state här.
 		setCompanies([]);
 		setActiveCompanyId(null);
-		localStorage.setItem('accountpro_companies', JSON.stringify([]));
-		localStorage.removeItem('accountpro_active_company');
+		authStorage.setItem('accountpro_companies', JSON.stringify([]));
+		authStorage.removeItem('accountpro_active_company');
 
 		cancelSignup();
 		setIsFirstTimeUser(false);
-		localStorage.removeItem('accountpro_first_time');
+		authStorage.removeItem('accountpro_first_time');
 	};
 
   // legacy aliases (so old imports don’t break)
@@ -574,7 +588,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
 
           setActiveCompanyId(createdCompanyId);
-          localStorage.setItem('accountpro_active_company', createdCompanyId);
+          authStorage.setItem('accountpro_active_company', createdCompanyId);
         })
         .catch(() => {
           setCompanies((prevCompanies) => {
@@ -597,7 +611,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const newCompanies = [...companies, newCompany];
     saveCompanies(newCompanies);
     setActiveCompanyId(newCompany.id);
-    localStorage.setItem('accountpro_active_company', newCompany.id);
+    authStorage.setItem('accountpro_active_company', newCompany.id);
     return newCompany;
   };
 
@@ -614,16 +628,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const newCompanies = companies.filter((c) => c.id !== companyId);
 
     if (authService.isDatabaseConnected()) {
-      fetch(API_BASE_URL + '/companies/' + companyId, { method: 'DELETE' }).catch(() => undefined);
+      fetch(API_BASE_URL + '/companies/' + companyId + '?user_id=' + user?.id, { method: 'DELETE' }).catch(() => undefined);
       setCompanies(newCompanies);
 
       if (newCompanies.length === 0) {
         setActiveCompanyId(null);
-        localStorage.removeItem('accountpro_active_company');
-        localStorage.setItem('accountpro_companies', JSON.stringify([]));
+        authStorage.removeItem('accountpro_active_company');
+        authStorage.setItem('accountpro_companies', JSON.stringify([]));
       } else if (activeCompanyId === companyId) {
         setActiveCompanyId(newCompanies[0].id);
-        localStorage.setItem('accountpro_active_company', newCompanies[0].id);
+        authStorage.setItem('accountpro_active_company', newCompanies[0].id);
       }
       return;
     }
@@ -632,14 +646,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const fresh: CompanyProfile = { ...DEFAULT_COMPANY_PROFILE, id: crypto.randomUUID() };
       saveCompanies([fresh]);
       setActiveCompanyId(fresh.id);
-      localStorage.setItem('accountpro_active_company', fresh.id);
+      authStorage.setItem('accountpro_active_company', fresh.id);
       setIsFirstTimeUser(true);
-      localStorage.setItem('accountpro_first_time', 'true');
+      authStorage.setItem('accountpro_first_time', 'true');
     } else {
       saveCompanies(newCompanies);
       if (activeCompanyId === companyId) {
         setActiveCompanyId(newCompanies[0].id);
-        localStorage.setItem('accountpro_active_company', newCompanies[0].id);
+        authStorage.setItem('accountpro_active_company', newCompanies[0].id);
       }
     }
   };
@@ -647,7 +661,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setActiveCompany = (companyId: string) => {
     if (companies.some((c) => c.id === companyId)) {
       setActiveCompanyId(companyId);
-      localStorage.setItem('accountpro_active_company', companyId);
+      authStorage.setItem('accountpro_active_company', companyId);
     }
   };
 

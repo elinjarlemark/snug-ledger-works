@@ -1,3 +1,4 @@
+import { appStorage } from "@/lib/appStorage";
 import { useState } from "react";
 import { Users, Plus, Trash2, Edit, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -155,15 +156,15 @@ const STORAGE_KEY = "accountpro_employees";
 
 function getStoredEmployees(companyId: string): Employee[] {
   try {
-    const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    const data = JSON.parse(appStorage.getItem(STORAGE_KEY) || "{}");
     return data[companyId] || [];
   } catch { return []; }
 }
 
 function setStoredEmployees(companyId: string, employees: Employee[]) {
-  const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+  const data = JSON.parse(appStorage.getItem(STORAGE_KEY) || "{}");
   data[companyId] = employees;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  appStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
 export default function SalaryPage() {

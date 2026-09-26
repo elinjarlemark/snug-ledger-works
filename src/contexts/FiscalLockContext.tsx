@@ -1,3 +1,4 @@
+import { appStorage } from "@/lib/appStorage";
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useAuth } from "./AuthContext";
 
@@ -22,7 +23,7 @@ export function FiscalLockProvider({ children }: { children: ReactNode }) {
       setLockedYears([]);
       return;
     }
-    const stored = localStorage.getItem(`accountpro_locked_years_${companyId}`);
+    const stored = appStorage.getItem(`accountpro_locked_years_${companyId}`);
     if (stored) {
       setLockedYears(JSON.parse(stored));
     } else {
@@ -33,7 +34,7 @@ export function FiscalLockProvider({ children }: { children: ReactNode }) {
   const save = (years: number[]) => {
     setLockedYears(years);
     if (companyId) {
-      localStorage.setItem(`accountpro_locked_years_${companyId}`, JSON.stringify(years));
+      appStorage.setItem(`accountpro_locked_years_${companyId}`, JSON.stringify(years));
     }
   };
 

@@ -1,3 +1,5 @@
+import { shouldUseLocalStorageMode } from "@/lib/runtimeMode";
+
 export interface ScriptResult {
   success: boolean;
   message: string;
@@ -68,6 +70,10 @@ const buildEndpoint = (path: string) => {
 
 class ScriptService {
   private async runScript(action: ScriptAction): Promise<ScriptResult> {
+    if (shouldUseLocalStorageMode()) {
+      await createLocalPdf(action);
+      return { success: true, message: "Förhandsvisning: en exempel-PDF har skapats i webbläsaren." };
+    }
     try {
       const response = await fetch(buildEndpoint("/api/scripts/run"), {
         method: "POST",
@@ -97,11 +103,9 @@ class ScriptService {
       }
 
       if (!response.ok && (!apiBaseUrl || response.status === 404 || response.status === 503)) {
-        await createLocalPdf(action);
         return {
-          success: true,
-          message:
-            "Script service unavailable, generated a local PDF placeholder.",
+          success: false,
+          message: "Dokumenttjänsten svarade inte. Kontrollera Docker och försök igen.",
         };
       }
 
@@ -121,12 +125,7 @@ class ScriptService {
         data: payload?.data ?? payload,
       };
     } catch (error) {
-      await createLocalPdf(action);
-      return {
-        success: true,
-        message:
-          "Script service unavailable, generated a local PDF placeholder.",
-      };
+      return { success: false, message: "Dokumenttjänsten kunde inte nås. Kontrollera Docker och försök igen." };
     }
   }
 

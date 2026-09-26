@@ -1,3 +1,4 @@
+import { appStorage } from "@/lib/appStorage";
 import { useState, useEffect, useRef } from "react";
 import { Plus, Eye, Calendar, Search, Lock, Columns2, Trash2, FileText } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -106,24 +107,24 @@ export function AccountingPanel({
 
   const loadDrafts = () => {
     if (!draftStorageKey) { setDrafts([]); return; }
-    setDrafts(JSON.parse(localStorage.getItem(draftStorageKey) ?? "[]"));
+    setDrafts(JSON.parse(appStorage.getItem(draftStorageKey) ?? "[]"));
   };
 
   const persistDrafts = (nextDrafts: Voucher[]) => {
     if (!draftStorageKey) return;
-    localStorage.setItem(draftStorageKey, JSON.stringify(nextDrafts));
+    appStorage.setItem(draftStorageKey, JSON.stringify(nextDrafts));
     setDrafts(nextDrafts);
   };
 
   const loadVoucherTemplates = () => {
-    const standardRaw = localStorage.getItem(STANDARD_VOUCHER_TEMPLATE_KEY);
+    const standardRaw = appStorage.getItem(STANDARD_VOUCHER_TEMPLATE_KEY);
     setStandardTemplates(standardRaw ? JSON.parse(standardRaw) : []);
 
     if (!activeCompany?.id) {
       setCustomTemplates([]);
       return;
     }
-    const customRaw = localStorage.getItem(`${VOUCHER_TEMPLATE_KEY_PREFIX}${activeCompany.id}`);
+    const customRaw = appStorage.getItem(`${VOUCHER_TEMPLATE_KEY_PREFIX}${activeCompany.id}`);
     setCustomTemplates(customRaw ? JSON.parse(customRaw) : []);
   };
 
@@ -317,8 +318,8 @@ export function AccountingPanel({
     const key = templateBuilderKind === "standard"
       ? STANDARD_VOUCHER_TEMPLATE_KEY
       : `${VOUCHER_TEMPLATE_KEY_PREFIX}${activeCompany?.id}`;
-    const existing = JSON.parse(localStorage.getItem(key) ?? "[]");
-    localStorage.setItem(key, JSON.stringify([...existing, template]));
+    const existing = JSON.parse(appStorage.getItem(key) ?? "[]");
+    appStorage.setItem(key, JSON.stringify([...existing, template]));
     setSavedTemplate(template);
     loadVoucherTemplates();
     toast.success(templateBuilderKind === "standard" ? "Färdig mall sparad" : "Egen mall sparad");

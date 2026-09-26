@@ -1,3 +1,4 @@
+import { appStorage } from "@/lib/appStorage";
 import { useEffect, useMemo, useState } from "react";
 import { FileText, Loader2, Lock, RefreshCw, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -74,7 +75,7 @@ export default function NewAnnualReportsPage() {
         const base = makeInitialState(nextSchema);
         const draft = (() => {
           try {
-            return JSON.parse(localStorage.getItem(DRAFT_KEY) ?? "{}");
+            return JSON.parse(appStorage.getItem(DRAFT_KEY) ?? "{}");
           } catch {
             return {};
           }
@@ -108,7 +109,7 @@ export default function NewAnnualReportsPage() {
     if (!schema) {
       return;
     }
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(formValues));
+    appStorage.setItem(DRAFT_KEY, JSON.stringify(formValues));
   }, [formValues, schema]);
 
   const updateValue = (key: string, value: FormValue) => {
@@ -150,7 +151,7 @@ export default function NewAnnualReportsPage() {
     if (!schema) {
       return;
     }
-    localStorage.removeItem(DRAFT_KEY);
+    appStorage.removeItem(DRAFT_KEY);
     setFormValues(makeInitialState(schema));
     toast.success("Formuläret återställdes.");
   };

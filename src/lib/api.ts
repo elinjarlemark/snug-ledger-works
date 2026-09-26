@@ -1,3 +1,4 @@
+import { shouldUseLocalStorageMode } from "./runtimeMode";
 // src/lib/api.ts
 
 const API_BASE =
@@ -7,6 +8,7 @@ export async function apiRequest<T = any>(
   path: string,
   options: RequestInit & { json?: any } = {}
 ): Promise<T> {
+  if (shouldUseLocalStorageMode()) throw new Error("Denna funktion kräver den lokala databasen. Förhandsvisningen använder endast webbläsaren.");
   const url =
     API_BASE +
     (path.startsWith('/') ? '' : '/') +

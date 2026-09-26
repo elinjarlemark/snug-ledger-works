@@ -1,3 +1,4 @@
+import { appStorage } from "@/lib/appStorage";
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,11 +34,11 @@ import { cn } from "@/lib/utils";
 const VOUCHER_CONFIRMATION_KEY = "accountpro_voucher_confirmation_enabled";
 
 function isVoucherConfirmationEnabled() {
-  return localStorage.getItem(VOUCHER_CONFIRMATION_KEY) !== "false";
+  return appStorage.getItem(VOUCHER_CONFIRMATION_KEY) !== "false";
 }
 
 function setVoucherConfirmationEnabled(enabled: boolean) {
-  localStorage.setItem(VOUCHER_CONFIRMATION_KEY, enabled ? "true" : "false");
+  appStorage.setItem(VOUCHER_CONFIRMATION_KEY, enabled ? "true" : "false");
 }
 
 interface PendingAttachment {

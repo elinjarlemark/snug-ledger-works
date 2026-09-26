@@ -1,3 +1,4 @@
+import { appStorage } from "@/lib/appStorage";
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -74,14 +75,14 @@ export default function SettingsPage() {
   const [miscSettings, setMiscSettings] = useState(() => ({ invoicePhrase: "Tack för ditt förtroende.", quotePhrase: "Offerten gäller i 30 dagar.", reminderPhrase: "Vänligen betala snarast.", deliveryPhrase: "" }));
   const [personalNumber, setPersonalNumber] = useState("");
   const [voucherConfirmationEnabled, setVoucherConfirmationEnabledState] = useState(
-    () => localStorage.getItem(VOUCHER_CONFIRMATION_KEY) !== "false"
+    () => appStorage.getItem(VOUCHER_CONFIRMATION_KEY) !== "false"
   );
 
   useEffect(() => {
     if (activeCompany?.id) {
-      const savedBilling = localStorage.getItem(`accountpro_billing_settings_${activeCompany.id}`);
-      const savedBookkeeping = localStorage.getItem(`accountpro_bookkeeping_settings_${activeCompany.id}`);
-      const savedMisc = localStorage.getItem(`accountpro_misc_settings_${activeCompany.id}`);
+      const savedBilling = appStorage.getItem(`accountpro_billing_settings_${activeCompany.id}`);
+      const savedBookkeeping = appStorage.getItem(`accountpro_bookkeeping_settings_${activeCompany.id}`);
+      const savedMisc = appStorage.getItem(`accountpro_misc_settings_${activeCompany.id}`);
       if (savedBilling) setBillingSettings((prev) => ({ ...prev, ...JSON.parse(savedBilling) }));
       if (savedBookkeeping) setBookkeepingSettings((prev) => ({ ...prev, ...JSON.parse(savedBookkeeping) }));
       if (savedMisc) setMiscSettings((prev) => ({ ...prev, ...JSON.parse(savedMisc) }));
@@ -90,15 +91,15 @@ export default function SettingsPage() {
 
   const saveExtraSettings = () => {
     if (!activeCompany?.id) return;
-    localStorage.setItem(`accountpro_billing_settings_${activeCompany.id}`, JSON.stringify(billingSettings));
-    localStorage.setItem(`accountpro_bookkeeping_settings_${activeCompany.id}`, JSON.stringify(bookkeepingSettings));
-    localStorage.setItem(`accountpro_misc_settings_${activeCompany.id}`, JSON.stringify(miscSettings));
+    appStorage.setItem(`accountpro_billing_settings_${activeCompany.id}`, JSON.stringify(billingSettings));
+    appStorage.setItem(`accountpro_bookkeeping_settings_${activeCompany.id}`, JSON.stringify(bookkeepingSettings));
+    appStorage.setItem(`accountpro_misc_settings_${activeCompany.id}`, JSON.stringify(miscSettings));
     toast.success("Inställningar sparade");
   };
 
   useEffect(() => {
     if (user) {
-      const stored = localStorage.getItem(`accountpro_personal_number_${user.id}`);
+      const stored = appStorage.getItem(`accountpro_personal_number_${user.id}`);
       if (stored) setPersonalNumber(stored);
     }
   }, [user]);
@@ -217,13 +218,13 @@ export default function SettingsPage() {
       toast.error("Personal number must be exactly 12 digits (XXXXXXXX-XXXX)");
       return;
     }
-    localStorage.setItem(`accountpro_personal_number_${user.id}`, personalNumber);
+    appStorage.setItem(`accountpro_personal_number_${user.id}`, personalNumber);
     toast.success("Personal settings saved!");
   };
 
   const setVoucherConfirmationEnabled = (enabled: boolean) => {
     setVoucherConfirmationEnabledState(enabled);
-    localStorage.setItem(VOUCHER_CONFIRMATION_KEY, enabled ? "true" : "false");
+    appStorage.setItem(VOUCHER_CONFIRMATION_KEY, enabled ? "true" : "false");
     toast.success(enabled ? "Extra check aktiverad" : "Extra check inaktiverad");
   };
 
@@ -436,11 +437,11 @@ export default function SettingsPage() {
                   </CardContent>
                 </Card>
 
-                {activeCompany && (
+                {activeCompany && authService.isDatabaseConnected() && (
                   <JoinRequestsPanel companyId={activeCompany.id} userId={String(user.id)} />
                 )}
 
-                {activeCompany && (
+                {activeCompany && authService.isDatabaseConnected() && (
                   <TakeoverPopup companyId={activeCompany.id} userId={Number(user.id)} />
                 )}
 

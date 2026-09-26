@@ -41,15 +41,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("snug-api")
 
 app = FastAPI()
+from workspace import router as workspace_router
+app.include_router(workspace_router)
 
-@app.middleware("http")
-async def log_login_request(request: Request, call_next):
-    if request.url.path == "/auth/login":
-        body = await request.body()
-        logger.info("LOGIN RAW body: %s", body.decode("utf-8", errors="replace"))
-        logger.info("LOGIN RAW content-type: %s", request.headers.get("content-type"))
-    response = await call_next(request)
-    return response
 
 
 app.add_middleware(
@@ -295,10 +289,7 @@ def run_migrations_to_head():
 
 @app.on_event("startup")
 def on_startup():
-    try:
-        run_migrations_to_head()
-    except Exception:
-        logger.exception("Startup migrations failed (API will error until fixed).")
+    run_migrations_to_head()
 
 
 # ------------------------------------------------------------
@@ -312,7 +303,7 @@ def health():
         db.close()
         return {"status": "ok", "db": "ok"}
     except Exception:
-        return {"status": "ok", "db": "unavailable"}
+        raise HTTPException(status_code=503, detail="Database unavailable")
 
 
 # ------------------------------------------------------------
@@ -339,7 +330,6 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)):
 
 @app.post("/auth/login")
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    logger.info("LOGIN payload received: email=%s password=%s", payload.email, len(payload.password or ""))
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not verify_password(payload.password, user.password):
         return {"success": False, "error": "Invalid email or password"}
@@ -816,8 +806,14 @@ def upsert_company_sie_state(company_id: int, payload: CompanySIEStateUpsert, db
 # Customers
 # ------------------------------------------------------------
 @app.get("/customers")
-def list_customers(user_id: int, db: Session = Depends(get_db)):
-    customers = db.query(Customer).filter(Customer.user_id == user_id).all()
+def list_customers(user_id: int, company_id: int | None = None, db: Session = Depends(get_db)):
+    query = db.query(Customer)
+    if company_id is not None:
+        require_company_access(db, company_id, user_id)
+        query = query.filter(Customer.company_id == company_id)
+    else:
+        query = query.filter(Customer.user_id == user_id)
+    customers = query.all()
     return [
         {
             "id": c.id,
@@ -890,8 +886,14 @@ def delete_customer(customer_id: int, db: Session = Depends(get_db)):
 # Products
 # ------------------------------------------------------------
 @app.get("/products")
-def list_products(user_id: int, db: Session = Depends(get_db)):
-    products = db.query(Product).filter(Product.user_id == user_id).all()
+def list_products(user_id: int, company_id: int | None = None, db: Session = Depends(get_db)):
+    query = db.query(Product)
+    if company_id is not None:
+        require_company_access(db, company_id, user_id)
+        query = query.filter(Product.company_id == company_id)
+    else:
+        query = query.filter(Product.user_id == user_id)
+    products = query.all()
     return [
         {
             "id": p.id,

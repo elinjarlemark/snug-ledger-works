@@ -1,10 +1,11 @@
+import { authService } from "@/services/auth";
 import { useAuth } from "@/contexts/AuthContext";
 import { TakeoverListener } from "@/components/company/TakeoverListener";
 
 export function GlobalTakeoverListener() {
   const { user, activeCompany } = useAuth();
 
-  if (!user || !activeCompany) {
+  if (!authService.isDatabaseConnected() || !user || !activeCompany) {
     return null;
   }
 

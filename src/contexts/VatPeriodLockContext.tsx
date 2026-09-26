@@ -1,3 +1,4 @@
+import { appStorage } from "@/lib/appStorage";
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { useAuth } from "./AuthContext";
 import { useVat } from "./VatContext";
@@ -31,7 +32,7 @@ export function VatPeriodLockProvider({ children }: { children: ReactNode }) {
       setLockedPeriods([]);
       return;
     }
-    const stored = localStorage.getItem(`vat_locked_periods_${companyId}`);
+    const stored = appStorage.getItem(`vat_locked_periods_${companyId}`);
     if (stored) {
       try {
         setLockedPeriods(JSON.parse(stored));
@@ -45,7 +46,7 @@ export function VatPeriodLockProvider({ children }: { children: ReactNode }) {
 
   const persist = (next: string[]) => {
     setLockedPeriods(next);
-    if (companyId) localStorage.setItem(`vat_locked_periods_${companyId}`, JSON.stringify(next));
+    if (companyId) appStorage.setItem(`vat_locked_periods_${companyId}`, JSON.stringify(next));
   };
 
   const lockPeriod = (key: string) => {

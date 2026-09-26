@@ -1,3 +1,4 @@
+import { appStorage } from "@/lib/appStorage";
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from "react";
 import { useAuth } from "./AuthContext";
 
@@ -38,7 +39,7 @@ export function CommentsProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const stored = localStorage.getItem(storageKey);
+      const stored = appStorage.getItem(storageKey);
       setComments(stored ? JSON.parse(stored) : []);
     } catch {
       setComments([]);
@@ -48,7 +49,7 @@ export function CommentsProvider({ children }: { children: ReactNode }) {
   const persistComments = (nextComments: AppComment[]) => {
     setComments(nextComments);
     if (storageKey) {
-      localStorage.setItem(storageKey, JSON.stringify(nextComments));
+      appStorage.setItem(storageKey, JSON.stringify(nextComments));
     }
   };
 

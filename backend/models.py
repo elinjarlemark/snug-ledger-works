@@ -20,6 +20,15 @@ from datetime import datetime
 from database import Base
 
 
+class WorkspaceState(Base):
+    __tablename__ = "workspace_states"
+    scope = Column(String(100), primary_key=True)
+    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    values_json = Column(Text, nullable=False)
+    version = Column(Integer, nullable=False, default=0)
+
+
 class User(Base):
     __tablename__ = "users"
 

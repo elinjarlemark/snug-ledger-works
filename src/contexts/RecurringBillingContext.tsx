@@ -1,3 +1,4 @@
+import { appStorage } from "@/lib/appStorage";
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBilling } from "@/contexts/BillingContext";
@@ -39,7 +40,7 @@ export function RecurringBillingProvider({ children }: { children: ReactNode }) 
       return;
     }
     try {
-      const raw = localStorage.getItem(storageKey(companyId));
+      const raw = appStorage.getItem(storageKey(companyId));
       setRecurring(raw ? JSON.parse(raw) : []);
     } catch {
       setRecurring([]);
@@ -49,7 +50,7 @@ export function RecurringBillingProvider({ children }: { children: ReactNode }) 
   const persist = useCallback(
     (next: RecurringInvoice[]) => {
       setRecurring(next);
-      if (companyId) localStorage.setItem(storageKey(companyId), JSON.stringify(next));
+      if (companyId) appStorage.setItem(storageKey(companyId), JSON.stringify(next));
     },
     [companyId],
   );

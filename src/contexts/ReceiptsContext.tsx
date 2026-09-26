@@ -1,3 +1,4 @@
+import { appStorage } from "@/lib/appStorage";
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useAuth } from "./AuthContext";
 
@@ -29,19 +30,19 @@ export function ReceiptsProvider({ children }: { children: ReactNode }) {
 
   const [receipts, setReceipts] = useState<Receipt[]>(() => {
     if (!companyId) return [];
-    const stored = localStorage.getItem(`accountpro_receipts_${companyId}`);
+    const stored = appStorage.getItem(`accountpro_receipts_${companyId}`);
     return stored ? JSON.parse(stored) : [];
   });
 
   useEffect(() => {
     if (!companyId) return;
-    const stored = localStorage.getItem(`accountpro_receipts_${companyId}`);
+    const stored = appStorage.getItem(`accountpro_receipts_${companyId}`);
     setReceipts(stored ? JSON.parse(stored) : []);
   }, [companyId]);
 
   useEffect(() => {
     if (companyId) {
-      localStorage.setItem(`accountpro_receipts_${companyId}`, JSON.stringify(receipts));
+      appStorage.setItem(`accountpro_receipts_${companyId}`, JSON.stringify(receipts));
     }
   }, [receipts, companyId]);
 

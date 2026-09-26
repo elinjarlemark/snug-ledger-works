@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { shouldUseLocalStorageMode } from "@/lib/runtimeMode";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (isLoading) return;
+    if (shouldUseLocalStorageMode()) { setError("Användaradministration finns i den lokala databasversionen."); return; }
     if (!user || user.role !== "admin") {
       navigate("/login");
       return;
@@ -47,6 +49,7 @@ export default function AdminPage() {
   }, [user, isLoading, navigate]);
 
   const handleRoleChange = async (userId: number | string, role: string) => {
+    if (shouldUseLocalStorageMode()) return;
     try {
       setSaving(Number(userId));
       const response = await fetch(`${apiBaseUrl}/users/${userId}/role`, {

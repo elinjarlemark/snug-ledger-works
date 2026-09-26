@@ -5,15 +5,14 @@ services:
       POSTGRES_USER: snug
       POSTGRES_PASSWORD: snug
       POSTGRES_DB: snug_ledger
-    ports:
-      - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U snug -d snug_ledger"]
-      interval: 2s
+      interval: 3s
       timeout: 3s
       retries: 30
+    restart: unless-stopped
 
   api:
     build:
@@ -21,25 +20,40 @@ services:
       dockerfile: backend/Dockerfile
     environment:
       DATABASE_URL: postgresql://snug:snug@db:5432/snug_ledger
-      ADMIN_TOKEN: 'dev-admin-token'
-    ports:
-      - '8000:8000'
     depends_on:
-     db:
+      db:
         condition: service_healthy
-    command: ['uvicorn', 'main:app', '--host', '0.0.0.0', '--port', '8000', '--log-level', 'debug', '--access-log']
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped
+
+  script-server:
+    build:
+      context: .
+      dockerfile: docker/scripts.Dockerfile
+    restart: unless-stopped
 
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    environment:
-      VITE_API_BASE_URL: http://localhost:8000
-      VITE_DATABASE_CONNECTED: "true"
     ports:
-      - "5173:5173"
+      - "127.0.0.1:5173:80"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1/"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+      script-server:
+        condition: service_started
+    restart: unless-stopped
 
 volumes:
   db_data:

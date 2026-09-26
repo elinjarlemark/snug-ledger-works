@@ -1,10 +1,6 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-echo "Starting Docker Compose..."
-docker compose up --build -d
-
-echo "Running local smoke tests..."
-bash scripts/test-local.sh
-
-echo "All services are running. Open http://localhost:5173 in your browser."
+#!/usr/bin/env sh
+set -eu
+cd "$(dirname "$0")/.."
+docker compose up --build -d --wait --wait-timeout 180
+sh scripts/test-local.sh
+printf '%s\n' 'Öppna http://localhost:5173 i webbläsaren.'
