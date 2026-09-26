@@ -45,6 +45,7 @@ interface TemplateBuilderLine {
 
 interface AccountingPanelProps {
   compact?: boolean;
+  hideCreateAction?: boolean;
   incomingDuplicate?: Voucher | null;
   onClearIncomingDuplicate?: () => void;
   onDuplicateToOther?: (voucher: Voucher) => void;
@@ -56,6 +57,7 @@ interface AccountingPanelProps {
 
 export function AccountingPanel({
   compact,
+  hideCreateAction = false,
   incomingDuplicate,
   onClearIncomingDuplicate,
   onDuplicateToOther,
@@ -630,11 +632,11 @@ export function AccountingPanel({
           {/* Filters */}
           <Card>
             <CardHeader className="py-3 pb-2">
-              <CardTitle className="text-base">Voucher Period</CardTitle>
+              <CardTitle className="text-base">Verifikationsperiod</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm text-muted-foreground">From:</span>
+                <span className="text-sm text-muted-foreground">Från:</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -646,7 +648,7 @@ export function AccountingPanel({
                       )}
                     >
                       <Calendar className="mr-1 h-3 w-3" />
-                      {voucherStartDate ? format(voucherStartDate, "yyyy-MM-dd") : "Start"}
+                      {voucherStartDate ? format(voucherStartDate, "yyyy-MM-dd") : "Startdatum"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -660,7 +662,7 @@ export function AccountingPanel({
                     />
                   </PopoverContent>
                 </Popover>
-                <span className="text-sm text-muted-foreground">to</span>
+                <span className="text-sm text-muted-foreground">Till:</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -672,7 +674,7 @@ export function AccountingPanel({
                       )}
                     >
                       <Calendar className="mr-1 h-3 w-3" />
-                      {voucherEndDate ? format(voucherEndDate, "yyyy-MM-dd") : "End"}
+                      {voucherEndDate ? format(voucherEndDate, "yyyy-MM-dd") : "Slutdatum"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -692,12 +694,12 @@ export function AccountingPanel({
                   className="w-[140px]"
                 />
                 <Button variant="ghost" size="sm" onClick={handleClear}>
-                  Clear
+                  Rensa
                 </Button>
               </div>
               {currentYearLocked && (
                 <p className="text-sm text-destructive mt-2 flex items-center gap-1">
-                  <Lock className="h-3 w-3" /> This fiscal year is locked. Vouchers cannot be reverted.
+                  <Lock className="h-3 w-3" /> Räkenskapsåret är låst. Verifikationer kan inte vändas.
                 </p>
               )}
             </CardContent>
@@ -706,24 +708,24 @@ export function AccountingPanel({
           {/* Vouchers heading + Compare + Search */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <h2 className={cn("font-semibold text-foreground", compact ? "text-lg" : "text-2xl")}>
-              Vouchers ({filteredVouchers.length})
+              Verifikationer ({filteredVouchers.length})
             </h2>
-            <div className="flex items-center gap-2">
-              <Button variant="default" size="sm" onClick={handleCreateClick}>
+            <div className="flex flex-wrap items-center gap-2">
+              {!hideCreateAction && <Button variant="default" size="sm" onClick={handleCreateClick}>
                 <Plus className="h-4 w-4 mr-2" />
                 Ny verifikation
-              </Button>
+              </Button>}
               {onToggleCompare && (
                 <Button variant="outline" size="sm" onClick={onToggleCompare}>
                   <Columns2 className="h-4 w-4 mr-2" />
-                  Compare
+                  Jämför
                 </Button>
               )}
               <div className="relative w-full sm:w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="Search by name, number or date..."
+                  placeholder="Sök namn, nummer eller datum..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9"
@@ -737,22 +739,22 @@ export function AccountingPanel({
           </div>
 
           {/* Table */}
-          <div className="bg-card rounded-lg border border-border overflow-hidden">
-            <table className="w-full text-xs">
+          <div className="bg-card rounded-lg border border-border overflow-x-auto">
+            <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
                   <th className="text-left py-2 px-3 font-medium text-foreground">#</th>
-                  <th className="text-left py-2 px-3 font-medium text-foreground">Date</th>
-                  <th className="text-left py-2 px-3 font-medium text-foreground">Description</th>
-                  <th className="text-right py-2 px-3 font-medium text-foreground">Amount</th>
-                  <th className="text-center py-2 px-3 font-medium text-foreground">Actions</th>
+                  <th className="text-left py-2 px-3 font-medium text-foreground">Datum</th>
+                  <th className="text-left py-2 px-3 font-medium text-foreground">Beskrivning</th>
+                  <th className="text-right py-2 px-3 font-medium text-foreground">Belopp</th>
+                  <th className="text-center py-2 px-3 font-medium text-foreground">Åtgärder</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedVouchers.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="py-6 text-center text-muted-foreground">
-                      No vouchers found matching your search.
+                      Inga verifikationer matchar din sökning.
                     </td>
                   </tr>
                 ) : (
@@ -764,7 +766,7 @@ export function AccountingPanel({
                         className="border-b border-border/50 hover:bg-muted/20 cursor-pointer transition-colors"
                         onClick={() => handleVoucherClick(voucher)}
                       >
-                        <td className="py-2 px-3 font-mono text-secondary">
+                        <td className="py-2 px-3 tabular-nums text-foreground">
                           {voucher.voucherNumber}
                         </td>
                         <td className="py-2 px-3 text-muted-foreground">{voucher.date}</td>
@@ -778,7 +780,7 @@ export function AccountingPanel({
                             </div>
                           )}
                         </td>
-                        <td className="py-2 px-3 text-right font-mono font-medium">
+                        <td className="py-2 px-3 text-right tabular-nums font-medium whitespace-nowrap">
                           {formatAmount(total)} SEK
                         </td>
                         <td className="py-2 px-3 text-center">
@@ -792,7 +794,7 @@ export function AccountingPanel({
                             }}
                           >
                             <Eye className="h-3 w-3 mr-1" />
-                            View
+                            Visa
                           </Button>
                         </td>
                       </tr>
