@@ -3,14 +3,14 @@ import { Smartphone, Monitor } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * Floating switch (top center) to toggle between mobile and desktop view.
+ * Floating switch in the lower corner to keep the company header unobstructed.
  * Visible on every page so the user can preview either layout from any device.
  */
 export function ViewModeSwitch() {
   const { isMobile, setMode } = useViewMode();
 
   return (
-    <div className="fixed top-2 left-1/2 -translate-x-1/2 z-[100] pointer-events-auto">
+    <div className="fixed bottom-3 right-3 z-[100] pointer-events-auto">
       <div className="flex items-center gap-1 rounded-full border border-border bg-card/90 backdrop-blur-md shadow-lg p-1">
         <button
           type="button"
