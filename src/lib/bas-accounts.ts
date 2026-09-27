@@ -1,254 +1,905 @@
-// BAS Chart of Accounts - Swedish Standard
-// Account classes determine balance behavior
+import {
+  INK2_ACCOUNT_MAPPING_2026,
+  type Ink2AccountMapping,
+} from "@/lib/ink2Mapping2026";
 
-export type AccountClass = "asset" | "equity_liability" | "revenue" | "expense";
-export type AccountingStandard = "K2" | "K3" | "";
+// AccountPro är K2-only.
+//
+// BAS-kontoplanen läses direkt från årsvisa CSV-filer.
+// Vi har därför ingen handskriven delmängd av BAS-konton.
+//
+// För BAS 2026 kompletteras varje konto med den fullständiga
+// INK2-mappningen som redan finns i projektet.
+// ink2Mapping2026.ts innehåller samtliga unika kontonummer
+// från BAS_kontoplan_2026.csv.
+
+export type AccountClass =
+  | "asset"
+  | "equity_liability"
+  | "revenue"
+  | "expense";
+
+export type AccountingStandard =
+  | "K2"
+  | "K3"
+  | "";
+
+export type BASReportSection =
+  | "balance"
+  | "income"
+  | "none";
+
+export interface BASReportMetadata {
+  reportSection: BASReportSection;
+  reportGroup: string;
+
+  ink2rField: string | null;
+  ink2rLabel?: string;
+
+  section?: string;
+  sruCodes?: string;
+  amountRule?: string;
+
+  confidence?: string;
+  notes?: string;
+}
 
 export interface BASAccount {
   number: string;
   name: string;
+
   class: AccountClass;
+
   description?: string;
+
   k3Only?: boolean;
+
+  basYear?: number;
+
+  source?: "bas" | "sie";
+
+  report?: BASReportMetadata;
+
+  defaultVatCodeId?: string;
 }
 
-const BAS_CSV_FILES = import.meta.glob("../data/bas/BAS_kontoplan_*.csv", {
-  query: "?raw",
-  import: "default",
-  eager: true,
-}) as Record<string, string>;
+const BAS_CSV_FILES =
+  import.meta.glob(
+    "../data/bas/BAS_kontoplan_*.csv",
+    {
+      query: "?raw",
+      import: "default",
+      eager: true,
+    }
+  ) as Record<string, string>;
 
-function parseCsvRow(line: string): string[] {
+function parseCsvRow(
+  line: string
+): string[] {
   const result: string[] = [];
+
   let current = "";
   let inQuotes = false;
 
-  for (let i = 0; i < line.length; i += 1) {
-    const char = line[i];
+  for (
+    let index = 0;
+    index < line.length;
+    index += 1
+  ) {
+    const char =
+      line[index];
+
     if (char === '"') {
-      inQuotes = !inQuotes;
+      if (
+        inQuotes &&
+        line[index + 1] === '"'
+      ) {
+        current += '"';
+        index += 1;
+        continue;
+      }
+
+      inQuotes =
+        !inQuotes;
+
       continue;
     }
-    if ((char === "," || char === ";") && !inQuotes) {
-      result.push(current.trim());
+
+    if (
+      (char === "," ||
+        char === ";") &&
+      !inQuotes
+    ) {
+      result.push(
+        current.trim()
+      );
+
       current = "";
+
       continue;
     }
+
     current += char;
   }
 
-  result.push(current.trim());
+  result.push(
+    current.trim()
+  );
+
   return result;
 }
 
-function parseBasYearFromPath(path: string): number | null {
-  const match = path.match(/BAS_kontoplan_(\d{4})\.csv$/);
-  if (!match) return null;
-  return Number(match[1]);
-}
+function parseBasYearFromPath(
+  path: string
+): number | null {
+  const match =
+    path.match(
+      /BAS_kontoplan_(\d{4})\.csv$/
+    );
 
-function parseBasCsv(csvContent: string): BASAccount[] {
-  const lines = csvContent
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-
-  const accounts: BASAccount[] = [];
-
-  for (const line of lines) {
-    const columns = parseCsvRow(line).map((col) => col.replace(/^"|"$/g, ""));
-    if (columns.length < 2) continue;
-
-    const accountNumberCandidate = columns[0].replace(/\D/g, "");
-    if (!/^\d{4}$/.test(accountNumberCandidate)) continue;
-
-    const accountName = columns[1];
-    if (!accountName) continue;
-
-    const k3Marker = (columns[2] ?? "").trim().toLowerCase();
-
-    accounts.push({
-      number: accountNumberCandidate,
-      name: accountName,
-      class: getAccountClass(accountNumberCandidate),
-      k3Only: k3Marker === "x",
-    });
+  if (!match) {
+    return null;
   }
 
-  return accounts;
-}
+  const year =
+    Number(match[1]);
 
-function filterAccountsByStandard(accounts: BASAccount[], accountingStandard: AccountingStandard): BASAccount[] {
-  if (accountingStandard === "K3") {
-    return accounts;
-  }
-  return accounts.filter((account) => !account.k3Only);
-}
-
-export function getAvailableBASYears(): number[] {
-  return Object.keys(BAS_CSV_FILES)
-    .map(parseBasYearFromPath)
-    .filter((year): year is number => year !== null)
-    .sort((a, b) => a - b);
-}
-
-export function getLatestBASYear(): number | null {
-  const years = getAvailableBASYears();
-  return years.length > 0 ? years[years.length - 1] : null;
-}
-
-export function getBASAccountsForYear(year: number, accountingStandard: AccountingStandard = ""): BASAccount[] {
-  const entry = Object.entries(BAS_CSV_FILES).find(([path]) => path.endsWith(`BAS_kontoplan_${year}.csv`));
-  if (!entry) return [];
-  return filterAccountsByStandard(parseBasCsv(entry[1]), accountingStandard);
-}
-
-export function getBASAccountsForDate(date: string, accountingStandard: AccountingStandard = ""): BASAccount[] {
-  const year = Number(date.slice(0, 4));
-  if (!Number.isFinite(year)) {
-    const latestYear = getLatestBASYear();
-    if (!latestYear) return DEFAULT_BAS_ACCOUNTS;
-    const latestAccounts = getBASAccountsForYear(latestYear, accountingStandard);
-    return latestAccounts.length > 0 ? latestAccounts : DEFAULT_BAS_ACCOUNTS;
+  if (
+    !Number.isFinite(year)
+  ) {
+    return null;
   }
 
-  const exactYearAccounts = getBASAccountsForYear(year, accountingStandard);
-  if (exactYearAccounts.length > 0) {
-    return exactYearAccounts;
+  return year;
+}
+
+function fallbackAccountClass(
+  accountNumber: string
+): AccountClass {
+  const firstDigit =
+    Number(
+      accountNumber.charAt(0)
+    );
+
+  if (
+    firstDigit === 1
+  ) {
+    return "asset";
   }
 
-  const years = getAvailableBASYears();
-  const filteredYears = years.filter((availableYear) => availableYear <= year);
-  const fallbackYear = filteredYears.length > 0 ? filteredYears[filteredYears.length - 1] : getLatestBASYear();
-  if (!fallbackYear) return DEFAULT_BAS_ACCOUNTS;
-
-  const fallbackAccounts = getBASAccountsForYear(fallbackYear, accountingStandard);
-  return fallbackAccounts.length > 0 ? fallbackAccounts : DEFAULT_BAS_ACCOUNTS;
-}
-
-export function getLatestBASAccounts(accountingStandard: AccountingStandard = ""): BASAccount[] {
-  const latestYear = getLatestBASYear();
-  if (!latestYear) return DEFAULT_BAS_ACCOUNTS;
-  const latestAccounts = getBASAccountsForYear(latestYear, accountingStandard);
-  return latestAccounts.length > 0 ? latestAccounts : DEFAULT_BAS_ACCOUNTS;
-}
-
-export function getAccountClass(accountNumber: string): AccountClass {
-  const firstDigit = parseInt(accountNumber.charAt(0));
-  
-  switch (firstDigit) {
-    case 1:
-      return "asset";
-    case 2:
-      return "equity_liability";
-    case 3:
-      return "revenue";
-    case 4:
-    case 5:
-    case 6:
-    case 7:
-    case 8:
-      return "expense";
-    default:
-      return "asset";
+  if (
+    firstDigit === 2
+  ) {
+    return "equity_liability";
   }
+
+  if (
+    firstDigit === 3
+  ) {
+    return "revenue";
+  }
+
+  return "expense";
 }
 
-export function getAccountClassName(accountClass: AccountClass): string {
-  switch (accountClass) {
+function classFromMapping(
+  accountNumber: string,
+  mapping:
+    | Ink2AccountMapping
+    | undefined
+): AccountClass {
+  if (!mapping) {
+    return fallbackAccountClass(
+      accountNumber
+    );
+  }
+
+  const section =
+    (
+      mapping.section ||
+      ""
+    ).toLowerCase();
+
+  const amountRule =
+    (
+      mapping.amountRule ||
+      ""
+    ).toLowerCase();
+
+  if (
+    section.includes(
+      "balans - tillgångar"
+    )
+  ) {
+    return "asset";
+  }
+
+  if (
+    section.includes(
+      "balans - eget kapital/skulder"
+    )
+  ) {
+    return "equity_liability";
+  }
+
+  if (
+    amountRule.startsWith(
+      "intäkt"
+    )
+  ) {
+    return "revenue";
+  }
+
+  if (
+    amountRule.startsWith(
+      "kostnad"
+    )
+  ) {
+    return "expense";
+  }
+
+  return fallbackAccountClass(
+    accountNumber
+  );
+}
+
+function reportMetadataFromMapping(
+  mapping:
+    | Ink2AccountMapping
+    | undefined
+):
+  | BASReportMetadata
+  | undefined {
+  if (!mapping) {
+    return undefined;
+  }
+
+  const section =
+    mapping.section || "";
+
+  let reportSection:
+    BASReportSection =
+    "none";
+
+  if (
+    section.includes(
+      "Balans"
+    )
+  ) {
+    reportSection =
+      "balance";
+  } else if (
+    section.includes(
+      "Resultat"
+    )
+  ) {
+    reportSection =
+      "income";
+  }
+
+  return {
+    reportSection,
+
+    reportGroup:
+      mapping.ink2rLabel ||
+      mapping.section ||
+      "Ingen separat rapportpost",
+
+    ink2rField:
+      mapping.ink2rField,
+
+    ink2rLabel:
+      mapping.ink2rLabel,
+
+    section:
+      mapping.section,
+
+    sruCodes:
+      mapping.sruCodes,
+
+    amountRule:
+      mapping.amountRule,
+
+    confidence:
+      mapping.confidence,
+
+    notes:
+      mapping.notes,
+  };
+}
+
+function inferDefaultVatCodeId(
+  accountNumber: string,
+  accountName: string
+):
+  | string
+  | undefined {
+  const number =
+    Number(
+      accountNumber
+    );
+
+  if (
+    !Number.isFinite(
+      number
+    )
+  ) {
+    return undefined;
+  }
+
+  // Vi sätter endast automatisk momskod
+  // när informationen uttryckligen framgår
+  // av ett försäljningskontos namn.
+  //
+  // Komplexa EU-, export-, import- och
+  // omvänd-momsfall ska inte gissas.
+
+  if (
+    number < 3000 ||
+    number > 3999
+  ) {
+    return undefined;
+  }
+
+  const name =
+    accountName
+      .toLowerCase();
+
+  if (
+    name.includes(
+      "25 %"
+    ) ||
+    name.includes(
+      "25%"
+    )
+  ) {
+    return "SE25";
+  }
+
+  if (
+    name.includes(
+      "12 %"
+    ) ||
+    name.includes(
+      "12%"
+    )
+  ) {
+    return "SE12";
+  }
+
+  if (
+    name.includes(
+      "6 %"
+    ) ||
+    name.includes(
+      "6%"
+    )
+  ) {
+    return "SE6";
+  }
+
+  if (
+    name.includes(
+      "momsfri"
+    )
+  ) {
+    return "SE0";
+  }
+
+  return undefined;
+}
+
+function getInk2MappingForYear(
+  year: number,
+  accountNumber: string
+):
+  | Ink2AccountMapping
+  | undefined {
+  // Den fullständiga
+  // kontospecifika mapping som
+  // finns i projektet gäller
+  // BAS 2026.
+
+  if (
+    year !== 2026
+  ) {
+    return undefined;
+  }
+
+  return (
+    INK2_ACCOUNT_MAPPING_2026[
+      accountNumber
+    ]
+  );
+}
+
+function parseBasCsv(
+  csvContent: string,
+  year: number
+): BASAccount[] {
+  const lines =
+    csvContent
+      .split(/\r?\n/)
+      .map(
+        (line) =>
+          line.trim()
+      )
+      .filter(
+        (line) =>
+          line.length > 0
+      );
+
+  const accountsByNumber =
+    new Map<
+      string,
+      BASAccount
+    >();
+
+  for (
+    const line of lines
+  ) {
+    const columns =
+      parseCsvRow(line);
+
+    if (
+      columns.length < 2
+    ) {
+      continue;
+    }
+
+    const accountNumber =
+      columns[0].trim();
+
+    if (
+      !/^\d{4}$/.test(
+        accountNumber
+      )
+    ) {
+      continue;
+    }
+
+    const csvName =
+      columns[1].trim();
+
+    if (!csvName) {
+      continue;
+    }
+
+    const k3Marker =
+      (
+        columns[2] ||
+        ""
+      )
+        .trim()
+        .toLowerCase();
+
+    const mapping =
+      getInk2MappingForYear(
+        year,
+        accountNumber
+      );
+
+    // BAS 2026 CSV:n innehåller
+    // några dubbla kontonummer.
+    //
+    // 2026-mappingen har redan ett
+    // kanoniskt namn för dessa.
+    //
+    // Exempel:
+    // 2087 förekommer med två olika
+    // benämningar i CSV-filen.
+    //
+    // Mappningen använder därför:
+    // "Bunden överkursfond / Insatsemission".
+
+    const accountName =
+      mapping?.accountName ||
+      csvName;
+
+    const existing =
+      accountsByNumber.get(
+        accountNumber
+      );
+
+    const k3Only =
+      k3Marker === "x" ||
+      existing?.k3Only ===
+        true;
+
+    const account:
+      BASAccount = {
+      number:
+        accountNumber,
+
+      name:
+        accountName,
+
+      class:
+        classFromMapping(
+          accountNumber,
+          mapping
+        ),
+
+      description:
+        mapping?.ink2rField &&
+        mapping.ink2rLabel
+          ? "INK2R " +
+            mapping.ink2rField +
+            " – " +
+            mapping.ink2rLabel
+          : mapping?.notes,
+
+      k3Only,
+
+      basYear:
+        year,
+
+      source:
+        "bas",
+
+      report:
+        reportMetadataFromMapping(
+          mapping
+        ),
+
+      defaultVatCodeId:
+        inferDefaultVatCodeId(
+          accountNumber,
+          accountName
+        ),
+    };
+
+    accountsByNumber.set(
+      accountNumber,
+      account
+    );
+  }
+
+  return Array.from(
+    accountsByNumber.values()
+  ).sort(
+    (a, b) =>
+      a.number.localeCompare(
+        b.number
+      )
+  );
+}
+
+function filterAccountsForAccountPro(
+  accounts: BASAccount[]
+): BASAccount[] {
+  // AccountPro stöder endast K2.
+  //
+  // Konton som är markerade
+  // som K3-only i BAS-filen
+  // visas därför aldrig.
+
+  return accounts.filter(
+    (account) =>
+      !account.k3Only
+  );
+}
+
+function getRawBASAccountsForYear(
+  year: number
+): BASAccount[] {
+  const suffix =
+    "BAS_kontoplan_" +
+    String(year) +
+    ".csv";
+
+  const entry =
+    Object.entries(
+      BAS_CSV_FILES
+    ).find(
+      ([path]) =>
+        path.endsWith(
+          suffix
+        )
+    );
+
+  if (!entry) {
+    return [];
+  }
+
+  return parseBasCsv(
+    entry[1],
+    year
+  );
+}
+
+export function getAvailableBASYears():
+  number[] {
+  return Object.keys(
+    BAS_CSV_FILES
+  )
+    .map(
+      parseBasYearFromPath
+    )
+    .filter(
+      (
+        year
+      ): year is number =>
+        year !== null
+    )
+    .filter(
+      (
+        year,
+        index,
+        years
+      ) =>
+        years.indexOf(
+          year
+        ) ===
+        index
+    )
+    .sort(
+      (a, b) =>
+        a - b
+    );
+}
+
+export function getLatestBASYear():
+  | number
+  | null {
+  const years =
+    getAvailableBASYears();
+
+  if (
+    years.length === 0
+  ) {
+    return null;
+  }
+
+  return years[
+    years.length - 1
+  ];
+}
+
+export function hasBASYear(
+  year: number
+): boolean {
+  return getAvailableBASYears()
+    .includes(year);
+}
+
+export function getBASVersionLabel(
+  year: number
+): string {
+  return (
+    "BAS " +
+    String(year)
+  );
+}
+
+export function getBASAccountsForYear(
+  year: number,
+  _accountingStandard:
+    AccountingStandard =
+    "K2"
+): BASAccount[] {
+  return filterAccountsForAccountPro(
+    getRawBASAccountsForYear(
+      year
+    )
+  );
+}
+
+export function getBASAccountsForDate(
+  date: string,
+  accountingStandard:
+    AccountingStandard =
+    "K2"
+): BASAccount[] {
+  const year =
+    Number(
+      date.slice(
+        0,
+        4
+      )
+    );
+
+  if (
+    !Number.isFinite(
+      year
+    )
+  ) {
+    return [];
+  }
+
+  // Ingen fallback.
+  //
+  // En verifikation daterad
+  // 2026 använder BAS 2026.
+  //
+  // Finns inte BAS för året
+  // används inte ett annat års
+  // kontoplan automatiskt.
+
+  return getBASAccountsForYear(
+    year,
+    accountingStandard
+  );
+}
+
+export function getLatestBASAccounts(
+  accountingStandard:
+    AccountingStandard =
+    "K2"
+): BASAccount[] {
+  const latestYear =
+    getLatestBASYear();
+
+  if (!latestYear) {
+    return [];
+  }
+
+  return getBASAccountsForYear(
+    latestYear,
+    accountingStandard
+  );
+}
+
+export function getBASAccountForYear(
+  year: number,
+  accountNumber: string
+):
+  | BASAccount
+  | undefined {
+  return getBASAccountsForYear(
+    year,
+    "K2"
+  ).find(
+    (account) =>
+      account.number ===
+      accountNumber
+  );
+}
+
+export function getBASReportMetadataForAccount(
+  year: number,
+  accountNumber: string
+):
+  | BASReportMetadata
+  | undefined {
+  return getBASAccountForYear(
+    year,
+    accountNumber
+  )?.report;
+}
+
+export function getAccountClass(
+  accountNumber: string
+): AccountClass {
+  const mapping =
+    INK2_ACCOUNT_MAPPING_2026[
+      accountNumber
+    ];
+
+  return classFromMapping(
+    accountNumber,
+    mapping
+  );
+}
+
+export function getAccountClassName(
+  accountClass: AccountClass
+): string {
+  switch (
+    accountClass
+  ) {
     case "asset":
-      return "Assets";
+      return "Tillgång";
+
     case "equity_liability":
-      return "Equity & Liabilities";
+      return "Eget kapital / skuld";
+
     case "revenue":
-      return "Revenue";
+      return "Intäkt";
+
     case "expense":
-      return "Expenses";
+      return "Kostnad";
   }
 }
 
 export function calculateBalance(
-  accountClass: AccountClass,
+  accountClass:
+    AccountClass,
   totalDebit: number,
   totalCredit: number
 ): number {
-  if (accountClass === "asset" || accountClass === "expense") {
-    return totalDebit - totalCredit;
+  if (
+    accountClass ===
+      "asset" ||
+    accountClass ===
+      "expense"
+  ) {
+    return (
+      totalDebit -
+      totalCredit
+    );
   }
-  return totalCredit - totalDebit;
+
+  return (
+    totalCredit -
+    totalDebit
+  );
 }
 
 export function isBalanceNormal(
-  accountClass: AccountClass,
+  _accountClass:
+    AccountClass,
   balance: number
 ): boolean {
   return balance >= 0;
 }
 
-export const DEFAULT_BAS_ACCOUNTS: BASAccount[] = [
-  { number: "1200", name: "Maskiner och inventarier", class: "asset", description: "Machinery and equipment" },
-  { number: "1510", name: "Kundfordringar", class: "asset", description: "Accounts receivable" },
-  { number: "1630", name: "Avräkning för skatter och avgifter", class: "asset", description: "Tax settlement account" },
-  { number: "1710", name: "Förutbetalda hyreskostnader", class: "asset", description: "Prepaid rent" },
-  { number: "1790", name: "Övriga förutbetalda kostnader", class: "asset", description: "Other prepaid expenses" },
-  { number: "1910", name: "Kassa", class: "asset", description: "Cash" },
-  { number: "1930", name: "Företagskonto", class: "asset", description: "Company bank account" },
-  { number: "1940", name: "Placeringskonto", class: "asset", description: "Investment account" },
-  { number: "2010", name: "Eget kapital", class: "equity_liability", description: "Equity" },
-  { number: "2013", name: "Privat - Loss", class: "equity_liability", description: "Private withdrawals" },
-  { number: "2091", name: "Balanserad vinst eller förlust", class: "equity_liability", description: "Retained earnings" },
-  { number: "2099", name: "Årets resultat", class: "equity_liability", description: "Net income for the year" },
-  { number: "2440", name: "Leverantörsskulder", class: "equity_liability", description: "Accounts payable" },
-  { number: "2610", name: "Utgående moms", class: "equity_liability", description: "Output VAT" },
-  { number: "2640", name: "Ingående moms", class: "equity_liability", description: "Input VAT" },
-  { number: "2650", name: "Redovisningskonto för moms", class: "equity_liability", description: "VAT settlement account" },
-  { number: "2710", name: "Personalskatt", class: "equity_liability", description: "Employee tax" },
-  { number: "2731", name: "Avräkning lagstadgade sociala avgifter", class: "equity_liability", description: "Social security contributions" },
-  { number: "2920", name: "Upplupna semesterlöner", class: "equity_liability", description: "Accrued vacation pay" },
-  { number: "2990", name: "Övriga upplupna kostnader", class: "equity_liability", description: "Other accrued expenses" },
-  { number: "3001", name: "Försäljning varor", class: "revenue", description: "Sales of goods" },
-  { number: "3010", name: "Försäljning tjänster", class: "revenue", description: "Sales of services" },
-  { number: "3740", name: "Öres- och kronutjämning", class: "revenue", description: "Rounding adjustments" },
-  { number: "4000", name: "Inköp av varor", class: "expense", description: "Purchases of goods" },
-  { number: "4010", name: "Inköp av material", class: "expense", description: "Purchases of materials" },
-  { number: "5010", name: "Lokalhyra", class: "expense", description: "Rent" },
-  { number: "5410", name: "Förbrukningsinventarier", class: "expense", description: "Consumable equipment" },
-  { number: "5460", name: "Förbrukningsmaterial", class: "expense", description: "Consumable materials" },
-  { number: "5800", name: "Resekostnader", class: "expense", description: "Travel expenses" },
-  { number: "5910", name: "Annonsering", class: "expense", description: "Advertising" },
-  { number: "6071", name: "Representation avdragsgill", class: "expense", description: "Entertainment (deductible)" },
-  { number: "6110", name: "Kontorsmateriel", class: "expense", description: "Office supplies" },
-  { number: "6212", name: "Mobiltelefon", class: "expense", description: "Mobile phone" },
-  { number: "6230", name: "Datakommunikation", class: "expense", description: "Data communication" },
-  { number: "6530", name: "Redovisningstjänster", class: "expense", description: "Accounting services" },
-  { number: "6570", name: "Bankkostnader", class: "expense", description: "Bank fees" },
-  { number: "7010", name: "Löner till kollektivanställda", class: "expense", description: "Wages (collective agreement)" },
-  { number: "7210", name: "Löner till tjänstemän", class: "expense", description: "Salaries (employees)" },
-  { number: "7510", name: "Arbetsgivaravgifter", class: "expense", description: "Employer contributions" },
-  { number: "7533", name: "Särskild löneskatt", class: "expense", description: "Special payroll tax" },
-  { number: "7690", name: "Övriga personalkostnader", class: "expense", description: "Other personnel expenses" },
-  { number: "8310", name: "Ränteintäkter", class: "revenue", description: "Interest income" },
-  { number: "8410", name: "Räntekostnader", class: "expense", description: "Interest expenses" },
-  { number: "8910", name: "Skatt på årets resultat", class: "expense", description: "Tax on annual result" },
-  { number: "8999", name: "Årets resultat", class: "equity_liability", description: "Net result" },
-];
+// Behåll exportnamnet eftersom äldre
+// kod kan importera detta.
+//
+// Skillnaden mot tidigare är att detta
+// INTE längre är en handskriven lista
+// med några få konton.
+//
+// Den innehåller hela den senaste
+// installerade K2-BAS-kontoplanen.
 
-export function isValidAccountNumber(accountNumber: string): boolean {
-  return /^\d{4}$/.test(accountNumber);
+export const DEFAULT_BAS_ACCOUNTS:
+  BASAccount[] =
+  (() => {
+    const latestYear =
+      getLatestBASYear();
+
+    if (!latestYear) {
+      return [];
+    }
+
+    return getBASAccountsForYear(
+      latestYear,
+      "K2"
+    );
+  })();
+
+export function isValidAccountNumber(
+  accountNumber: string
+): boolean {
+  return /^\d{4}$/.test(
+    accountNumber
+  );
 }
 
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("sv-SE", {
-    style: "currency",
-    currency: "SEK",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
+export function formatCurrency(
+  amount: number
+): string {
+  return new Intl.NumberFormat(
+    "sv-SE",
+    {
+      style:
+        "currency",
+
+      currency:
+        "SEK",
+
+      minimumFractionDigits:
+        2,
+
+      maximumFractionDigits:
+        2,
+    }
+  ).format(amount);
 }
 
-export function formatAmount(amount: number): string {
-  return new Intl.NumberFormat("sv-SE", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
+export function formatAmount(
+  amount: number
+): string {
+  return new Intl.NumberFormat(
+    "sv-SE",
+    {
+      minimumFractionDigits:
+        2,
+
+      maximumFractionDigits:
+        2,
+    }
+  ).format(amount);
 }
