@@ -1,102 +1,277 @@
 import { appStorage } from "@/lib/appStorage";
-import { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
-import { BASAccount, getAccountClass, calculateBalance, getLatestBASAccounts } from "@/lib/bas-accounts";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+  ReactNode,
+} from "react";
+
+import {
+  BASAccount,
+  getAccountClass,
+  calculateBalance,
+  getLatestBASAccounts,
+} from "@/lib/bas-accounts";
+
 import { useAuth } from "./AuthContext";
 import { authService } from "@/services/auth";
-import { parseSIEFile, generateSIEFile, convertSIEVouchersToInternal, convertSIEAccountsToBAS, convertSIEOpeningBalancesToVoucher } from "@/lib/sie";
 
-// ---- Storage helpers (handle localStorage quota for vouchers w/ base64 attachments) ----
-const ATTACH_KEY_PREFIX = "accountpro_attachment_";
+import {
+  parseSIEFile,
+  generateSIEFile,
+  convertSIEVouchersToInternal,
+  convertSIEAccountsToBAS,
+  convertSIEOpeningBalancesToVoucher,
+} from "@/lib/sie";
 
-function isQuotaError(err: unknown): boolean {
+import {
+  loadHistoricalAccounts,
+  registerHistoricalAccountsFromSIE,
+} from "@/lib/account-plan";
+
+// ---- Storage helpers ----
+
+const ATTACH_KEY_PREFIX =
+  "accountpro_attachment_";
+
+function isQuotaError(
+  err: unknown
+): boolean {
   return (
     err instanceof DOMException &&
-    (err.name === "QuotaExceededError" ||
-      err.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+    (
+      err.name ===
+        "QuotaExceededError" ||
+      err.name ===
+        "NS_ERROR_DOM_QUOTA_REACHED" ||
       err.code === 22 ||
-      err.code === 1014)
+      err.code === 1014
+    )
   );
 }
 
-function storeAttachmentExternally(companyId: string, voucherId: string, attId: string, dataUrl: string): boolean {
+function getAttachmentStorageKey(
+  companyId: string,
+  voucherId: string,
+  attachmentId: string
+): string {
+  return (
+    ATTACH_KEY_PREFIX +
+    companyId +
+    "_" +
+    voucherId +
+    "_" +
+    attachmentId
+  );
+}
+
+function storeAttachmentExternally(
+  companyId: string,
+  voucherId: string,
+  attachmentId: string,
+  dataUrl: string
+): boolean {
   try {
-    appStorage.setItem(`${ATTACH_KEY_PREFIX}${companyId}_${voucherId}_${attId}`, dataUrl);
+    appStorage.setItem(
+      getAttachmentStorageKey(
+        companyId,
+        voucherId,
+        attachmentId
+      ),
+      dataUrl
+    );
+
     return true;
   } catch {
     return false;
   }
 }
 
-function loadExternalAttachment(companyId: string, voucherId: string, attId: string): string | null {
+function loadExternalAttachment(
+  companyId: string,
+  voucherId: string,
+  attachmentId: string
+): string | null {
   try {
-    return appStorage.getItem(`${ATTACH_KEY_PREFIX}${companyId}_${voucherId}_${attId}`);
+    return appStorage.getItem(
+      getAttachmentStorageKey(
+        companyId,
+        voucherId,
+        attachmentId
+      )
+    );
   } catch {
     return null;
   }
 }
 
-function persistAccounts(companyId: string, accounts: BASAccount[], basNumbers: Set<string>): void {
-  // Only store custom (non-BAS) accounts to keep payload tiny and avoid quota errors.
-  const custom = accounts.filter((a) => !basNumbers.has(a.number));
-  const key = `accountpro_accounts_${companyId}`;
-  try {
-    appStorage.setItem(key, JSON.stringify(custom));
-  } catch (err) {
-    console.error("Failed to persist accounts:", err);
-    try { appStorage.removeItem(key); } catch {}
-  }
-}
+function persistVouchers(
+  companyId: string,
+  vouchers: any[]
+): void {
+  const key =
+    "accountpro_vouchers_" +
+    companyId;
 
-function persistVouchers(companyId: string, vouchers: any[]): void {
-  const key = `accountpro_vouchers_${companyId}`;
   try {
-    appStorage.setItem(key, JSON.stringify(vouchers));
+    appStorage.setItem(
+      key,
+      JSON.stringify(vouchers)
+    );
+
     return;
   } catch (err) {
     if (!isQuotaError(err)) {
-      console.error("Failed to persist vouchers:", err);
+      console.error(
+        "Failed to persist vouchers:",
+        err
+      );
+
       return;
     }
   }
 
-  // Quota exceeded: move attachment dataUrls to separate keys and persist a slim copy.
-  const slim = vouchers.map((v: any) => {
-    if (!v.attachments || v.attachments.length === 0) return v;
-    const slimAttachments = v.attachments.map((a: any) => {
-      if (a.dataUrl) {
-        const stored = storeAttachmentExternally(companyId, v.id, a.id, a.dataUrl);
-        if (stored) {
-          const { dataUrl, ...rest } = a;
-          return { ...rest, _external: true };
-        }
+  const slim = vouchers.map(
+    (voucher: any) => {
+      if (
+        !voucher.attachments ||
+        voucher.attachments.length === 0
+      ) {
+        return voucher;
       }
-      return a;
-    });
-    return { ...v, attachments: slimAttachments };
-  });
+
+      const slimAttachments =
+        voucher.attachments.map(
+          (attachment: any) => {
+            if (attachment.dataUrl) {
+              const stored =
+                storeAttachmentExternally(
+                  companyId,
+                  voucher.id,
+                  attachment.id,
+                  attachment.dataUrl
+                );
+
+              if (stored) {
+                const {
+                  dataUrl,
+                  ...rest
+                } = attachment;
+
+                return {
+                  ...rest,
+                  _external: true,
+                };
+              }
+            }
+
+            return attachment;
+          }
+        );
+
+      return {
+        ...voucher,
+        attachments:
+          slimAttachments,
+      };
+    }
+  );
 
   try {
-    appStorage.setItem(key, JSON.stringify(slim));
+    appStorage.setItem(
+      key,
+      JSON.stringify(slim)
+    );
   } catch (err) {
-    console.error("Vouchers still exceed quota after externalizing attachments:", err);
+    console.error(
+      "Vouchers still exceed quota after externalizing attachments:",
+      err
+    );
   }
 }
 
-function rehydrateVouchers(companyId: string, vouchers: any[]): any[] {
-  return vouchers.map((v: any) => {
-    if (!v.attachments || v.attachments.length === 0) return v;
-    const attachments = v.attachments.map((a: any) => {
-      if (a._external && !a.dataUrl) {
-        const dataUrl = loadExternalAttachment(companyId, v.id, a.id);
-        if (dataUrl) {
-          const { _external, ...rest } = a;
-          return { ...rest, dataUrl };
-        }
+function rehydrateVouchers(
+  companyId: string,
+  vouchers: any[]
+): any[] {
+  return vouchers.map(
+    (voucher: any) => {
+      if (
+        !voucher.attachments ||
+        voucher.attachments.length === 0
+      ) {
+        return voucher;
       }
-      return a;
+
+      const attachments =
+        voucher.attachments.map(
+          (attachment: any) => {
+            if (
+              attachment._external &&
+              !attachment.dataUrl
+            ) {
+              const dataUrl =
+                loadExternalAttachment(
+                  companyId,
+                  voucher.id,
+                  attachment.id
+                );
+
+              if (dataUrl) {
+                const {
+                  _external,
+                  ...rest
+                } = attachment;
+
+                return {
+                  ...rest,
+                  dataUrl,
+                };
+              }
+            }
+
+            return attachment;
+          }
+        );
+
+      return {
+        ...voucher,
+        attachments,
+      };
+    }
+  );
+}
+
+function mergeAccountsPreferFirst(
+  ...groups: BASAccount[][]
+): BASAccount[] {
+  const accountsByNumber =
+    new Map<string, BASAccount>();
+
+  groups.forEach((group) => {
+    group.forEach((account) => {
+      if (
+        !accountsByNumber.has(
+          account.number
+        )
+      ) {
+        accountsByNumber.set(
+          account.number,
+          account
+        );
+      }
     });
-    return { ...v, attachments };
   });
+
+  return Array.from(
+    accountsByNumber.values()
+  ).sort((a, b) =>
+    a.number.localeCompare(
+      b.number
+    )
+  );
 }
 
 export interface VoucherLine {
@@ -123,16 +298,20 @@ export interface Voucher {
   description: string;
   lines: VoucherLine[];
   attachments?: VoucherAttachment[];
+
   reversesVoucherId?: string;
   reversesVoucherNumber?: number;
+
   reversedByVoucherId?: string;
   reversedByVoucherNumber?: number;
+
   createdAt: string;
 }
 
 export interface AccountStatement {
   accountNumber: string;
   accountName: string;
+
   entries: {
     date: string;
     voucherNumber: number;
@@ -141,6 +320,7 @@ export interface AccountStatement {
     credit: number;
     balance: number;
   }[];
+
   totalDebit: number;
   totalCredit: number;
   finalBalance: number;
@@ -158,657 +338,1653 @@ interface AccountingContextType {
   accounts: BASAccount[];
   vouchers: Voucher[];
   nextVoucherNumber: number;
-  addAccount: (account: BASAccount) => void;
-  removeAccount: (accountNumber: string) => void;
-  createVoucher: (voucher: Omit<Voucher, "id" | "companyId" | "voucherNumber" | "createdAt">) => Voucher | null;
-  updateVoucher: (voucherId: string, updates: Partial<Pick<Voucher, "date" | "description" | "lines" | "attachments" | "reversesVoucherId" | "reversesVoucherNumber" | "reversedByVoucherId" | "reversedByVoucherNumber">>) => Voucher | null;
-  deleteVoucher: (voucherId: string) => void;
-  reverseVoucher: (voucher: Voucher, date?: string) => Voucher | null;
-  getVoucherById: (voucherId: string) => Voucher | undefined;
-  getVoucherByNumber: (voucherNumber: number) => Voucher | undefined;
-  getAccountStatement: (accountNumber: string, startDate?: string, endDate?: string) => AccountStatement | null;
-  getGeneralLedger: (startDate?: string, endDate?: string) => GeneralLedgerEntry[];
-  getIncomeStatement: (startDate?: string, endDate?: string) => { revenues: GeneralLedgerEntry[]; expenses: GeneralLedgerEntry[]; netResult: number };
-  getBalanceSheet: (endDate?: string) => { assets: GeneralLedgerEntry[]; equityLiabilities: GeneralLedgerEntry[]; totalAssets: number; totalEquityLiabilities: number; isBalanced: boolean };
-  validateVoucher: (lines: VoucherLine[]) => { isValid: boolean; totalDebit: number; totalCredit: number; difference: number };
-  importSIE: (fileContent: string) => { success: boolean; imported: number; skipped: number; errors: string[] };
+
+  addAccount: (
+    account: BASAccount
+  ) => void;
+
+  removeAccount: (
+    accountNumber: string
+  ) => void;
+
+  createVoucher: (
+    voucher: Omit<
+      Voucher,
+      | "id"
+      | "companyId"
+      | "voucherNumber"
+      | "createdAt"
+    >
+  ) => Voucher | null;
+
+  updateVoucher: (
+    voucherId: string,
+    updates: Partial<
+      Pick<
+        Voucher,
+        | "date"
+        | "description"
+        | "lines"
+        | "attachments"
+        | "reversesVoucherId"
+        | "reversesVoucherNumber"
+        | "reversedByVoucherId"
+        | "reversedByVoucherNumber"
+      >
+    >
+  ) => Voucher | null;
+
+  deleteVoucher: (
+    voucherId: string
+  ) => void;
+
+  reverseVoucher: (
+    voucher: Voucher,
+    date?: string
+  ) => Voucher | null;
+
+  getVoucherById: (
+    voucherId: string
+  ) => Voucher | undefined;
+
+  getVoucherByNumber: (
+    voucherNumber: number
+  ) => Voucher | undefined;
+
+  getAccountStatement: (
+    accountNumber: string,
+    startDate?: string,
+    endDate?: string
+  ) => AccountStatement | null;
+
+  getGeneralLedger: (
+    startDate?: string,
+    endDate?: string
+  ) => GeneralLedgerEntry[];
+
+  getIncomeStatement: (
+    startDate?: string,
+    endDate?: string
+  ) => {
+    revenues:
+      GeneralLedgerEntry[];
+    expenses:
+      GeneralLedgerEntry[];
+    netResult: number;
+  };
+
+  getBalanceSheet: (
+    endDate?: string
+  ) => {
+    assets:
+      GeneralLedgerEntry[];
+
+    equityLiabilities:
+      GeneralLedgerEntry[];
+
+    totalAssets: number;
+
+    totalEquityLiabilities:
+      number;
+
+    isBalanced: boolean;
+  };
+
+  validateVoucher: (
+    lines: VoucherLine[]
+  ) => {
+    isValid: boolean;
+    totalDebit: number;
+    totalCredit: number;
+    difference: number;
+  };
+
+  importSIE: (
+    fileContent: string
+  ) => {
+    success: boolean;
+    imported: number;
+    skipped: number;
+    errors: string[];
+  };
+
   exportSIE: () => string;
 }
 
-const AccountingContext = createContext<AccountingContextType | undefined>(undefined);
+const AccountingContext =
+  createContext<
+    AccountingContextType | undefined
+  >(undefined);
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ??
+  "http://localhost:8000";
 
-export function AccountingProvider({ children }: { children: ReactNode }) {
-  const { user, activeCompany } = useAuth();
-  const accountingStandard = activeCompany?.accountingStandard ?? "";
-  const [accounts, setAccounts] = useState<BASAccount[]>([]);
-  const [vouchers, setVouchers] = useState<Voucher[]>([]);
-  const [nextVoucherNumber, setNextVoucherNumber] = useState(1);
+export function AccountingProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const {
+    user,
+    activeCompany,
+  } = useAuth();
 
-  const companyId = activeCompany?.id || "";
-  const removedBasAccountsStorageKey = companyId ? `accountpro_removed_bas_accounts_${companyId}` : "";
-  const activeCompanyIdRef = useRef(companyId);
+  const [
+    accounts,
+    setAccounts,
+  ] = useState<BASAccount[]>([]);
+
+  const [
+    vouchers,
+    setVouchers,
+  ] = useState<Voucher[]>([]);
+
+  const [
+    nextVoucherNumber,
+    setNextVoucherNumber,
+  ] = useState(1);
+
+  const companyId =
+    activeCompany?.id || "";
+
+  const activeCompanyIdRef =
+    useRef(companyId);
 
   useEffect(() => {
-    activeCompanyIdRef.current = companyId;
+    activeCompanyIdRef.current =
+      companyId;
   }, [companyId]);
 
-  const syncSieStateToDatabase = (nextVouchers: Voucher[], nextAccounts: BASAccount[]) => {
-    const numericUserId = Number(user?.id);
-    const numericCompanyId = Number(companyId);
+  const syncSieStateToDatabase = (
+    nextVouchers: Voucher[],
+    nextAccounts: BASAccount[]
+  ) => {
+    const numericUserId =
+      Number(user?.id);
 
-    if (!authService.isDatabaseConnected() || !Number.isFinite(numericUserId) || !Number.isFinite(numericCompanyId) || !activeCompany) {
+    const numericCompanyId =
+      Number(companyId);
+
+    if (
+      !authService.isDatabaseConnected() ||
+      !Number.isFinite(
+        numericUserId
+      ) ||
+      !Number.isFinite(
+        numericCompanyId
+      ) ||
+      !activeCompany
+    ) {
       return;
     }
 
-    const sieContent = generateSIEFile(nextVouchers, nextAccounts, {
-      companyName: activeCompany.companyName,
-      organizationNumber: activeCompany.organizationNumber,
-      fiscalYearStart: activeCompany.fiscalYearStart,
-      fiscalYearEnd: activeCompany.fiscalYearEnd,
-    });
+    const sieContent =
+      generateSIEFile(
+        nextVouchers,
+        nextAccounts,
+        {
+          companyName:
+            activeCompany.companyName,
 
-    fetch(`${API_BASE_URL}/companies/${numericCompanyId}/sie-state`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_id: numericUserId,
-        sie_content: sieContent,
-      }),
-    }).catch(() => undefined);
+          organizationNumber:
+            activeCompany.organizationNumber,
+
+          fiscalYearStart:
+            activeCompany.fiscalYearStart,
+
+          fiscalYearEnd:
+            activeCompany.fiscalYearEnd,
+        }
+      );
+
+    fetch(
+      API_BASE_URL +
+        "/companies/" +
+        numericCompanyId +
+        "/sie-state",
+      {
+        method: "PUT",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+
+        body: JSON.stringify({
+          user_id:
+            numericUserId,
+
+          sie_content:
+            sieContent,
+        }),
+      }
+    ).catch(() => undefined);
   };
 
-  // Load data when company changes
   useEffect(() => {
-    const latestAccounts = getLatestBASAccounts(accountingStandard);
-    const latestK3Accounts = getLatestBASAccounts("K3");
+    const latestAccounts =
+      getLatestBASAccounts(
+        "K2"
+      );
 
     if (!companyId) {
-      setAccounts(latestAccounts);
+      setAccounts(
+        latestAccounts
+      );
+
       setVouchers([]);
       setNextVoucherNumber(1);
+
       return;
     }
 
-    const storedAccounts = appStorage.getItem(`accountpro_accounts_${companyId}`);
-    const storedVouchers = appStorage.getItem(`accountpro_vouchers_${companyId}`);
-    const storedNextNumber = appStorage.getItem(`accountpro_next_voucher_${companyId}`);
-    const removedBasAccountNumbers = new Set<string>(
-      JSON.parse(appStorage.getItem(removedBasAccountsStorageKey) ?? "[]") as string[]
+    const historicalAccounts =
+      loadHistoricalAccounts(
+        companyId
+      );
+
+    const initialAccounts =
+      mergeAccountsPreferFirst(
+        latestAccounts,
+        historicalAccounts
+      );
+
+    setAccounts(
+      initialAccounts
     );
 
-    const basAccountNumbers = new Set(latestK3Accounts.map((account) => account.number));
-    const parsedAccounts = storedAccounts ? (JSON.parse(storedAccounts) as BASAccount[]) : [];
-    const customAccounts = parsedAccounts.filter((account) => !basAccountNumbers.has(account.number));
-    const visibleStandardAccounts = latestAccounts.filter((account) => !removedBasAccountNumbers.has(account.number));
-    const mergedAccounts = [...visibleStandardAccounts, ...customAccounts].sort((a, b) => a.number.localeCompare(b.number));
+    const storedVouchers =
+      appStorage.getItem(
+        "accountpro_vouchers_" +
+          companyId
+      );
 
-    setAccounts(mergedAccounts);
-    persistAccounts(companyId, mergedAccounts, basAccountNumbers);
+    const storedNextNumber =
+      appStorage.getItem(
+        "accountpro_next_voucher_" +
+          companyId
+      );
 
-    let initialVouchers: Voucher[] = storedVouchers ? (JSON.parse(storedVouchers) as Voucher[]) : [];
-    initialVouchers = rehydrateVouchers(companyId, initialVouchers) as Voucher[];
-    let initialNextNumber = storedNextNumber ? parseInt(storedNextNumber) : 1;
+    let initialVouchers:
+      Voucher[] =
+      storedVouchers
+        ? JSON.parse(
+            storedVouchers
+          ) as Voucher[]
+        : [];
 
-    // Seed demo data for the hardcoded test account so all reports populate.
-    const isTestUser = !authService.isDatabaseConnected() && user?.email?.toLowerCase() === "test@test.com";
-    const hasImportedSIE = appStorage.getItem(`accountpro_sie_imported_${companyId}`) === "true";
-    if (isTestUser && !hasImportedSIE && initialVouchers.length === 0) {
-      const today = new Date().toISOString().split("T")[0];
-      const seedAccount = mergedAccounts.find((a) => a.number === "1930");
+    initialVouchers =
+      rehydrateVouchers(
+        companyId,
+        initialVouchers
+      ) as Voucher[];
+
+    let initialNextNumber =
+      storedNextNumber
+        ? parseInt(
+            storedNextNumber
+          )
+        : 1;
+
+    const isTestUser =
+      !authService.isDatabaseConnected() &&
+      user?.email?.toLowerCase() ===
+        "test@test.com";
+
+    const hasImportedSIE =
+      appStorage.getItem(
+        "accountpro_sie_imported_" +
+          companyId
+      ) === "true";
+
+    if (
+      isTestUser &&
+      !hasImportedSIE &&
+      initialVouchers.length === 0
+    ) {
+      const today =
+        new Date()
+          .toISOString()
+          .split("T")[0];
+
+      const seedAccount =
+        initialAccounts.find(
+          (account) =>
+            account.number ===
+            "1930"
+        );
+
       if (seedAccount) {
-        const seeded: Voucher[] = [];
+        const seeded:
+          Voucher[] = [];
+
         let voucherNo = 1;
-        mergedAccounts.forEach((acc) => {
-          if (acc.number === "1930") return;
-          seeded.push({
-            id: crypto.randomUUID(),
+
+        initialAccounts.forEach(
+          (account) => {
+            if (
+              account.number ===
+              "1930"
+            ) {
+              return;
+            }
+
+            seeded.push({
+              id:
+                crypto.randomUUID(),
+
+              companyId,
+
+              voucherNumber:
+                voucherNo,
+
+              date: today,
+
+              description:
+                "Demo: " +
+                account.number +
+                " " +
+                account.name,
+
+              createdAt:
+                new Date()
+                  .toISOString(),
+
+              lines: [
+                {
+                  id:
+                    crypto.randomUUID(),
+
+                  accountNumber:
+                    "1930",
+
+                  accountName:
+                    seedAccount.name,
+
+                  debit: 1,
+                  credit: 0,
+                },
+                {
+                  id:
+                    crypto.randomUUID(),
+
+                  accountNumber:
+                    account.number,
+
+                  accountName:
+                    account.name,
+
+                  debit: 0,
+                  credit: 1,
+                },
+              ],
+            });
+
+            voucherNo += 1;
+          }
+        );
+
+        initialVouchers =
+          seeded;
+
+        initialNextNumber =
+          voucherNo;
+
+        persistVouchers(
+          companyId,
+          seeded
+        );
+
+        appStorage.setItem(
+          "accountpro_next_voucher_" +
             companyId,
-            voucherNumber: voucherNo,
-            date: today,
-            description: `Demo: ${acc.number} ${acc.name}`,
-            createdAt: new Date().toISOString(),
-            lines: [
-              {
-                id: crypto.randomUUID(),
-                accountNumber: "1930",
-                accountName: seedAccount.name,
-                debit: 1,
-                credit: 0,
-              },
-              {
-                id: crypto.randomUUID(),
-                accountNumber: acc.number,
-                accountName: acc.name,
-                debit: 0,
-                credit: 1,
-              },
-            ],
-          });
-          voucherNo += 1;
-        });
-        initialVouchers = seeded;
-        initialNextNumber = voucherNo;
-        persistVouchers(companyId, seeded);
-        appStorage.setItem(`accountpro_next_voucher_${companyId}`, String(voucherNo));
+          String(voucherNo)
+        );
       }
     }
 
-    setVouchers(initialVouchers);
-    setNextVoucherNumber(initialNextNumber);
+    setVouchers(
+      initialVouchers
+    );
 
-    const numericUserId = Number(user?.id);
-    const numericCompanyId = Number(companyId);
-    if (storedVouchers !== null || !authService.isDatabaseConnected() || !Number.isFinite(numericUserId) || !Number.isFinite(numericCompanyId)) {
+    setNextVoucherNumber(
+      initialNextNumber
+    );
+
+    const numericUserId =
+      Number(user?.id);
+
+    const numericCompanyId =
+      Number(companyId);
+
+    if (
+      storedVouchers !== null ||
+      !authService.isDatabaseConnected() ||
+      !Number.isFinite(
+        numericUserId
+      ) ||
+      !Number.isFinite(
+        numericCompanyId
+      )
+    ) {
       return;
     }
 
-    const hydrationController = new AbortController();
-    const requestedCompanyId = companyId;
+    const hydrationController =
+      new AbortController();
 
-    fetch(`${API_BASE_URL}/companies/${numericCompanyId}/sie-state?user_id=${numericUserId}`, {
-      signal: hydrationController.signal,
-    })
+    const requestedCompanyId =
+      companyId;
+
+    fetch(
+      API_BASE_URL +
+        "/companies/" +
+        numericCompanyId +
+        "/sie-state?user_id=" +
+        numericUserId,
+      {
+        signal:
+          hydrationController.signal,
+      }
+    )
       .then((response) => {
         if (!response.ok) {
-          throw new Error("Failed to fetch SIE state");
+          throw new Error(
+            "Failed to fetch SIE state"
+          );
         }
+
         return response.json();
       })
       .then((payload) => {
-        if (hydrationController.signal.aborted || activeCompanyIdRef.current !== requestedCompanyId) {
+        if (
+          hydrationController
+            .signal.aborted ||
+          activeCompanyIdRef
+            .current !==
+            requestedCompanyId
+        ) {
           return;
         }
 
-        const sieContent = typeof payload?.sieContent === "string" ? payload.sieContent : "";
-        if (!sieContent.trim()) {
+        const sieContent =
+          typeof payload?.sieContent ===
+          "string"
+            ? payload.sieContent
+            : "";
+
+        if (
+          !sieContent.trim()
+        ) {
           return;
         }
 
-        const parseResult = parseSIEFile(sieContent);
-        const sieAccounts = convertSIEAccountsToBAS(parseResult.accounts);
-        const accountNumbersFromContent = new Set<string>();
+        const parseResult =
+          parseSIEFile(
+            sieContent
+          );
 
-        parseResult.vouchers.forEach((voucher) => {
-          voucher.lines.forEach((line) => accountNumbersFromContent.add(line.accountNumber));
-        });
-        parseResult.openingBalances.forEach((balance) => accountNumbersFromContent.add(balance.accountNumber));
-        parseResult.previousClosingBalances.forEach((balance) => accountNumbersFromContent.add(balance.accountNumber));
-
-        const fallbackCustomAccounts = Array.from(accountNumbersFromContent)
-          .filter((accountNumber) => !basAccountNumbers.has(accountNumber))
-          .map((accountNumber) => {
-            const sieAccount = sieAccounts.find((account) => account.number === accountNumber);
-            return sieAccount ?? {
-              number: accountNumber,
-              name: `Account ${accountNumber}`,
-              class: getAccountClass(accountNumber),
-            };
-          });
-
-        const nextAccountsByNumber = new Map<string, BASAccount>();
-        [...mergedAccounts, ...sieAccounts, ...fallbackCustomAccounts].forEach((account) => {
-          if (!nextAccountsByNumber.has(account.number)) {
-            nextAccountsByNumber.set(account.number, account);
-          }
-        });
-        const nextAccounts = Array.from(nextAccountsByNumber.values()).sort((a, b) => a.number.localeCompare(b.number));
-
-        const openingBalanceVoucher = convertSIEOpeningBalancesToVoucher(parseResult, requestedCompanyId, nextAccounts);
-        if (openingBalanceVoucher) {
-          openingBalanceVoucher.voucherNumber = 0;
-        }
-
-        const converted = convertSIEVouchersToInternal(parseResult.vouchers, requestedCompanyId, [], nextAccounts);
-        const dbVouchers = [
-          ...(openingBalanceVoucher ? [openingBalanceVoucher] : []),
-          ...converted.newVouchers,
-        ].sort((a, b) =>
-          new Date(a.date).getTime() - new Date(b.date).getTime() || a.voucherNumber - b.voucherNumber
+        registerHistoricalAccountsFromSIE(
+          requestedCompanyId,
+          parseResult
         );
 
-        if (activeCompanyIdRef.current !== requestedCompanyId) {
+        const historicalAfterImport =
+          loadHistoricalAccounts(
+            requestedCompanyId
+          );
+
+        const sieAccounts =
+          convertSIEAccountsToBAS(
+            parseResult.accounts
+          );
+
+        const conversionAccounts =
+          mergeAccountsPreferFirst(
+            sieAccounts,
+            historicalAfterImport,
+            latestAccounts
+          );
+
+        const contextAccounts =
+          mergeAccountsPreferFirst(
+            latestAccounts,
+            historicalAfterImport
+          );
+
+        const openingBalanceVoucher =
+          convertSIEOpeningBalancesToVoucher(
+            parseResult,
+            requestedCompanyId,
+            conversionAccounts
+          );
+
+        if (
+          openingBalanceVoucher
+        ) {
+          openingBalanceVoucher
+            .voucherNumber = 0;
+        }
+
+        const converted =
+          convertSIEVouchersToInternal(
+            parseResult.vouchers,
+            requestedCompanyId,
+            [],
+            conversionAccounts
+          );
+
+        const dbVouchers = [
+          ...(
+            openingBalanceVoucher
+              ? [
+                  openingBalanceVoucher,
+                ]
+              : []
+          ),
+          ...converted.newVouchers,
+        ].sort(
+          (a, b) =>
+            new Date(
+              a.date
+            ).getTime() -
+              new Date(
+                b.date
+              ).getTime() ||
+            a.voucherNumber -
+              b.voucherNumber
+        );
+
+        if (
+          activeCompanyIdRef
+            .current !==
+          requestedCompanyId
+        ) {
           return;
         }
 
-        setAccounts(nextAccounts);
-        setVouchers(dbVouchers);
-        setNextVoucherNumber(converted.nextVoucherNumber);
-        persistAccounts(requestedCompanyId, nextAccounts, basAccountNumbers);
-        persistVouchers(requestedCompanyId, dbVouchers);
-        appStorage.setItem(`accountpro_next_voucher_${requestedCompanyId}`, converted.nextVoucherNumber.toString());
+        setAccounts(
+          contextAccounts
+        );
+
+        setVouchers(
+          dbVouchers
+        );
+
+        setNextVoucherNumber(
+          converted.nextVoucherNumber
+        );
+
+        persistVouchers(
+          requestedCompanyId,
+          dbVouchers
+        );
+
+        appStorage.setItem(
+          "accountpro_next_voucher_" +
+            requestedCompanyId,
+          converted
+            .nextVoucherNumber
+            .toString()
+        );
       })
       .catch((error) => {
-        if (error?.name === "AbortError") {
+        if (
+          error?.name ===
+          "AbortError"
+        ) {
           return;
         }
+
         return undefined;
       });
 
     return () => {
       hydrationController.abort();
     };
-  }, [companyId, accountingStandard, removedBasAccountsStorageKey, user?.id]);
+  }, [
+    companyId,
+    user?.id,
+  ]);
 
-  const saveAccounts = (newAccounts: BASAccount[]) => {
-    setAccounts(newAccounts);
-    if (companyId) {
-      const basNumbers = new Set(getLatestBASAccounts("K3").map((a) => a.number));
-      persistAccounts(companyId, newAccounts, basNumbers);
-    }
-  };
-
-  const saveVouchers = (newVouchers: Voucher[], newNextNumber: number) => {
-    setVouchers(newVouchers);
-    setNextVoucherNumber(newNextNumber);
-    if (companyId) {
-      persistVouchers(companyId, newVouchers);
-      appStorage.setItem(`accountpro_next_voucher_${companyId}`, newNextNumber.toString());
-    }
-  };
-
-  const addAccount = (account: BASAccount) => {
-    const exists = accounts.find(a => a.number === account.number);
-    if (exists) return;
-
-    const basAccountNumbers = new Set(getLatestBASAccounts("K3").map((entry) => entry.number));
-    if (companyId && basAccountNumbers.has(account.number)) {
-      const removedBasAccountNumbers = new Set<string>(
-        JSON.parse(appStorage.getItem(removedBasAccountsStorageKey) ?? "[]") as string[]
-      );
-      removedBasAccountNumbers.delete(account.number);
-      appStorage.setItem(removedBasAccountsStorageKey, JSON.stringify([...removedBasAccountNumbers]));
-    }
-    
-    const newAccounts = [...accounts, account].sort((a, b) => a.number.localeCompare(b.number));
-    saveAccounts(newAccounts);
-  };
-
-  const removeAccount = (accountNumber: string) => {
-    // Check if account has transactions
-    const hasTransactions = vouchers.some(v => 
-      v.lines.some(l => l.accountNumber === accountNumber)
+  const saveAccounts = (
+    newAccounts: BASAccount[]
+  ) => {
+    setAccounts(
+      newAccounts
     );
-    if (hasTransactions) return; // Can't delete account with transactions
+  };
 
-    const basAccountNumbers = new Set(getLatestBASAccounts("K3").map((entry) => entry.number));
-    if (companyId && basAccountNumbers.has(accountNumber)) {
-      const removedBasAccountNumbers = new Set<string>(
-        JSON.parse(appStorage.getItem(removedBasAccountsStorageKey) ?? "[]") as string[]
+  const saveVouchers = (
+    newVouchers: Voucher[],
+    newNextNumber: number
+  ) => {
+    setVouchers(
+      newVouchers
+    );
+
+    setNextVoucherNumber(
+      newNextNumber
+    );
+
+    if (companyId) {
+      persistVouchers(
+        companyId,
+        newVouchers
       );
-      removedBasAccountNumbers.add(accountNumber);
-      appStorage.setItem(removedBasAccountsStorageKey, JSON.stringify([...removedBasAccountNumbers]));
+
+      appStorage.setItem(
+        "accountpro_next_voucher_" +
+          companyId,
+        newNextNumber.toString()
+      );
     }
-    
-    const newAccounts = accounts.filter(a => a.number !== accountNumber);
-    saveAccounts(newAccounts);
   };
 
-  const validateVoucher = (lines: VoucherLine[]) => {
-    const totalDebit = lines.reduce((sum, line) => sum + (line.debit || 0), 0);
-    const totalCredit = lines.reduce((sum, line) => sum + (line.credit || 0), 0);
-    const difference = Math.abs(totalDebit - totalCredit);
-    const isValid = difference < 0.01 && totalDebit > 0;
-    
-    return { isValid, totalDebit, totalCredit, difference };
+  const addAccount = (
+    _account: BASAccount
+  ) => {
+    console.warn(
+      "AccountPro använder endast BAS-kontoplanen. Egna konton kan inte skapas manuellt."
+    );
   };
 
-  const createVoucher = (voucherData: Omit<Voucher, "id" | "companyId" | "voucherNumber" | "createdAt">) => {
-    const validation = validateVoucher(voucherData.lines);
-    if (!validation.isValid) return null;
+  const removeAccount = (
+    _accountNumber: string
+  ) => {
+    console.warn(
+      "BAS-konton och historiskt verifierade konton tas inte bort ur AccountPro."
+    );
+  };
 
-    const newVoucher: Voucher = {
+  const validateVoucher = (
+    lines: VoucherLine[]
+  ) => {
+    const totalDebit =
+      lines.reduce(
+        (sum, line) =>
+          sum +
+          (line.debit || 0),
+        0
+      );
+
+    const totalCredit =
+      lines.reduce(
+        (sum, line) =>
+          sum +
+          (line.credit || 0),
+        0
+      );
+
+    const difference =
+      Math.abs(
+        totalDebit -
+          totalCredit
+      );
+
+    const isValid =
+      difference < 0.01 &&
+      totalDebit > 0;
+
+    return {
+      isValid,
+      totalDebit,
+      totalCredit,
+      difference,
+    };
+  };
+
+  const createVoucher = (
+    voucherData: Omit<
+      Voucher,
+      | "id"
+      | "companyId"
+      | "voucherNumber"
+      | "createdAt"
+    >
+  ) => {
+    const validation =
+      validateVoucher(
+        voucherData.lines
+      );
+
+    if (
+      !validation.isValid
+    ) {
+      return null;
+    }
+
+    const newVoucher:
+      Voucher = {
       ...voucherData,
-      id: crypto.randomUUID(),
+
+      id:
+        crypto.randomUUID(),
+
       companyId,
-      voucherNumber: nextVoucherNumber,
-      createdAt: new Date().toISOString(),
+
+      voucherNumber:
+        nextVoucherNumber,
+
+      createdAt:
+        new Date()
+          .toISOString(),
     };
 
-    const sourceVoucher = voucherData.reversesVoucherId
-      ? vouchers.find((voucher) => voucher.id === voucherData.reversesVoucherId)
-      : undefined;
-    const linkedSourceVoucher = sourceVoucher
-      ? {
-          ...sourceVoucher,
-          reversedByVoucherId: newVoucher.id,
-          reversedByVoucherNumber: newVoucher.voucherNumber,
-        }
-      : undefined;
+    const sourceVoucher =
+      voucherData.reversesVoucherId
+        ? vouchers.find(
+            (voucher) =>
+              voucher.id ===
+              voucherData
+                .reversesVoucherId
+          )
+        : undefined;
+
+    const linkedSourceVoucher =
+      sourceVoucher
+        ? {
+            ...sourceVoucher,
+
+            reversedByVoucherId:
+              newVoucher.id,
+
+            reversedByVoucherNumber:
+              newVoucher.voucherNumber,
+          }
+        : undefined;
 
     const newVouchers = [
-      ...vouchers.map((voucher) => linkedSourceVoucher && voucher.id === linkedSourceVoucher.id ? linkedSourceVoucher : voucher),
+      ...vouchers.map(
+        (voucher) =>
+          linkedSourceVoucher &&
+          voucher.id ===
+            linkedSourceVoucher.id
+            ? linkedSourceVoucher
+            : voucher
+      ),
+
       newVoucher,
-    ].sort((a, b) =>
-      new Date(a.date).getTime() - new Date(b.date).getTime() || a.voucherNumber - b.voucherNumber
+    ].sort(
+      (a, b) =>
+        new Date(
+          a.date
+        ).getTime() -
+          new Date(
+            b.date
+          ).getTime() ||
+        a.voucherNumber -
+          b.voucherNumber
     );
-    
-    saveVouchers(newVouchers, nextVoucherNumber + 1);
-    syncSieStateToDatabase(newVouchers, accounts);
+
+    saveVouchers(
+      newVouchers,
+      nextVoucherNumber + 1
+    );
+
+    syncSieStateToDatabase(
+      newVouchers,
+      accounts
+    );
+
     return newVoucher;
   };
 
-  const deleteVoucher = (voucherId: string) => {
-    const deletedVoucher = vouchers.find((voucher) => voucher.id === voucherId);
-    const newVouchers = vouchers
-      .filter((voucher) => voucher.id !== voucherId)
-      .map((voucher) => {
-        if (voucher.reversedByVoucherId === voucherId) {
-          const { reversedByVoucherId, reversedByVoucherNumber, ...rest } = voucher;
-          return rest;
-        }
-        if (deletedVoucher && voucher.reversesVoucherId === voucherId) {
-          const { reversesVoucherId, reversesVoucherNumber, ...rest } = voucher;
-          return rest;
-        }
-        return voucher;
-      });
-    saveVouchers(newVouchers, nextVoucherNumber);
-    syncSieStateToDatabase(newVouchers, accounts);
+  const deleteVoucher = (
+    voucherId: string
+  ) => {
+    const deletedVoucher =
+      vouchers.find(
+        (voucher) =>
+          voucher.id ===
+          voucherId
+      );
+
+    const newVouchers =
+      vouchers
+        .filter(
+          (voucher) =>
+            voucher.id !==
+            voucherId
+        )
+        .map((voucher) => {
+          if (
+            voucher
+              .reversedByVoucherId ===
+            voucherId
+          ) {
+            const {
+              reversedByVoucherId,
+              reversedByVoucherNumber,
+              ...rest
+            } = voucher;
+
+            return rest;
+          }
+
+          if (
+            deletedVoucher &&
+            voucher
+              .reversesVoucherId ===
+              voucherId
+          ) {
+            const {
+              reversesVoucherId,
+              reversesVoucherNumber,
+              ...rest
+            } = voucher;
+
+            return rest;
+          }
+
+          return voucher;
+        });
+
+    saveVouchers(
+      newVouchers,
+      nextVoucherNumber
+    );
+
+    syncSieStateToDatabase(
+      newVouchers,
+      accounts
+    );
   };
 
-  const updateVoucher = (voucherId: string, updates: Partial<Pick<Voucher, "date" | "description" | "lines" | "attachments" | "reversesVoucherId" | "reversesVoucherNumber" | "reversedByVoucherId" | "reversedByVoucherNumber">>) => {
-    const existingVoucher = vouchers.find(v => v.id === voucherId);
-    if (!existingVoucher) return null;
+  const updateVoucher = (
+    voucherId: string,
 
-    if (updates.lines) {
-      const validation = validateVoucher(updates.lines);
-      if (!validation.isValid) return null;
+    updates: Partial<
+      Pick<
+        Voucher,
+        | "date"
+        | "description"
+        | "lines"
+        | "attachments"
+        | "reversesVoucherId"
+        | "reversesVoucherNumber"
+        | "reversedByVoucherId"
+        | "reversedByVoucherNumber"
+      >
+    >
+  ) => {
+    const existingVoucher =
+      vouchers.find(
+        (voucher) =>
+          voucher.id ===
+          voucherId
+      );
+
+    if (!existingVoucher) {
+      return null;
     }
 
-    const updatedVoucher: Voucher = {
+    if (updates.lines) {
+      const validation =
+        validateVoucher(
+          updates.lines
+        );
+
+      if (
+        !validation.isValid
+      ) {
+        return null;
+      }
+    }
+
+    const updatedVoucher:
+      Voucher = {
       ...existingVoucher,
       ...updates,
     };
 
-    const newVouchers = vouchers.map(v => v.id === voucherId ? updatedVoucher : v);
-    saveVouchers(newVouchers, nextVoucherNumber);
-    syncSieStateToDatabase(newVouchers, accounts);
+    const newVouchers =
+      vouchers.map(
+        (voucher) =>
+          voucher.id ===
+          voucherId
+            ? updatedVoucher
+            : voucher
+      );
+
+    saveVouchers(
+      newVouchers,
+      nextVoucherNumber
+    );
+
+    syncSieStateToDatabase(
+      newVouchers,
+      accounts
+    );
+
     return updatedVoucher;
   };
 
+  const reverseVoucher = (
+    voucher: Voucher,
 
-  const reverseVoucher = (voucher: Voucher, date = new Date().toISOString().split("T")[0]) => {
-    const existingVoucher = vouchers.find((v) => v.id === voucher.id);
-    if (!existingVoucher) return null;
+    date =
+      new Date()
+        .toISOString()
+        .split("T")[0]
+  ) => {
+    const existingVoucher =
+      vouchers.find(
+        (entry) =>
+          entry.id ===
+          voucher.id
+      );
 
-    const reversalVoucher: Voucher = {
-      id: crypto.randomUUID(),
+    if (!existingVoucher) {
+      return null;
+    }
+
+    const reversalVoucher:
+      Voucher = {
+      id:
+        crypto.randomUUID(),
+
       companyId,
-      voucherNumber: nextVoucherNumber,
+
+      voucherNumber:
+        nextVoucherNumber,
+
       date,
-      description: `Reversal of voucher #${existingVoucher.voucherNumber}: ${existingVoucher.description}`,
-      lines: existingVoucher.lines.map((line) => ({
-        id: crypto.randomUUID(),
-        accountNumber: line.accountNumber,
-        accountName: line.accountName,
-        debit: line.credit,
-        credit: line.debit,
-        vatCodeId: line.vatCodeId,
-      })),
-      reversesVoucherId: existingVoucher.id,
-      reversesVoucherNumber: existingVoucher.voucherNumber,
-      createdAt: new Date().toISOString(),
+
+      description:
+        "Reversal of voucher #" +
+        existingVoucher
+          .voucherNumber +
+        ": " +
+        existingVoucher
+          .description,
+
+      lines:
+        existingVoucher
+          .lines
+          .map((line) => ({
+            id:
+              crypto.randomUUID(),
+
+            accountNumber:
+              line.accountNumber,
+
+            accountName:
+              line.accountName,
+
+            debit:
+              line.credit,
+
+            credit:
+              line.debit,
+
+            vatCodeId:
+              line.vatCodeId,
+          })),
+
+      reversesVoucherId:
+        existingVoucher.id,
+
+      reversesVoucherNumber:
+        existingVoucher
+          .voucherNumber,
+
+      createdAt:
+        new Date()
+          .toISOString(),
     };
 
-    const updatedOriginal: Voucher = {
+    const updatedOriginal:
+      Voucher = {
       ...existingVoucher,
-      reversedByVoucherId: reversalVoucher.id,
-      reversedByVoucherNumber: reversalVoucher.voucherNumber,
+
+      reversedByVoucherId:
+        reversalVoucher.id,
+
+      reversedByVoucherNumber:
+        reversalVoucher
+          .voucherNumber,
     };
 
-    const newVouchers = vouchers
-      .map((entry) => (entry.id === existingVoucher.id ? updatedOriginal : entry))
-      .concat(reversalVoucher)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime() || a.voucherNumber - b.voucherNumber);
+    const newVouchers =
+      vouchers
+        .map((entry) =>
+          entry.id ===
+          existingVoucher.id
+            ? updatedOriginal
+            : entry
+        )
+        .concat(
+          reversalVoucher
+        )
+        .sort(
+          (a, b) =>
+            new Date(
+              a.date
+            ).getTime() -
+              new Date(
+                b.date
+              ).getTime() ||
+            a.voucherNumber -
+              b.voucherNumber
+        );
 
-    saveVouchers(newVouchers, nextVoucherNumber + 1);
-    syncSieStateToDatabase(newVouchers, accounts);
+    saveVouchers(
+      newVouchers,
+      nextVoucherNumber + 1
+    );
+
+    syncSieStateToDatabase(
+      newVouchers,
+      accounts
+    );
+
     return reversalVoucher;
   };
 
-  const getVoucherById = (voucherId: string) => {
-    return vouchers.find(v => v.id === voucherId);
+  const getVoucherById = (
+    voucherId: string
+  ) => {
+    return vouchers.find(
+      (voucher) =>
+        voucher.id ===
+        voucherId
+    );
   };
 
-  const getVoucherByNumber = (voucherNumber: number) => {
-    return vouchers.find(v => v.voucherNumber === voucherNumber);
+  const getVoucherByNumber = (
+    voucherNumber: number
+  ) => {
+    return vouchers.find(
+      (voucher) =>
+        voucher.voucherNumber ===
+        voucherNumber
+    );
   };
 
-  const getAccountStatement = (accountNumber: string, startDate?: string, endDate?: string): AccountStatement | null => {
-    const account = accounts.find(a => a.number === accountNumber);
-    if (!account) return null;
-
-    const accountClass = getAccountClass(accountNumber);
-    let runningBalance = 0;
-    
-    const entries = vouchers
-      .filter(v => {
-        if (startDate && v.date < startDate) return false;
-        if (endDate && v.date > endDate) return false;
-        return v.lines.some(l => l.accountNumber === accountNumber);
-      })
-      .flatMap(v => 
-        v.lines
-          .filter(l => l.accountNumber === accountNumber)
-          .map(l => {
-            const balanceChange = calculateBalance(accountClass, l.debit, l.credit);
-            runningBalance += balanceChange;
-            return {
-              date: v.date,
-              voucherNumber: v.voucherNumber,
-              description: v.description,
-              debit: l.debit,
-              credit: l.credit,
-              balance: runningBalance,
-            };
-          })
+  const getAccountStatement = (
+    accountNumber: string,
+    startDate?: string,
+    endDate?: string
+  ):
+    | AccountStatement
+    | null => {
+    const account =
+      accounts.find(
+        (entry) =>
+          entry.number ===
+          accountNumber
       );
 
-    const totalDebit = entries.reduce((sum, e) => sum + e.debit, 0);
-    const totalCredit = entries.reduce((sum, e) => sum + e.credit, 0);
+    if (!account) {
+      return null;
+    }
+
+    const accountClass =
+      getAccountClass(
+        accountNumber
+      );
+
+    let runningBalance = 0;
+
+    const entries =
+      vouchers
+        .filter((voucher) => {
+          if (
+            startDate &&
+            voucher.date <
+              startDate
+          ) {
+            return false;
+          }
+
+          if (
+            endDate &&
+            voucher.date >
+              endDate
+          ) {
+            return false;
+          }
+
+          return voucher.lines.some(
+            (line) =>
+              line.accountNumber ===
+              accountNumber
+          );
+        })
+        .flatMap(
+          (voucher) =>
+            voucher.lines
+              .filter(
+                (line) =>
+                  line.accountNumber ===
+                  accountNumber
+              )
+              .map((line) => {
+                const balanceChange =
+                  calculateBalance(
+                    accountClass,
+                    line.debit,
+                    line.credit
+                  );
+
+                runningBalance +=
+                  balanceChange;
+
+                return {
+                  date:
+                    voucher.date,
+
+                  voucherNumber:
+                    voucher
+                      .voucherNumber,
+
+                  description:
+                    voucher
+                      .description,
+
+                  debit:
+                    line.debit,
+
+                  credit:
+                    line.credit,
+
+                  balance:
+                    runningBalance,
+                };
+              })
+        );
+
+    const totalDebit =
+      entries.reduce(
+        (sum, entry) =>
+          sum +
+          entry.debit,
+        0
+      );
+
+    const totalCredit =
+      entries.reduce(
+        (sum, entry) =>
+          sum +
+          entry.credit,
+        0
+      );
 
     return {
       accountNumber,
-      accountName: account.name,
+
+      accountName:
+        account.name,
+
       entries,
+
       totalDebit,
+
       totalCredit,
-      finalBalance: runningBalance,
+
+      finalBalance:
+        runningBalance,
     };
   };
 
-  const getGeneralLedger = (startDate?: string, endDate?: string): GeneralLedgerEntry[] => {
-    const ledger: Map<string, { totalDebit: number; totalCredit: number }> = new Map();
+  const getGeneralLedger = (
+    startDate?: string,
+    endDate?: string
+  ):
+    GeneralLedgerEntry[] => {
+    const ledger:
+      Map<
+        string,
+        {
+          totalDebit: number;
+          totalCredit: number;
+        }
+      > = new Map();
 
     vouchers
-      .filter(v => {
-        if (startDate && v.date < startDate) return false;
-        if (endDate && v.date > endDate) return false;
+      .filter((voucher) => {
+        if (
+          startDate &&
+          voucher.date <
+            startDate
+        ) {
+          return false;
+        }
+
+        if (
+          endDate &&
+          voucher.date >
+            endDate
+        ) {
+          return false;
+        }
+
         return true;
       })
-      .forEach(v => {
-        v.lines.forEach(l => {
-          const current = ledger.get(l.accountNumber) || { totalDebit: 0, totalCredit: 0 };
-          ledger.set(l.accountNumber, {
-            totalDebit: current.totalDebit + l.debit,
-            totalCredit: current.totalCredit + l.credit,
-          });
-        });
+      .forEach((voucher) => {
+        voucher.lines.forEach(
+          (line) => {
+            const current =
+              ledger.get(
+                line.accountNumber
+              ) || {
+                totalDebit: 0,
+                totalCredit: 0,
+              };
+
+            ledger.set(
+              line.accountNumber,
+              {
+                totalDebit:
+                  current.totalDebit +
+                  line.debit,
+
+                totalCredit:
+                  current.totalCredit +
+                  line.credit,
+              }
+            );
+          }
+        );
       });
 
-    return Array.from(ledger.entries())
-      .map(([accountNumber, { totalDebit, totalCredit }]) => {
-        const account = accounts.find(a => a.number === accountNumber);
-        const accountClass = getAccountClass(accountNumber);
-        return {
+    return Array.from(
+      ledger.entries()
+    )
+      .map(
+        ([
           accountNumber,
-          accountName: account?.name || "Unknown",
-          totalDebit,
-          totalCredit,
-          balance: calculateBalance(accountClass, totalDebit, totalCredit),
-        };
-      })
-      .sort((a, b) => a.accountNumber.localeCompare(b.accountNumber));
+          {
+            totalDebit,
+            totalCredit,
+          },
+        ]) => {
+          const account =
+            accounts.find(
+              (entry) =>
+                entry.number ===
+                accountNumber
+            );
+
+          const accountClass =
+            getAccountClass(
+              accountNumber
+            );
+
+          return {
+            accountNumber,
+
+            accountName:
+              account?.name ||
+              "Unknown",
+
+            totalDebit,
+
+            totalCredit,
+
+            balance:
+              calculateBalance(
+                accountClass,
+                totalDebit,
+                totalCredit
+              ),
+          };
+        }
+      )
+      .sort((a, b) =>
+        a.accountNumber.localeCompare(
+          b.accountNumber
+        )
+      );
   };
 
-  const getIncomeStatement = (startDate?: string, endDate?: string) => {
-    const ledger = getGeneralLedger(startDate, endDate);
-    
-    const revenues = ledger.filter(e => e.accountNumber.startsWith("3") || e.accountNumber === "8310");
-    const expenses = ledger.filter(e => 
-      e.accountNumber.startsWith("4") || 
-      e.accountNumber.startsWith("5") || 
-      e.accountNumber.startsWith("6") || 
-      e.accountNumber.startsWith("7") ||
-      (e.accountNumber.startsWith("8") && e.accountNumber !== "8310" && e.accountNumber !== "8999")
-    );
+  const getIncomeStatement = (
+    startDate?: string,
+    endDate?: string
+  ) => {
+    const ledger =
+      getGeneralLedger(
+        startDate,
+        endDate
+      );
 
-    const totalRevenue = revenues.reduce((sum, e) => sum + e.balance, 0);
-    const totalExpenses = expenses.reduce((sum, e) => sum + e.balance, 0);
-    const netResult = totalRevenue - totalExpenses;
+    const revenues =
+      ledger.filter(
+        (entry) =>
+          entry.accountNumber
+            .startsWith("3") ||
+          entry.accountNumber ===
+            "8310"
+      );
 
-    return { revenues, expenses, netResult };
+    const expenses =
+      ledger.filter(
+        (entry) =>
+          entry.accountNumber
+            .startsWith("4") ||
+          entry.accountNumber
+            .startsWith("5") ||
+          entry.accountNumber
+            .startsWith("6") ||
+          entry.accountNumber
+            .startsWith("7") ||
+          (
+            entry.accountNumber
+              .startsWith("8") &&
+            entry.accountNumber !==
+              "8310" &&
+            entry.accountNumber !==
+              "8999"
+          )
+      );
+
+    const totalRevenue =
+      revenues.reduce(
+        (sum, entry) =>
+          sum +
+          entry.balance,
+        0
+      );
+
+    const totalExpenses =
+      expenses.reduce(
+        (sum, entry) =>
+          sum +
+          entry.balance,
+        0
+      );
+
+    const netResult =
+      totalRevenue -
+      totalExpenses;
+
+    return {
+      revenues,
+      expenses,
+      netResult,
+    };
   };
 
-  const getBalanceSheet = (endDate?: string) => {
-    const ledger = getGeneralLedger(undefined, endDate);
-    
-    const assets = ledger.filter(e => e.accountNumber.startsWith("1"));
-    const equityLiabilities = ledger.filter(e => e.accountNumber.startsWith("2"));
+  const getBalanceSheet = (
+    endDate?: string
+  ) => {
+    const ledger =
+      getGeneralLedger(
+        undefined,
+        endDate
+      );
 
-    const totalAssets = assets.reduce((sum, e) => sum + e.balance, 0);
-    const totalEquityLiabilities = equityLiabilities.reduce((sum, e) => sum + e.balance, 0);
-    
-    // In a balanced system, Assets = Equity + Liabilities
-    const isBalanced = Math.abs(totalAssets - totalEquityLiabilities) < 0.01;
+    const assets =
+      ledger.filter(
+        (entry) =>
+          entry.accountNumber
+            .startsWith("1")
+      );
 
-    return { assets, equityLiabilities, totalAssets, totalEquityLiabilities, isBalanced };
+    const equityLiabilities =
+      ledger.filter(
+        (entry) =>
+          entry.accountNumber
+            .startsWith("2")
+      );
+
+    const totalAssets =
+      assets.reduce(
+        (sum, entry) =>
+          sum +
+          entry.balance,
+        0
+      );
+
+    const totalEquityLiabilities =
+      equityLiabilities.reduce(
+        (sum, entry) =>
+          sum +
+          entry.balance,
+        0
+      );
+
+    const isBalanced =
+      Math.abs(
+        totalAssets -
+          totalEquityLiabilities
+      ) < 0.01;
+
+    return {
+      assets,
+
+      equityLiabilities,
+
+      totalAssets,
+
+      totalEquityLiabilities,
+
+      isBalanced,
+    };
   };
 
-  const importSIE = (fileContent: string): { success: boolean; imported: number; skipped: number; errors: string[] } => {
-    const parseResult = parseSIEFile(fileContent);
+  const importSIE = (
+    fileContent: string
+  ): {
+    success: boolean;
+    imported: number;
+    skipped: number;
+    errors: string[];
+  } => {
+    const parseResult =
+      parseSIEFile(
+        fileContent
+      );
 
-    if (parseResult.errors.length > 0) {
+    if (
+      parseResult.errors.length >
+      0
+    ) {
       return {
         success: false,
         imported: 0,
         skipped: 0,
-        errors: parseResult.errors,
+        errors:
+          parseResult.errors,
       };
     }
 
-    const standardAccounts = getLatestBASAccounts(accountingStandard);
-    const basAccountNumbers = new Set(getLatestBASAccounts("K3").map((account) => account.number));
-    const sieAccounts = convertSIEAccountsToBAS(parseResult.accounts);
-    const accountNumbersFromContent = new Set<string>();
-
-    parseResult.vouchers.forEach((voucher) => {
-      voucher.lines.forEach((line) => accountNumbersFromContent.add(line.accountNumber));
-    });
-    parseResult.openingBalances.forEach((balance) => accountNumbersFromContent.add(balance.accountNumber));
-    parseResult.previousClosingBalances.forEach((balance) => accountNumbersFromContent.add(balance.accountNumber));
-
-    const importedCustomAccounts = Array.from(accountNumbersFromContent)
-      .filter((accountNumber) => !basAccountNumbers.has(accountNumber))
-      .map((accountNumber) => {
-        const sieAccount = sieAccounts.find((account) => account.number === accountNumber);
-        return sieAccount ?? {
-          number: accountNumber,
-          name: `Account ${accountNumber}`,
-          class: getAccountClass(accountNumber),
-        };
-      });
-
-    const importedAccountsByNumber = new Map<string, BASAccount>();
-    [...standardAccounts, ...sieAccounts, ...importedCustomAccounts].forEach((account) => {
-      if (!importedAccountsByNumber.has(account.number)) {
-        importedAccountsByNumber.set(account.number, account);
-      }
-    });
-
-    const replacementAccounts = Array.from(importedAccountsByNumber.values()).sort((a, b) =>
-      a.number.localeCompare(b.number)
-    );
-
-    const openingBalanceVoucher = convertSIEOpeningBalancesToVoucher(parseResult, companyId, replacementAccounts);
-    if (openingBalanceVoucher) {
-      openingBalanceVoucher.voucherNumber = 0;
+    if (companyId) {
+      registerHistoricalAccountsFromSIE(
+        companyId,
+        parseResult
+      );
     }
 
-    const { newVouchers, nextVoucherNumber: newNextNumber } = convertSIEVouchersToInternal(
-      parseResult.vouchers,
-      companyId,
-      [],
-      replacementAccounts
-    );
+    const standardAccounts =
+      getLatestBASAccounts(
+        "K2"
+      );
 
-    const replacementVouchers = [
-      ...(openingBalanceVoucher ? [openingBalanceVoucher] : []),
-      ...newVouchers,
-    ].sort((a, b) =>
-      new Date(a.date).getTime() - new Date(b.date).getTime() || a.voucherNumber - b.voucherNumber
-    );
+    const historicalAccounts =
+      companyId
+        ? loadHistoricalAccounts(
+            companyId
+          )
+        : [];
+
+    const sieAccounts =
+      convertSIEAccountsToBAS(
+        parseResult.accounts
+      );
+
+    // Under själva konverteringen
+    // får SIE-filens kontonamn
+    // företräde så att historisk
+    // information bevaras.
+    const conversionAccounts =
+      mergeAccountsPreferFirst(
+        sieAccounts,
+        historicalAccounts,
+        standardAccounts
+      );
+
+    // I den vanliga kontoplanen
+    // visas BAS först och
+    // historiska konton läggs
+    // endast till som historik.
+    const contextAccounts =
+      mergeAccountsPreferFirst(
+        standardAccounts,
+        historicalAccounts
+      );
+
+    const openingBalanceVoucher =
+      convertSIEOpeningBalancesToVoucher(
+        parseResult,
+        companyId,
+        conversionAccounts
+      );
+
+    if (
+      openingBalanceVoucher
+    ) {
+      openingBalanceVoucher
+        .voucherNumber = 0;
+    }
+
+    const converted =
+      convertSIEVouchersToInternal(
+        parseResult.vouchers,
+        companyId,
+        [],
+        conversionAccounts
+      );
+
+    const replacementVouchers =
+      [
+        ...(
+          openingBalanceVoucher
+            ? [
+                openingBalanceVoucher,
+              ]
+            : []
+        ),
+
+        ...converted.newVouchers,
+      ].sort(
+        (a, b) =>
+          new Date(
+            a.date
+          ).getTime() -
+            new Date(
+              b.date
+            ).getTime() ||
+          a.voucherNumber -
+            b.voucherNumber
+      );
 
     if (companyId) {
-      appStorage.removeItem(removedBasAccountsStorageKey);
-      appStorage.setItem(`accountpro_sie_imported_${companyId}`, "true");
+      appStorage.setItem(
+        "accountpro_sie_imported_" +
+          companyId,
+        "true"
+      );
     }
 
-    saveAccounts(replacementAccounts);
-    saveVouchers(replacementVouchers, newNextNumber);
-    syncSieStateToDatabase(replacementVouchers, replacementAccounts);
+    saveAccounts(
+      contextAccounts
+    );
+
+    saveVouchers(
+      replacementVouchers,
+      converted.nextVoucherNumber
+    );
+
+    syncSieStateToDatabase(
+      replacementVouchers,
+      conversionAccounts
+    );
 
     return {
       success: true,
-      imported: replacementVouchers.length,
+
+      imported:
+        replacementVouchers.length,
+
       skipped: 0,
-      errors: parseResult.errors,
+
+      errors:
+        parseResult.errors,
     };
   };
 
-  const exportSIE = (): string => {
-    if (!activeCompany) return "";
-    
-    return generateSIEFile(vouchers, accounts, {
-      companyName: activeCompany.companyName,
-      organizationNumber: activeCompany.organizationNumber,
-      fiscalYearStart: activeCompany.fiscalYearStart,
-      fiscalYearEnd: activeCompany.fiscalYearEnd,
-    });
-  };
+  const exportSIE =
+    (): string => {
+      if (!activeCompany) {
+        return "";
+      }
+
+      return generateSIEFile(
+        vouchers,
+        accounts,
+        {
+          companyName:
+            activeCompany.companyName,
+
+          organizationNumber:
+            activeCompany
+              .organizationNumber,
+
+          fiscalYearStart:
+            activeCompany
+              .fiscalYearStart,
+
+          fiscalYearEnd:
+            activeCompany
+              .fiscalYearEnd,
+        }
+      );
+    };
 
   return (
-    <AccountingContext.Provider value={{
-      accounts,
-      vouchers,
-      nextVoucherNumber,
-      addAccount,
-      removeAccount,
-      createVoucher,
-      updateVoucher,
-      deleteVoucher,
-      reverseVoucher,
-      getVoucherById,
-      getVoucherByNumber,
-      getAccountStatement,
-      getGeneralLedger,
-      getIncomeStatement,
-      getBalanceSheet,
-      validateVoucher,
-      importSIE,
-      exportSIE,
-    }}>
+    <AccountingContext.Provider
+      value={{
+        accounts,
+        vouchers,
+        nextVoucherNumber,
+        addAccount,
+        removeAccount,
+        createVoucher,
+        updateVoucher,
+        deleteVoucher,
+        reverseVoucher,
+        getVoucherById,
+        getVoucherByNumber,
+        getAccountStatement,
+        getGeneralLedger,
+        getIncomeStatement,
+        getBalanceSheet,
+        validateVoucher,
+        importSIE,
+        exportSIE,
+      }}
+    >
       {children}
     </AccountingContext.Provider>
   );
 }
 
 export function useAccounting() {
-  const context = useContext(AccountingContext);
-  if (context === undefined) {
-    throw new Error("useAccounting must be used within an AccountingProvider");
+  const context =
+    useContext(
+      AccountingContext
+    );
+
+  if (
+    context === undefined
+  ) {
+    throw new Error(
+      "useAccounting must be used within an AccountingProvider"
+    );
   }
+
   return context;
 }
