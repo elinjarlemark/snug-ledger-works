@@ -317,6 +317,19 @@ export interface Voucher {
 
   createdAt:
     string;
+
+  // Older vouchers without these fields are migrated non-destructively.
+  status?: "POSTED" | "DRAFT";
+  documentDate?: string;
+  party?: string;
+  partyId?: string;
+  postedAt?: string;
+  postedByUserId?: string;
+  postedByName?: string;
+  originalSeries?: string;
+  originalVoucherNumber?: number;
+  importSourceId?: string;
+  importedAt?: string;
 }
 
 export interface AccountStatement {
@@ -1269,22 +1282,32 @@ export function AccountingProvider({
       );
 
     const validation =
-      validateVoucher(
-        normalizedLines
-      );
+      validateVoucher(voucherData.lines);
 
-    if (
-      !validation.isValid
-    ) {
+    if (!validation.isValid || !companyId || !voucherData.date || !voucherData.description.trim()) {
+      return null;
+    }
+    const today = new Date().toLocaleDateString("sv-SE");
+    if (voucherData.date > today) {
+      return null;
+    }
+    const lockedYears = JSON.parse(appStorage.getItem("accountpro_locked_years_" + companyId) || "[]") as number[];
+    if (lockedYears.includes(Number(voucherData.date.slice(0, 4)))) {
       return null;
     }
 
+    const postedAt = new Date().toISOString();
     const newVoucher:
       Voucher = {
       ...voucherData,
 
       lines:
         normalizedLines,
+      status: "POSTED",
+      documentDate: voucherData.documentDate || today,
+      postedAt,
+      postedByUserId: String(user?.id || ""),
+      postedByName: user?.name || user?.email || "Okänd användare",
 
       id:
         crypto.randomUUID(),
@@ -1292,7 +1315,7 @@ export function AccountingProvider({
       companyId,
 
       voucherNumber:
-        nextVoucherNumber,
+        Math.max(nextVoucherNumber, ...vouchers.map((entry) => entry.voucherNumber + 1)),
 
       createdAt:
         new Date()
@@ -1309,6 +1332,14 @@ export function AccountingProvider({
                 .reversesVoucherId
           )
         : undefined;
+
+    if (voucherData.reversesVoucherId && (
+      !sourceVoucher ||
+      sourceVoucher.reversedByVoucherId ||
+      vouchers.some((entry) => entry.reversesVoucherId === sourceVoucher.id)
+    )) {
+      return null;
+    }
 
     const linkedSourceVoucher =
       sourceVoucher
@@ -1353,8 +1384,7 @@ export function AccountingProvider({
 
     saveVouchers(
       newVouchers,
-      nextVoucherNumber +
-        1
+      newVoucher.voucherNumber + 1
     );
 
     syncSieStateToDatabase(
@@ -1365,162 +1395,21 @@ export function AccountingProvider({
     return newVoucher;
   };
 
-  const deleteVoucher = (
-    voucherId:
-      string
-  ) => {
-    const deletedVoucher =
-      vouchers.find(
-        (voucher) =>
-          voucher.id ===
-          voucherId
-      );
-
-    const newVouchers =
-      vouchers
-        .filter(
-          (voucher) =>
-            voucher.id !==
-            voucherId
-        )
-        .map(
-          (voucher) => {
-            if (
-              voucher
-                .reversedByVoucherId ===
-              voucherId
-            ) {
-              const {
-                reversedByVoucherId,
-                reversedByVoucherNumber,
-                ...rest
-              } = voucher;
-
-              return rest;
-            }
-
-            if (
-              deletedVoucher &&
-              voucher
-                .reversesVoucherId ===
-                voucherId
-            ) {
-              const {
-                reversesVoucherId,
-                reversesVoucherNumber,
-                ...rest
-              } = voucher;
-
-              return rest;
-            }
-
-            return voucher;
-          }
-        );
-
-    saveVouchers(
-      newVouchers,
-      nextVoucherNumber
-    );
-
-    syncSieStateToDatabase(
-      newVouchers,
-      accounts
-    );
+  // Posted vouchers are permanent. Drafts live outside this context and may be deleted.
+  const deleteVoucher = (_voucherId: string): void => {
+    console.warn("Bokförda verifikationer kan inte raderas. Skapa en rättelse.");
   };
 
   const updateVoucher = (
-    voucherId:
-      string,
-
-    updates:
-      Partial<
-        Pick<
-          Voucher,
-          | "date"
-          | "description"
-          | "lines"
-          | "attachments"
-          | "reversesVoucherId"
-          | "reversesVoucherNumber"
-          | "reversedByVoucherId"
-          | "reversedByVoucherNumber"
-        >
-      >
-  ) => {
-    const existingVoucher =
-      vouchers.find(
-        (voucher) =>
-          voucher.id ===
-          voucherId
-      );
-
-    if (
-      !existingVoucher
-    ) {
-      return null;
-    }
-
-    let normalizedLines:
-      VoucherLine[] |
-      undefined;
-
-    if (
-      updates.lines
-    ) {
-      normalizedLines =
-        normalizeVoucherLines(
-          updates.lines
-        );
-
-      const validation =
-        validateVoucher(
-          normalizedLines
-        );
-
-      if (
-        !validation.isValid
-      ) {
-        return null;
-      }
-    }
-
-    const updatedVoucher:
-      Voucher = {
-      ...existingVoucher,
-
-      ...updates,
-
-      ...(
-        normalizedLines
-          ? {
-              lines:
-                normalizedLines,
-            }
-          : {}
-      ),
-    };
-
-    const newVouchers =
-      vouchers.map(
-        (voucher) =>
-          voucher.id ===
-          voucherId
-            ? updatedVoucher
-            : voucher
-      );
-
-    saveVouchers(
-      newVouchers,
-      nextVoucherNumber
-    );
-
-    syncSieStateToDatabase(
-      newVouchers,
-      accounts
-    );
-
-    return updatedVoucher;
+    _voucherId: string,
+    _updates: Partial<Pick<Voucher,
+      | "date" | "description" | "lines" | "attachments"
+      | "reversesVoucherId" | "reversesVoucherNumber"
+      | "reversedByVoucherId" | "reversedByVoucherNumber"
+    >>
+  ): Voucher | null => {
+    console.warn("Bokförda verifikationer kan inte ändras. Skapa en rättelse.");
+    return null;
   };
 
   const reverseVoucher = (
@@ -1539,9 +1428,8 @@ export function AccountingProvider({
           voucher.id
       );
 
-    if (
-      !existingVoucher
-    ) {
+    if (!existingVoucher || existingVoucher.reversedByVoucherId ||
+      vouchers.some((entry) => entry.reversesVoucherId === existingVoucher.id)) {
       return null;
     }
 
@@ -1585,15 +1473,25 @@ export function AccountingProvider({
       return null;
     }
 
+    const today = new Date().toLocaleDateString("sv-SE");
+    if (date > today || JSON.parse(appStorage.getItem("accountpro_locked_years_" + companyId) || "[]").includes(Number(date.slice(0, 4)))) {
+      return null;
+    }
+    const postedAt = new Date().toISOString();
     const reversalVoucher:
       Voucher = {
+      status: "POSTED",
+      documentDate: today,
+      postedAt,
+      postedByUserId: String(user?.id || ""),
+      postedByName: user?.name || user?.email || "Okänd användare",
       id:
         crypto.randomUUID(),
 
       companyId,
 
       voucherNumber:
-        nextVoucherNumber,
+        Math.max(nextVoucherNumber, ...vouchers.map((entry) => entry.voucherNumber + 1)),
 
       date,
 
@@ -1661,8 +1559,7 @@ export function AccountingProvider({
 
     saveVouchers(
       newVouchers,
-      nextVoucherNumber +
-        1
+      reversalVoucher.voucherNumber + 1
     );
 
     syncSieStateToDatabase(
@@ -2179,12 +2076,20 @@ export function AccountingProvider({
       };
     }
 
-    if (companyId) {
-      registerHistoricalAccountsFromSIE(
-        companyId,
-        parseResult
-      );
+    // Existing posted vouchers must never be overwritten by another SIE import.
+    // Import into an empty ledger; a future reconciled incremental import can
+    // be implemented separately without weakening this invariant.
+    if (vouchers.length > 0) {
+      return {
+        success: false, imported: 0, skipped: 0,
+        errors: ["Företaget har redan bokförda verifikationer. Importen stoppades för att skydda befintlig bokföring. Importera till ett tomt företag tills sammanslagning med avstämning har införts."],
+      };
     }
+    if (companyId) {
+      registerHistoricalAccountsFromSIE(companyId, parseResult);
+    }
+    const importSourceId = crypto.randomUUID();
+    const importedAt = new Date().toISOString();
 
     const standardAccounts =
       getLatestBASAccounts(
@@ -2226,9 +2131,10 @@ export function AccountingProvider({
     if (
       openingBalanceVoucher
     ) {
-      openingBalanceVoucher
-        .voucherNumber =
-        0;
+      openingBalanceVoucher.voucherNumber = 0;
+      openingBalanceVoucher.importSourceId = importSourceId;
+      openingBalanceVoucher.importedAt = importedAt;
+      openingBalanceVoucher.status = "POSTED";
     }
 
     const converted =
@@ -2238,6 +2144,11 @@ export function AccountingProvider({
         [],
         conversionAccounts
       );
+    converted.newVouchers.forEach((voucher) => {
+      voucher.importSourceId = importSourceId;
+      voucher.importedAt = importedAt;
+      voucher.status = "POSTED";
+    });
 
     const replacementVouchers =
       [
