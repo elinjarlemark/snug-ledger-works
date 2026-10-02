@@ -33,6 +33,7 @@ import {
 } from "@/contexts/AccountingContext";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { useBilling } from "@/contexts/BillingContext";
 import { useAuditTrail } from "@/contexts/AuditTrailContext";
 import { useReceipts } from "@/contexts/ReceiptsContext";
 import { useFiscalLock } from "@/contexts/FiscalLockContext";
@@ -106,6 +107,24 @@ import { cn } from "@/lib/utils";
 
 const VOUCHER_CONFIRMATION_KEY =
   "accountpro_voucher_confirmation_enabled";
+
+const INTERNAL_PARTY = "Intern bokslutspost";
+
+function todayLocalIsoDate(): string {
+  const today = new Date();
+  const year = String(today.getFullYear());
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return year + "-" + month + "-" + day;
+}
+
+function isValidIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const actual = new Date(year, month - 1, day);
+  return actual.getFullYear() === year &&
+    actual.getMonth() + 1 === month && actual.getDate() === day;
+}
 
 function isVoucherConfirmationEnabled() {
   return (
@@ -216,13 +235,14 @@ export function VoucherForm({
   const {
     nextVoucherNumber,
     createVoucher,
-    updateVoucher,
     validateVoucher,
   } = useAccounting();
 
   const {
     activeCompany,
   } = useAuth();
+
+  const { customers } = useBilling();
 
   const {
     addEntry,
@@ -336,19 +356,25 @@ export function VoucherForm({
     setDate,
   ] =
     useState(
-      sourceVoucher?.date ||
-        ""
+      sourceVoucher?.reversesVoucherId && sourceVoucher.status !== "DRAFT"
+        ? todayLocalIsoDate()
+        : sourceVoucher?.date || ""
     );
 
   const [
     description,
     setDescription,
-  ] =
-    useState(
-      sourceVoucher
-        ?.description ||
-        ""
-    );
+  ] = useState(sourceVoucher?.description || "");
+  const [party, setParty] = useState(sourceVoucher?.party || "");
+  const [partyId, setPartyId] = useState(sourceVoucher?.partyId || "");
+  const [internalEntry, setInternalEntry] = useState(
+    sourceVoucher?.party === INTERNAL_PARTY
+  );
+  const [documentDate, setDocumentDate] = useState(
+    sourceVoucher?.status === "DRAFT"
+      ? sourceVoucher.documentDate || todayLocalIsoDate()
+      : todayLocalIsoDate()
+  );
 
   const [
     lines,
@@ -380,9 +406,11 @@ export function VoucherForm({
     pendingAttachments,
     setPendingAttachments,
   ] =
-    useState<
-      PendingAttachment[]
-    >([]);
+    useState<PendingAttachment[]>(
+      sourceVoucher?.status === "DRAFT" && sourceVoucher.attachments
+        ? sourceVoucher.attachments.map((attachment) => ({ ...attachment }))
+        : []
+    );
 
   const [
     openComboboxes,
@@ -1117,21 +1145,28 @@ export function VoucherForm({
 
   const validateBeforePosting =
     () => {
-      if (
-        !date ||
-        !description.trim()
-      ) {
-        toast.error(
-          "Fyll i datum och beskrivning."
-        );
+      if (!date || !documentDate || !description.trim()) {
+        toast.error("Ange affärsdatum, verifikationsdatum och beskrivning.");
 
         return false;
       }
 
-      const today =
-        new Date()
-          .toISOString()
-          .split("T")[0];
+      if (!internalEntry && !party.trim()) {
+        toast.error("Ange motpart eller markera intern bokslutspost.");
+        return false;
+      }
+
+      if (!isValidIsoDate(date) || !isValidIsoDate(documentDate)) {
+        toast.error("Ange giltiga datum.");
+        return false;
+      }
+
+      const today = todayLocalIsoDate();
+
+      if (documentDate > today) {
+        toast.error("Verifikationsdatumet kan inte ligga i framtiden.");
+        return false;
+      }
 
       if (
         date > today
@@ -1180,23 +1215,17 @@ export function VoucherForm({
         return false;
       }
 
-      if (
-        !hasBASYear(
-          voucherYear
-        ) &&
-        getValidLines().some(
-          (line) =>
-            !eligibleHistoricalAccounts.some(
-              (account) =>
-                account.number ===
-                line.accountNumber
-            )
-        )
-      ) {
-        toast.error(
-          "Det finns ingen BAS-kontoplan installerad för verifikationens år."
-        );
+      if (!hasBASYear(voucherYear)) {
+        toast.error("Det finns ingen BAS-kontoplan installerad för verifikationens år.");
+        return false;
+      }
 
+      const availableAccounts = new Set([
+        ...dateAccounts.map((account) => account.number),
+        ...eligibleHistoricalAccounts.map((account) => account.number),
+      ]);
+      if (getValidLines().some((line) => !availableAccounts.has(line.accountNumber))) {
+        toast.error("Ett valt konto saknas i årets BAS och är inte ett tillåtet historiskt konto.");
         return false;
       }
 
@@ -1207,13 +1236,13 @@ export function VoucherForm({
     () => ({
       date,
 
-      description:
-        description.trim(),
-
+      description: description.trim(),
+      party: internalEntry ? INTERNAL_PARTY : party.trim(),
+      partyId: internalEntry ? undefined : partyId || undefined,
+      documentDate,
+      status: "DRAFT" as const,
       lines,
-
-      attachments:
-        pendingAttachments,
+      attachments: pendingAttachments,
 
       reversesVoucherId:
         duplicateFrom
@@ -1250,59 +1279,24 @@ export function VoucherForm({
 
   const postVoucher =
     () => {
-      const validLines =
-        getValidLines();
+      if (!validateBeforePosting()) return;
+      const validLines = getValidLines();
 
-      if (
-        editVoucher
-      ) {
-        const updated =
-          updateVoucher(
-            editVoucher.id,
-            {
-              date,
-
-              description:
-                description.trim(),
-
-              lines:
-                validLines,
-            }
-          );
-
-        if (updated) {
-          toast.success(
-            "Voucher #" +
-            updated
-              .voucherNumber +
-            " updated successfully"
-          );
-
-          onSuccess();
-        } else {
-          toast.error(
-            "Failed to update voucher"
-          );
-        }
-      } else {
-        const voucher =
-          createVoucher({
-            date,
-
-            description:
-              description.trim(),
-
-            lines:
-              validLines,
-
-            reversesVoucherId:
-              duplicateFrom
-                ?.reversesVoucherId,
-
-            reversesVoucherNumber:
-              duplicateFrom
-                ?.reversesVoucherNumber,
-          });
+      if (editVoucher && editVoucher.status !== "DRAFT") {
+        toast.error("Bokförda verifikationer kan inte ändras. Skapa en rättelse.");
+        return;
+      }
+      const voucher = createVoucher({
+        date,
+        documentDate,
+        party: internalEntry ? INTERNAL_PARTY : party.trim(),
+        partyId: internalEntry ? undefined : partyId || undefined,
+        description: description.trim(),
+        lines: validLines,
+        attachments: pendingAttachments,
+        reversesVoucherId: duplicateFrom?.reversesVoucherId,
+        reversesVoucherNumber: duplicateFrom?.reversesVoucherNumber,
+      });
 
         if (voucher) {
           pendingAttachments.forEach(
@@ -1346,10 +1340,9 @@ export function VoucherForm({
           );
 
           toast.success(
-            "Voucher #" +
-            voucher
-              .voucherNumber +
-            " created successfully"
+            "Verifikation #" +
+            voucher.voucherNumber +
+            " bokförd"
           );
 
           onSuccess();
@@ -1358,7 +1351,6 @@ export function VoucherForm({
             "Failed to create voucher"
           );
         }
-      }
     };
 
   const handleSubmit =
@@ -1369,10 +1361,7 @@ export function VoucherForm({
         return;
       }
 
-      if (
-        !editVoucher &&
-        confirmationEnabled
-      ) {
+      if (confirmationEnabled) {
         setShowConfirmation(
           true
         );
@@ -1382,6 +1371,19 @@ export function VoucherForm({
 
       postVoucher();
     };
+
+  // A posted voucher must never be opened as an editable form.
+  if (editVoucher && editVoucher.status !== "DRAFT") {
+    return (
+      <div className="rounded-xl border border-border bg-card p-6 space-y-3">
+        <p className="font-semibold">Bokförda verifikationer är låsta.</p>
+        <p className="text-sm text-muted-foreground">
+          Skapa en rättelse eller vändningsverifikation för att korrigera bokföringen.
+        </p>
+        <Button variant="outline" onClick={onCancel}>Gå tillbaka</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-card rounded-xl border border-border p-6 space-y-6">
@@ -1424,9 +1426,7 @@ export function VoucherForm({
         <div>
           <h2 className="text-xl font-semibold text-foreground">
             {editVoucher
-              ? "Edit Voucher #" +
-                editVoucher
-                  .voucherNumber
+              ? "Redigera utkast"
               : duplicateFrom
                 ? "Duplicate Voucher #" +
                   duplicateFrom
@@ -1477,9 +1477,7 @@ export function VoucherForm({
 
       <div className="grid md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="date">
-            Date
-          </Label>
+          <Label htmlFor="date">Affärsdatum</Label>
 
           <Input
             id="date"
@@ -1489,11 +1487,7 @@ export function VoucherForm({
               date
             }
 
-            max={
-              new Date()
-                .toISOString()
-                .split("T")[0]
-            }
+            max={todayLocalIsoDate()}
 
             onChange={(
               event
@@ -1579,9 +1573,7 @@ export function VoucherForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="description">
-            Description
-          </Label>
+          <Label htmlFor="description">Beskrivning</Label>
 
           <Input
             id="description"
@@ -1600,6 +1592,40 @@ export function VoucherForm({
 
             placeholder="Transaction description"
           />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="voucher-document-date">Verifikationsdatum (sammanställd)</Label>
+          <Input id="voucher-document-date" type="date" value={documentDate}
+            max={todayLocalIsoDate()}
+            onChange={(event) => setDocumentDate(event.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="voucher-party">Motpart</Label>
+          <Input
+            id="voucher-party"
+            list="voucher-existing-customers"
+            value={internalEntry ? INTERNAL_PARTY : party}
+            disabled={internalEntry}
+            onChange={(event) => {
+              const name = event.target.value;
+              setParty(name);
+              const customer = customers.find((entry) => entry.name === name);
+              setPartyId(customer?.id || "");
+            }}
+            placeholder="Välj kund eller skriv namn på leverantör/person"
+          />
+          <datalist id="voucher-existing-customers">
+            {customers.map((customer) => (
+              <option key={customer.id} value={customer.name} />
+            ))}
+          </datalist>
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Checkbox checked={internalEntry} onCheckedChange={(checked) => {
+              setInternalEntry(checked === true);
+              setPartyId("");
+            }} />
+            Intern bokslutspost (ingen extern motpart)
+          </label>
         </div>
       </div>
 
@@ -2432,11 +2458,7 @@ export function VoucherForm({
             !validation.isValid
           }
         >
-          {editVoucher
-            ? "Update Voucher"
-            : confirmationEnabled
-              ? "Spara"
-              : "Bokför"}
+          {confirmationEnabled ? "Granska och bokför" : "Bokför"}
         </Button>
       </div>
 
@@ -2486,6 +2508,11 @@ export function VoucherForm({
                   {description.trim()}
                 </p>
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div><span className="text-muted-foreground">Verifikationsdatum: </span>{documentDate}</div>
+              <div><span className="text-muted-foreground">Motpart: </span>{internalEntry ? INTERNAL_PARTY : party}</div>
             </div>
 
             <div className="rounded-md border overflow-hidden">
