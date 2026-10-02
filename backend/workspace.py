@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import User, Company, CompanyMember, WorkspaceState
+from voucher_integrity import check_workspace_vouchers, check_workspace_receipts
 
 router = APIRouter(prefix="/workspace", tags=["workspace"])
 
@@ -62,6 +63,10 @@ def write_workspace(kind: Literal["company", "user"], scope_id: int, payload: Wo
         row = WorkspaceState(scope=key, company_id=scope_id if kind == "company" else None,
                              user_id=scope_id if kind == "user" else None, version=0)
         db.add(row)
+    if kind == "company":
+        old_values = json.loads(row.values_json) if row.values_json else {}
+        check_workspace_vouchers(db, scope_id, old_values, payload.values, payload.user_id)
+        check_workspace_receipts(scope_id, old_values, payload.values)
     row.values_json = serialized
     row.version += 1
     db.commit()
