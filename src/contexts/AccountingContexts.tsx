@@ -1,4 +1,4 @@
-import { appStorage } from "@/lib/appStorage";
+import { appStorage, flushAppStorage } from "@/lib/appStorage";
 
 import {
   createContext,
@@ -134,12 +134,8 @@ function persistVouchers(
     if (
       !isQuotaError(err)
     ) {
-      console.error(
-        "Failed to persist vouchers:",
-        err
-      );
-
-      return;
+      console.error("Failed to persist vouchers:", err);
+      throw err;
     }
   }
 
@@ -205,10 +201,8 @@ function persistVouchers(
       )
     );
   } catch (err) {
-    console.error(
-      "Vouchers still exceed quota after externalizing attachments:",
-      err
-    );
+    console.error("Vouchers still exceed quota after externalizing attachments:", err);
+    throw err;
   }
 }
 
@@ -393,7 +387,7 @@ interface AccountingContextType {
         | "createdAt"
       >
   ) =>
-    Voucher | null;
+    Promise<Voucher | null>;
 
   updateVoucher: (
     voucherId:
@@ -427,7 +421,7 @@ interface AccountingContextType {
     date?:
       string
   ) =>
-    Voucher | null;
+    Promise<Voucher | null>;
 
   getVoucherById: (
     voucherId:
@@ -504,7 +498,7 @@ interface AccountingContextType {
   importSIE: (
     fileContent:
       string
-  ) => {
+  ) => Promise<{
     success:
       boolean;
 
@@ -516,7 +510,7 @@ interface AccountingContextType {
 
     errors:
       string[];
-  };
+  }>;
 
   exportSIE:
     () => string;
@@ -664,6 +658,9 @@ export function AccountingProvider({
     useRef(
       companyId
     );
+  // Förhindra samtidiga postningar och stopp vid avvisad databasskrivning.
+  const writingRef = useRef(false);
+  const failedWriteRef = useRef(false);
 
   useEffect(
     () => {
@@ -751,10 +748,13 @@ export function AccountingProvider({
               sieContent,
           }),
       }
-    ).catch(
-      () =>
-        undefined
-    );
+    ).then((response) => {
+      if (!response.ok) {
+        console.warn("SIE-spegeln kunde inte uppdateras. Verifikationen finns kvar i arbetsytans bokföringsregister.");
+      }
+    }).catch((error) => {
+      console.warn("SIE-spegeln kunde inte uppdateras:", error);
+    });
   };
 
   useEffect(
@@ -1208,33 +1208,44 @@ export function AccountingProvider({
     );
   };
 
-  const saveVouchers = (
-    newVouchers:
-      Voucher[],
+  const saveVouchers = async (
+    newVouchers: Voucher[],
+    newNextNumber: number
+  ): Promise<void> => {
+    if (!companyId) throw new Error("Välj ett företag innan du bokför.");
+    const requestedCompanyId = companyId;
+    persistVouchers(requestedCompanyId, newVouchers);
+    appStorage.setItem("accountpro_next_voucher_" + requestedCompanyId, String(newNextNumber));
+    // appStorage lagrar först ändringen i en återställningsjournal. Vänta
+    // här på databasens kvittens innan vi visar att bokföringen lyckades.
+    await flushAppStorage();
+    if (activeCompanyIdRef.current !== requestedCompanyId) {
+      throw new Error("Företaget byttes medan verifikationen sparades.");
+    }
+    setVouchers(newVouchers);
+    setNextVoucherNumber(newNextNumber);
+  };
 
-    newNextNumber:
-      number
-  ) => {
-    setVouchers(
-      newVouchers
-    );
-
-    setNextVoucherNumber(
-      newNextNumber
-    );
-
-    if (companyId) {
-      persistVouchers(
-        companyId,
-        newVouchers
-      );
-
-      appStorage.setItem(
-        "accountpro_next_voucher_" +
-          companyId,
-
-        newNextNumber.toString()
-      );
+  const commitVoucherState = async (
+    newVouchers: Voucher[],
+    newNextNumber: number
+  ): Promise<boolean> => {
+    if (writingRef.current || failedWriteRef.current) {
+      console.warn("Bokföringen är upptagen eller en tidigare sparning misslyckades.");
+      return false;
+    }
+    writingRef.current = true;
+    try {
+      await saveVouchers(newVouchers, newNextNumber);
+      return true;
+    } catch (error) {
+      failedWriteRef.current = true;
+      console.error("Bokföringen kunde inte bekräftas av lagringen:", error);
+      // AppStorage behåller sin återställningsjournal. Tillåt inte en ny
+      // bokföringspost med samma nummer innan felet har lösts.
+      return false;
+    } finally {
+      writingRef.current = false;
     }
   };
 
@@ -1266,7 +1277,7 @@ export function AccountingProvider({
     );
   };
 
-  const createVoucher = (
+  const createVoucher = async (
     voucherData:
       Omit<
         Voucher,
@@ -1382,10 +1393,9 @@ export function AccountingProvider({
             b.voucherNumber
       );
 
-    saveVouchers(
-      newVouchers,
-      newVoucher.voucherNumber + 1
-    );
+    if (!(await commitVoucherState(newVouchers, newVoucher.voucherNumber + 1))) {
+      return null;
+    }
 
     syncSieStateToDatabase(
       newVouchers,
@@ -1412,7 +1422,7 @@ export function AccountingProvider({
     return null;
   };
 
-  const reverseVoucher = (
+  const reverseVoucher = async (
     voucher:
       Voucher,
 
@@ -1557,10 +1567,9 @@ export function AccountingProvider({
               b.voucherNumber
         );
 
-    saveVouchers(
-      newVouchers,
-      reversalVoucher.voucherNumber + 1
-    );
+    if (!(await commitVoucherState(newVouchers, reversalVoucher.voucherNumber + 1))) {
+      return null;
+    }
 
     syncSieStateToDatabase(
       newVouchers,
@@ -2036,7 +2045,7 @@ export function AccountingProvider({
     };
   };
 
-  const importSIE = (
+  const importSIE = async (
     fileContent:
       string
   ): {
@@ -2074,6 +2083,11 @@ export function AccountingProvider({
         errors:
           parseResult.errors,
       };
+    }
+
+    if (writingRef.current || failedWriteRef.current) {
+      return { success: false, imported: 0, skipped: 0,
+        errors: ["En sparning pågår eller har misslyckats. Lös lagringsfelet innan du importerar."] };
     }
 
     // Existing posted vouchers must never be overwritten by another SIE import.
@@ -2186,15 +2200,11 @@ export function AccountingProvider({
       );
     }
 
-    saveAccounts(
-      contextAccounts
-    );
-
-    saveVouchers(
-      replacementVouchers,
-      converted
-        .nextVoucherNumber
-    );
+    if (!(await commitVoucherState(replacementVouchers, converted.nextVoucherNumber))) {
+      return { success: false, imported: 0, skipped: 0,
+        errors: ["Importen kunde inte bekräftas av databasen. Sparningen är stoppad tills lagringsfelet är löst."] };
+    }
+    saveAccounts(contextAccounts);
 
     syncSieStateToDatabase(
       replacementVouchers,
