@@ -24,6 +24,30 @@ const VOUCHER_DRAFT_KEY_PREFIX = "accountpro_voucher_drafts_";
 const VOUCHER_TEMPLATE_KEY_PREFIX = "accountpro_voucher_templates_";
 const STANDARD_VOUCHER_TEMPLATE_KEY = "accountpro_standard_voucher_templates";
 
+// Utkast saknar verifikationsnummer. De får ett nummer först när de bokförs.
+// Lokala kalenderdatum används för att undvika att datum flyttas av UTC.
+function localDate(): string {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return year + "-" + month + "-" + day;
+}
+
+function readStoredList<T>(key: string): T[] {
+  const raw = appStorage.getItem(key);
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) throw new Error("Förväntade en lista.");
+    return parsed as T[];
+  } catch (error) {
+    console.error("Kunde inte läsa sparade data från " + key, error);
+    toast.error("Det gick inte att läsa sparade utkast eller mallar. Inga uppgifter har raderats.");
+    return [];
+  }
+}
+
 interface StoredVoucherTemplate {
   id: string;
   name: string;
@@ -106,26 +130,37 @@ export function AccountingPanel({
   const draftStorageKey = activeCompany?.id ? `${VOUCHER_DRAFT_KEY_PREFIX}${activeCompany.id}` : "";
 
   const loadDrafts = () => {
-    if (!draftStorageKey) { setDrafts([]); return; }
-    setDrafts(JSON.parse(appStorage.getItem(draftStorageKey) ?? "[]"));
+    if (!draftStorageKey) {
+      setDrafts([]);
+      return;
+    }
+    setDrafts(readStoredList<Voucher>(draftStorageKey).filter((item) => item.voucherNumber === 0));
   };
 
-  const persistDrafts = (nextDrafts: Voucher[]) => {
-    if (!draftStorageKey) return;
-    appStorage.setItem(draftStorageKey, JSON.stringify(nextDrafts));
-    setDrafts(nextDrafts);
+  const persistDrafts = (nextDrafts: Voucher[]): boolean => {
+    if (!draftStorageKey) {
+      toast.error("Välj ett företag innan du sparar utkast.");
+      return false;
+    }
+    try {
+      appStorage.setItem(draftStorageKey, JSON.stringify(nextDrafts));
+      setDrafts(nextDrafts);
+      return true;
+    } catch (error) {
+      console.error("Kunde inte spara verifikationsutkast:", error);
+      toast.error("Utkastet kunde inte sparas. Kontrollera lagringen och försök igen.");
+      return false;
+    }
   };
 
   const loadVoucherTemplates = () => {
-    const standardRaw = appStorage.getItem(STANDARD_VOUCHER_TEMPLATE_KEY);
-    setStandardTemplates(standardRaw ? JSON.parse(standardRaw) : []);
+    setStandardTemplates(readStoredList<StoredVoucherTemplate>(STANDARD_VOUCHER_TEMPLATE_KEY));
 
     if (!activeCompany?.id) {
       setCustomTemplates([]);
       return;
     }
-    const customRaw = appStorage.getItem(`${VOUCHER_TEMPLATE_KEY_PREFIX}${activeCompany.id}`);
-    setCustomTemplates(customRaw ? JSON.parse(customRaw) : []);
+    setCustomTemplates(readStoredList<StoredVoucherTemplate>(`${VOUCHER_TEMPLATE_KEY_PREFIX}${activeCompany.id}`));
   };
 
   useEffect(() => {
@@ -155,12 +190,29 @@ export function AccountingPanel({
   useEffect(() => {
     if (incomingDuplicate) {
       const isExplicitReversalDraft = incomingDuplicate.voucherNumber === 0 && Boolean(incomingDuplicate.reversesVoucherId);
-      setDuplicatingVoucher(isExplicitReversalDraft ? incomingDuplicate : {
+      setDuplicatingVoucher(isExplicitReversalDraft ? {
         ...incomingDuplicate,
+        status: "DRAFT",
+      } : {
+        ...incomingDuplicate,
+        id: crypto.randomUUID(),
+        voucherNumber: 0,
+        status: "DRAFT",
+        date: localDate(),
+        documentDate: localDate(),
+        attachments: [],
         reversesVoucherId: undefined,
         reversesVoucherNumber: undefined,
         reversedByVoucherId: undefined,
         reversedByVoucherNumber: undefined,
+        postedAt: undefined,
+        postedByUserId: undefined,
+        postedByName: undefined,
+        originalSeries: undefined,
+        originalVoucherNumber: undefined,
+        importSourceId: undefined,
+        importedAt: undefined,
+        createdAt: new Date().toISOString(),
       });
       setShowCreateForm(true);
       setSelectedVoucher(null);
@@ -171,15 +223,19 @@ export function AccountingPanel({
   }, [incomingDuplicate]);
 
   const filteredVouchers = vouchers.filter((v) => {
-    const vDate = new Date(v.date);
-    if (voucherStartDate && vDate < voucherStartDate) return false;
-    if (voucherEndDate && vDate > voucherEndDate) return false;
+    const start = voucherStartDate ? format(voucherStartDate, "yyyy-MM-dd") : undefined;
+    const end = voucherEndDate ? format(voucherEndDate, "yyyy-MM-dd") : undefined;
+    if (start && v.date < start) return false;
+    if (end && v.date > end) return false;
     if (hideReversedVouchers && (v.reversesVoucherId || v.reversedByVoucherId)) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       if (
         !v.description.toLowerCase().includes(q) &&
+        !(v.party || "").toLowerCase().includes(q) &&
         !v.voucherNumber.toString().includes(q) &&
+        !(v.originalSeries || "").toLowerCase().includes(q) &&
+        !(v.originalVoucherNumber === undefined ? "" : String(v.originalVoucherNumber)).includes(q) &&
         !v.date.includes(q)
       ) {
         return false;
@@ -190,6 +246,7 @@ export function AccountingPanel({
 
   const handleVoucherClick = (v: Voucher) => {
     setSelectedVoucher(v);
+    setShowDrafts(false);
     setShowCreateForm(false);
     setShowCreateChoice(false);
     setTemplateBuilderKind(null);
@@ -198,6 +255,7 @@ export function AccountingPanel({
   };
 
   const handleCreateClick = () => {
+    setShowDrafts(false);
     loadVoucherTemplates();
     setShowCreateChoice(true);
     setShowCreateForm(false);
@@ -221,10 +279,12 @@ export function AccountingPanel({
     setTemplateBuilderKind(null);
     setActiveTemplateName(template.name);
     setDuplicatingVoucher({
-      id: template.id,
+      id: crypto.randomUUID(),
       companyId: activeCompany?.id || "",
       voucherNumber: 0,
-      date: new Date().toISOString().split("T")[0],
+      status: "DRAFT",
+      date: localDate(),
+      documentDate: localDate(),
       description: template.description || template.name,
       lines: template.lines.map((line) => ({ ...line, id: crypto.randomUUID() })),
       createdAt: new Date().toISOString(),
@@ -318,7 +378,7 @@ export function AccountingPanel({
     const key = templateBuilderKind === "standard"
       ? STANDARD_VOUCHER_TEMPLATE_KEY
       : `${VOUCHER_TEMPLATE_KEY_PREFIX}${activeCompany?.id}`;
-    const existing = JSON.parse(appStorage.getItem(key) ?? "[]");
+    const existing = readStoredList<StoredVoucherTemplate>(key);
     appStorage.setItem(key, JSON.stringify([...existing, template]));
     setSavedTemplate(template);
     loadVoucherTemplates();
@@ -344,32 +404,56 @@ export function AccountingPanel({
   };
 
   const handleFormSuccess = () => {
-    if (duplicatingVoucher?.voucherNumber === 0) {
-      persistDrafts(drafts.filter((draft) => draft.id !== duplicatingVoucher.id));
+    // Radera bara ett SPARAT utkast efter lyckad bokföring.
+    // Mallar, kopior och påbörjade (osparade) rättelser ska inte påverka utkastlistan.
+    if (duplicatingVoucher?.status === "DRAFT" && drafts.some((draft) => draft.id === duplicatingVoucher.id)) {
+      if (!persistDrafts(drafts.filter((draft) => draft.id !== duplicatingVoucher.id))) {
+        toast.error("Verifikationen bokfördes, men utkastet kunde inte tas bort. Kontrollera utkastlistan.");
+      }
     }
+    setShowDrafts(false);
     setShowCreateForm(false);
     setEditingVoucher(null);
     setDuplicatingVoucher(null);
+    setActiveTemplateName("");
     window.scrollTo({ top: 0, behavior: "instant" });
   };
 
   const handleSaveDraft = (draftData: Omit<Voucher, "id" | "companyId" | "voucherNumber" | "createdAt">) => {
     if (!activeCompany?.id) return;
+    const originalSavedDraft = duplicatingVoucher?.status === "DRAFT"
+      ? drafts.find((item) => item.id === duplicatingVoucher.id)
+      : undefined;
     const draft: Voucher = {
       ...draftData,
-      id: duplicatingVoucher?.voucherNumber === 0 ? duplicatingVoucher.id : crypto.randomUUID(),
+      id: originalSavedDraft?.id || crypto.randomUUID(),
       companyId: activeCompany.id,
       voucherNumber: 0,
-      createdAt: duplicatingVoucher?.createdAt || new Date().toISOString(),
+      status: "DRAFT",
+      createdAt: originalSavedDraft?.createdAt || new Date().toISOString(),
+      // Systemet tilldelar nummer, användare och bokföringstidpunkt först vid bokföring.
+      postedAt: undefined,
+      postedByUserId: undefined,
+      postedByName: undefined,
+      reversedByVoucherId: undefined,
+      reversedByVoucherNumber: undefined,
+      originalSeries: undefined,
+      originalVoucherNumber: undefined,
+      importSourceId: undefined,
+      importedAt: undefined,
     };
     const nextDrafts = [draft, ...drafts.filter((item) => item.id !== draft.id)];
-    persistDrafts(nextDrafts);
+    if (!persistDrafts(nextDrafts)) return;
     toast.success("Utkast sparat");
     handleFormCancel();
   };
 
   const openDraft = (draft: Voucher) => {
-    setDuplicatingVoucher(draft);
+    if (draft.voucherNumber !== 0) {
+      toast.error("En bokförd verifikation kan inte öppnas som utkast.");
+      return;
+    }
+    setDuplicatingVoucher({ ...draft, status: "DRAFT" });
     setActiveTemplateName("Utkast");
     setShowDrafts(false);
     setShowCreateForm(true);
@@ -380,20 +464,40 @@ export function AccountingPanel({
   };
 
   const deleteDraft = (draftId: string) => {
-    persistDrafts(drafts.filter((draft) => draft.id !== draftId));
-    toast.success("Utkast raderat");
+    const draft = drafts.find((item) => item.id === draftId);
+    if (!draft || draft.voucherNumber !== 0) {
+      toast.error("Endast utkast får raderas.");
+      return;
+    }
+    if (persistDrafts(drafts.filter((item) => item.id !== draftId))) {
+      toast.success("Utkast raderat");
+    }
   };
 
   const handleDuplicateVoucher = (voucher: Voucher) => {
     const isExplicitReversalDraft = voucher.voucherNumber === 0 && Boolean(voucher.reversesVoucherId);
-    const duplicateVoucher = isExplicitReversalDraft
-      ? voucher
+    const duplicateVoucher: Voucher = isExplicitReversalDraft
+      ? { ...voucher, status: "DRAFT" }
       : {
           ...voucher,
+          id: crypto.randomUUID(),
+          voucherNumber: 0,
+          status: "DRAFT",
+          date: localDate(),
+          documentDate: localDate(),
+          attachments: [],
           reversesVoucherId: undefined,
           reversesVoucherNumber: undefined,
           reversedByVoucherId: undefined,
           reversedByVoucherNumber: undefined,
+          postedAt: undefined,
+          postedByUserId: undefined,
+          postedByName: undefined,
+          originalSeries: undefined,
+          originalVoucherNumber: undefined,
+          importSourceId: undefined,
+          importedAt: undefined,
+          createdAt: new Date().toISOString(),
         };
 
     if (onDuplicateToOther) {
@@ -424,6 +528,11 @@ export function AccountingPanel({
     .slice()
     .reverse()
     .slice(startIndex, startIndex + VOUCHERS_PER_PAGE);
+  // Hämta alltid aktuell verifikation. Kopplingen till en rättelse kan ha tillkommit
+  // efter att detaljvyn öppnades.
+  const currentSelectedVoucher = selectedVoucher
+    ? vouchers.find((voucher) => voucher.id === selectedVoucher.id) || selectedVoucher
+    : null;
 
   return (
     <div className="space-y-4" ref={listRef}>
@@ -534,7 +643,15 @@ export function AccountingPanel({
 
       <div className="flex flex-wrap gap-2">
         <Button variant={!showDrafts ? "default" : "outline"} size="sm" onClick={() => setShowDrafts(false)}>Verifikationer</Button>
-        <Button variant={showDrafts ? "default" : "outline"} size="sm" onClick={() => { setShowDrafts(true); setShowCreateForm(false); setShowCreateChoice(false); setSelectedVoucher(null); }}>
+        <Button variant={showDrafts ? "default" : "outline"} size="sm" onClick={() => {
+          setShowDrafts(true);
+          setShowCreateForm(false);
+          setShowCreateChoice(false);
+          setSelectedVoucher(null);
+          setEditingVoucher(null);
+          setDuplicatingVoucher(null);
+          setTemplateBuilderKind(null);
+        }}>
           <FileText className="h-4 w-4 mr-1" /> Utkast ({drafts.length})
         </Button>
       </div>
@@ -547,9 +664,9 @@ export function AccountingPanel({
               <div key={draft.id} className="flex items-center justify-between rounded-md border p-3 text-sm">
                 <button className="text-left" onClick={() => openDraft(draft)}>
                   <div className="font-medium">{draft.description || "Namnlöst utkast"}</div>
-                  <div className="text-xs text-muted-foreground">{draft.date || "Datum saknas"} · {draft.lines.length} rader</div>
+                  <div className="text-xs text-muted-foreground">{draft.date || "Datum saknas"} · {draft.lines.length} rader · Inget verifikationsnummer tilldelat</div>
                 </button>
-                <Button variant="ghost" size="icon" onClick={() => deleteDraft(draft.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                <Button variant="ghost" size="icon" aria-label="Radera utkast" onClick={() => deleteDraft(draft.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
               </div>
             ))}
           </CardContent>
@@ -611,23 +728,43 @@ export function AccountingPanel({
           onCancel={handleFormCancel}
           onSuccess={handleFormSuccess}
           editVoucher={editingVoucher || undefined}
-          duplicateFrom={duplicatingVoucher || (prefillVoucher ? { ...prefillVoucher, voucherNumber: 0, date: new Date().toISOString().split("T")[0], lines: prefillVoucher.lines.map((l: any) => ({ ...l, id: crypto.randomUUID() })) } as Voucher : undefined)}
+          duplicateFrom={duplicatingVoucher || (prefillVoucher ? {
+            ...prefillVoucher,
+            id: crypto.randomUUID(),
+            voucherNumber: 0,
+            status: "DRAFT",
+            date: localDate(),
+            documentDate: localDate(),
+            attachments: [],
+            postedAt: undefined,
+            postedByUserId: undefined,
+            postedByName: undefined,
+            originalSeries: undefined,
+            originalVoucherNumber: undefined,
+            importSourceId: undefined,
+            importedAt: undefined,
+            reversesVoucherId: undefined,
+            reversesVoucherNumber: undefined,
+            reversedByVoucherId: undefined,
+            reversedByVoucherNumber: undefined,
+            lines: prefillVoucher.lines.map((line: any) => ({ ...line, id: crypto.randomUUID() })),
+          } as Voucher : undefined)}
           templateName={activeTemplateName || undefined}
           onSaveDraft={handleSaveDraft}
         />
       )}
 
       {/* Voucher Details */}
-      {selectedVoucher && (
+      {currentSelectedVoucher && (
         <VoucherDetails
-          voucher={selectedVoucher}
+          voucher={currentSelectedVoucher}
           onClose={() => setSelectedVoucher(null)}
           onDuplicate={handleDuplicateVoucher}
         />
       )}
 
       {/* Voucher List */}
-      {!showCreateForm && !showCreateChoice && !selectedVoucher && !editingVoucher && !templateBuilderKind && (
+      {!showDrafts && !showCreateForm && !showCreateChoice && !selectedVoucher && !editingVoucher && !templateBuilderKind && (
          <>
 
           {/* Filters */}
@@ -700,7 +837,7 @@ export function AccountingPanel({
               </div>
               {currentYearLocked && (
                 <p className="text-sm text-destructive mt-2 flex items-center gap-1">
-                  <Lock className="h-3 w-3" /> Räkenskapsåret är låst. Verifikationer kan inte vändas.
+                  <Lock className="h-3 w-3" /> Räkenskapsåret är låst. Rättelser måste bokföras i en öppen period.
                 </p>
               )}
             </CardContent>
@@ -768,11 +905,15 @@ export function AccountingPanel({
                         onClick={() => handleVoucherClick(voucher)}
                       >
                         <td className="py-2 px-3 tabular-nums text-foreground">
-                          {voucher.voucherNumber}
+                          {voucher.originalSeries && voucher.originalVoucherNumber !== undefined
+                            ? voucher.originalSeries + voucher.originalVoucherNumber
+                            : voucher.voucherNumber}
                         </td>
                         <td className="py-2 px-3 text-muted-foreground">{voucher.date}</td>
                         <td className="py-2 px-3 text-foreground">
                           <div>{voucher.description}</div>
+                          {voucher.party && <div className="text-xs text-muted-foreground">{voucher.party}</div>}
+                          {voucher.importSourceId && <div className="text-xs text-muted-foreground">Importerad från SIE</div>}
                           {(voucher.reversesVoucherNumber || voucher.reversedByVoucherNumber) && (
                             <div className="text-[11px] text-amber-700">
                               {voucher.reversesVoucherNumber
