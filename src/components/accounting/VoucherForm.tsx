@@ -83,6 +83,11 @@ import {
 } from "@/components/accounting/HistoricalAccountPickerDialog";
 
 import {
+  formatMoneyInput,
+  parseMoneyInput,
+} from "@/lib/money";
+
+import {
   Plus,
   Trash2,
   Check,
@@ -106,7 +111,8 @@ function isVoucherConfirmationEnabled() {
   return (
     appStorage.getItem(
       VOUCHER_CONFIRMATION_KEY
-    ) !== "false"
+    ) !==
+    "false"
   );
 }
 
@@ -115,7 +121,10 @@ function setVoucherConfirmationEnabled(
 ) {
   appStorage.setItem(
     VOUCHER_CONFIRMATION_KEY,
-    enabled ? "true" : "false"
+
+    enabled
+      ? "true"
+      : "false"
   );
 }
 
@@ -126,22 +135,70 @@ interface PendingAttachment {
   dataUrl: string;
 }
 
+interface AmountInputs {
+  debit: string;
+  credit: string;
+}
+
 interface VoucherFormProps {
-  onCancel: () => void;
-  onSuccess: () => void;
-  editVoucher?: Voucher;
-  duplicateFrom?: Voucher;
-  templateName?: string;
+  onCancel:
+    () => void;
+
+  onSuccess:
+    () => void;
+
+  editVoucher?:
+    Voucher;
+
+  duplicateFrom?:
+    Voucher;
+
+  templateName?:
+    string;
 
   onSaveDraft?: (
-    draft: Omit<
-      Voucher,
-      | "id"
-      | "companyId"
-      | "voucherNumber"
-      | "createdAt"
-    >
+    draft:
+      Omit<
+        Voucher,
+        | "id"
+        | "companyId"
+        | "voucherNumber"
+        | "createdAt"
+      >
   ) => void;
+}
+
+function buildAmountInputState(
+  lines:
+    VoucherLine[]
+):
+  Record<
+    string,
+    AmountInputs
+  > {
+  const result:
+    Record<
+      string,
+      AmountInputs
+    > = {};
+
+  lines.forEach(
+    (line) => {
+      result[line.id] = {
+        debit:
+          formatMoneyInput(
+            line.debit
+          ),
+
+        credit:
+          formatMoneyInput(
+            line.credit
+          ),
+      };
+    }
+  );
+
+  return result;
 }
 
 export function VoucherForm({
@@ -185,7 +242,8 @@ export function VoucherForm({
 
   const {
     isDateInLockedPeriod,
-  } = useVatPeriodLock();
+  } =
+    useVatPeriodLock();
 
   const activeVatCodes =
     getActiveVatCodes(
@@ -193,9 +251,9 @@ export function VoucherForm({
     );
 
   const fileInputRef =
-    useRef<HTMLInputElement>(
-      null
-    );
+    useRef<
+      HTMLInputElement
+    >(null);
 
   const debitInputRefs =
     useRef<
@@ -203,7 +261,9 @@ export function VoucherForm({
         string,
         HTMLInputElement
       >
-    >(new Map());
+    >(
+      new Map()
+    );
 
   const creditInputRefs =
     useRef<
@@ -211,7 +271,9 @@ export function VoucherForm({
         string,
         HTMLInputElement
       >
-    >(new Map());
+    >(
+      new Map()
+    );
 
   const accountButtonRefs =
     useRef<
@@ -219,260 +281,385 @@ export function VoucherForm({
         string,
         HTMLButtonElement
       >
-    >(new Map());
+    >(
+      new Map()
+    );
+
+  const initialLines =
+    sourceVoucher
+      ?.lines
+      .map(
+        (line) => ({
+          ...line,
+
+          id:
+            crypto.randomUUID(),
+        })
+      ) || [
+      {
+        id:
+          crypto.randomUUID(),
+
+        accountNumber:
+          "",
+
+        accountName:
+          "",
+
+        debit:
+          0,
+
+        credit:
+          0,
+      },
+
+      {
+        id:
+          crypto.randomUUID(),
+
+        accountNumber:
+          "",
+
+        accountName:
+          "",
+
+        debit:
+          0,
+
+        credit:
+          0,
+      },
+    ];
 
   const [
     date,
     setDate,
-  ] = useState(
-    sourceVoucher?.date || ""
-  );
+  ] =
+    useState(
+      sourceVoucher?.date ||
+        ""
+    );
 
   const [
     description,
     setDescription,
-  ] = useState(
-    sourceVoucher?.description ||
-      ""
-  );
+  ] =
+    useState(
+      sourceVoucher
+        ?.description ||
+        ""
+    );
 
   const [
     lines,
     setLines,
-  ] = useState<VoucherLine[]>(
-    sourceVoucher?.lines.map(
-      (line) => ({
-        ...line,
-        id:
-          crypto.randomUUID(),
-      })
-    ) || [
-      {
-        id:
-          crypto.randomUUID(),
+  ] =
+    useState<
+      VoucherLine[]
+    >(
+      initialLines
+    );
 
-        accountNumber: "",
-        accountName: "",
-        debit: 0,
-        credit: 0,
-      },
-
-      {
-        id:
-          crypto.randomUUID(),
-
-        accountNumber: "",
-        accountName: "",
-        debit: 0,
-        credit: 0,
-      },
-    ]
-  );
+  const [
+    amountInputs,
+    setAmountInputs,
+  ] =
+    useState<
+      Record<
+        string,
+        AmountInputs
+      >
+    >(
+      () =>
+        buildAmountInputState(
+          initialLines
+        )
+    );
 
   const [
     pendingAttachments,
     setPendingAttachments,
-  ] = useState<
-    PendingAttachment[]
-  >([]);
+  ] =
+    useState<
+      PendingAttachment[]
+    >([]);
 
   const [
     openComboboxes,
     setOpenComboboxes,
-  ] = useState<
-    Record<string, boolean>
-  >({});
+  ] =
+    useState<
+      Record<
+        string,
+        boolean
+      >
+    >({});
 
   const [
     pendingFocusLineId,
     setPendingFocusLineId,
-  ] = useState<
-    string | null
-  >(null);
+  ] =
+    useState<
+      string |
+      null
+    >(null);
 
   const [
     historicalPickerLineId,
     setHistoricalPickerLineId,
-  ] = useState<
-    string | null
-  >(null);
+  ] =
+    useState<
+      string |
+      null
+    >(null);
 
   const [
     showConfirmation,
     setShowConfirmation,
-  ] = useState(false);
+  ] =
+    useState(
+      false
+    );
 
   const [
     confirmationEnabled,
     setConfirmationEnabled,
-  ] = useState(
-    isVoucherConfirmationEnabled
-  );
+  ] =
+    useState(
+      isVoucherConfirmationEnabled
+    );
 
   const voucherYear =
     date
       ? Number(
-          date.slice(0, 4)
+          date.slice(
+            0,
+            4
+          )
         )
       : Number.NaN;
 
   const historicalAccounts =
-    useMemo(() => {
-      if (
-        !activeCompany?.id
-      ) {
-        return [];
-      }
+    useMemo(
+      () => {
+        if (
+          !activeCompany
+            ?.id
+        ) {
+          return [];
+        }
 
-      return loadHistoricalAccounts(
-        activeCompany.id
-      );
-    }, [
-      activeCompany?.id,
-    ]);
+        return loadHistoricalAccounts(
+          activeCompany.id
+        );
+      },
+      [
+        activeCompany?.id,
+      ]
+    );
 
   const eligibleHistoricalAccounts =
-    useMemo(() => {
-      if (
-        !Number.isFinite(
-          voucherYear
-        )
-      ) {
-        return [];
-      }
+    useMemo(
+      () => {
+        if (
+          !Number.isFinite(
+            voucherYear
+          )
+        ) {
+          return [];
+        }
 
-      return getHistoricalAccountsEligibleForYear(
+        return getHistoricalAccountsEligibleForYear(
+          historicalAccounts,
+          voucherYear
+        );
+      },
+      [
         historicalAccounts,
-        voucherYear
-      );
-    }, [
-      historicalAccounts,
-      voucherYear,
-    ]);
+        voucherYear,
+      ]
+    );
 
   const [
     dateAccounts,
     setDateAccounts,
-  ] = useState(
-    getBASAccountsForDate(
-      sourceVoucher?.date ||
-        "",
-      "K2"
-    )
+  ] =
+    useState(
+      getBASAccountsForDate(
+        sourceVoucher?.date ||
+          "",
+        "K2"
+      )
+    );
+
+  useEffect(
+    () => {
+      const yearAccounts =
+        getBASAccountsForDate(
+          date,
+          "K2"
+        );
+
+      setDateAccounts(
+        yearAccounts
+      );
+    },
+    [
+      date,
+    ]
   );
 
-  useEffect(() => {
-    const yearAccounts =
-      getBASAccountsForDate(
-        date,
-        "K2"
+  useEffect(
+    () => {
+      const validAccountNumbers =
+        new Set<string>();
+
+      dateAccounts.forEach(
+        (account) => {
+          validAccountNumbers.add(
+            account.number
+          );
+        }
       );
 
-    setDateAccounts(
-      yearAccounts
-    );
-  }, [date]);
+      eligibleHistoricalAccounts.forEach(
+        (account) => {
+          validAccountNumbers.add(
+            account.number
+          );
+        }
+      );
 
-  useEffect(() => {
-    const validAccountNumbers =
-      new Set<string>();
+      setLines(
+        (
+          previousLines
+        ) =>
+          previousLines.map(
+            (line) => {
+              if (
+                !line.accountNumber
+              ) {
+                return line;
+              }
 
-    dateAccounts.forEach(
-      (account) => {
-        validAccountNumbers.add(
-          account.number
-        );
-      }
-    );
+              if (
+                validAccountNumbers.has(
+                  line.accountNumber
+                )
+              ) {
+                return line;
+              }
 
-    eligibleHistoricalAccounts.forEach(
-      (account) => {
-        validAccountNumbers.add(
-          account.number
-        );
-      }
-    );
+              return {
+                ...line,
 
-    setLines(
-      (previousLines) =>
-        previousLines.map(
-          (line) => {
-            if (
-              !line.accountNumber
-            ) {
-              return line;
+                accountNumber:
+                  "",
+
+                accountName:
+                  "",
+              };
             }
+          )
+      );
+    },
+    [
+      dateAccounts,
+      eligibleHistoricalAccounts,
+    ]
+  );
 
-            if (
-              validAccountNumbers.has(
-                line.accountNumber
-              )
-            ) {
-              return line;
-            }
+  useEffect(
+    () => {
+      if (
+        !pendingFocusLineId
+      ) {
+        return;
+      }
 
-            return {
-              ...line,
-
-              accountNumber: "",
-              accountName: "",
-            };
-          }
-        )
-    );
-  }, [
-    dateAccounts,
-    eligibleHistoricalAccounts,
-  ]);
-
-  useEffect(() => {
-    if (
-      pendingFocusLineId
-    ) {
       const debitInput =
-        debitInputRefs.current.get(
-          pendingFocusLineId
-        );
+        debitInputRefs
+          .current
+          .get(
+            pendingFocusLineId
+          );
 
-      if (debitInput) {
-        setTimeout(() => {
-          debitInput.focus();
-          debitInput.select();
-        }, 50);
+      if (
+        debitInput
+      ) {
+        setTimeout(
+          () => {
+            debitInput.focus();
+            debitInput.select();
+          },
+          50
+        );
       }
 
       setPendingFocusLineId(
         null
       );
-    }
-  }, [
-    pendingFocusLineId,
-  ]);
+    },
+    [
+      pendingFocusLineId,
+    ]
+  );
 
   const validation =
-    validateVoucher(lines);
+    validateVoucher(
+      lines
+    );
 
-  const addLine = () => {
-    setLines([
-      ...lines,
+  const addLine =
+    () => {
+      const id =
+        crypto.randomUUID();
 
-      {
-        id:
-          crypto.randomUUID(),
+      setLines(
+        [
+          ...lines,
 
-        accountNumber: "",
-        accountName: "",
-        debit: 0,
-        credit: 0,
-      },
-    ]);
-  };
+          {
+            id,
+
+            accountNumber:
+              "",
+
+            accountName:
+              "",
+
+            debit:
+              0,
+
+            credit:
+              0,
+          },
+        ]
+      );
+
+      setAmountInputs(
+        (
+          previous
+        ) => ({
+          ...previous,
+
+          [id]: {
+            debit:
+              "",
+
+            credit:
+              "",
+          },
+        })
+      );
+    };
 
   const removeLine = (
     id: string
   ) => {
     if (
-      lines.length <= 2
+      lines.length <=
+      2
     ) {
       return;
     }
@@ -480,84 +667,299 @@ export function VoucherForm({
     setLines(
       lines.filter(
         (line) =>
-          line.id !== id
+          line.id !==
+          id
       )
+    );
+
+    setAmountInputs(
+      (
+        previous
+      ) => {
+        const {
+          [id]:
+            _removed,
+          ...rest
+        } = previous;
+
+        return rest;
+      }
     );
   };
 
-  const updateLine = (
+  const updateLineAccount = (
     id: string,
-    field: keyof VoucherLine,
-    value: string | number
+    accountNumber:
+      string
   ) => {
     setLines(
-      lines.map((line) => {
-        if (
-          line.id !== id
-        ) {
-          return line;
-        }
+      (
+        previousLines
+      ) =>
+        previousLines.map(
+          (line) => {
+            if (
+              line.id !==
+              id
+            ) {
+              return line;
+            }
 
-        if (
-          field ===
-          "accountNumber"
-        ) {
-          const account =
-            dateAccounts.find(
-              (entry) =>
-                entry.number ===
-                value
-            ) ??
-            eligibleHistoricalAccounts.find(
-              (entry) =>
-                entry.number ===
-                value
-            );
+            const account =
+              dateAccounts.find(
+                (entry) =>
+                  entry.number ===
+                  accountNumber
+              ) ??
+              eligibleHistoricalAccounts.find(
+                (entry) =>
+                  entry.number ===
+                  accountNumber
+              );
 
-          return {
-            ...line,
+            return {
+              ...line,
 
-            accountNumber:
-              value as string,
+              accountNumber,
 
-            accountName:
-              account?.name ||
+              accountName:
+                account?.name ||
+                "",
+            };
+          }
+        )
+    );
+  };
+
+  const updateVatCode = (
+    id: string,
+    vatCodeId:
+      string
+  ) => {
+    setLines(
+      (
+        previousLines
+      ) =>
+        previousLines.map(
+          (line) =>
+            line.id ===
+            id
+              ? {
+                  ...line,
+
+                  vatCodeId:
+                    vatCodeId ||
+                    undefined,
+                }
+              : line
+        )
+    );
+  };
+
+  const updateAmountInput = (
+    id: string,
+
+    field:
+      "debit" |
+      "credit",
+
+    rawValue:
+      string
+  ) => {
+    const compactValue =
+      rawValue.replace(
+        /\s/g,
+        ""
+      );
+
+    if (
+      compactValue &&
+      !/^\d*(?:[,.]\d*)?$/.test(
+        compactValue
+      )
+    ) {
+      return;
+    }
+
+    setAmountInputs(
+      (
+        previous
+      ) => ({
+        ...previous,
+
+        [id]: {
+          ...(
+            previous[id] ||
+            {
+              debit:
+                "",
+
+              credit:
+                "",
+            }
+          ),
+
+          [field]:
+            compactValue,
+        },
+      })
+    );
+
+    const parsed =
+      parseMoneyInput(
+        compactValue
+      );
+
+    if (
+      !parsed.valid
+    ) {
+      return;
+    }
+
+    setLines(
+      (
+        previousLines
+      ) =>
+        previousLines.map(
+          (line) => {
+            if (
+              line.id !==
+              id
+            ) {
+              return line;
+            }
+
+            if (
+              field ===
+              "debit"
+            ) {
+              return {
+                ...line,
+
+                debit:
+                  parsed.amount,
+
+                credit:
+                  parsed.amount >
+                  0
+                    ? 0
+                    : line.credit,
+              };
+            }
+
+            return {
+              ...line,
+
+              credit:
+                parsed.amount,
+
+              debit:
+                parsed.amount >
+                0
+                  ? 0
+                  : line.debit,
+            };
+          }
+        )
+    );
+
+    if (
+      parsed.amount >
+      0
+    ) {
+      const oppositeField =
+        field ===
+        "debit"
+          ? "credit"
+          : "debit";
+
+      setAmountInputs(
+        (
+          previous
+        ) => ({
+          ...previous,
+
+          [id]: {
+            ...(
+              previous[id] ||
+              {
+                debit:
+                  "",
+
+                credit:
+                  "",
+              }
+            ),
+
+            [field]:
+              compactValue,
+
+            [oppositeField]:
               "",
-          };
-        }
+          },
+        })
+      );
+    }
+  };
 
-        if (
-          field === "debit" &&
-          Number(value) > 0
-        ) {
-          return {
-            ...line,
+  const normalizeAmountInput = (
+    id: string,
 
-            debit:
-              value as number,
+    field:
+      "debit" |
+      "credit"
+  ) => {
+    const currentInput =
+      amountInputs[id]
+        ?.[field] ||
+      "";
 
-            credit: 0,
-          };
-        }
+    const parsed =
+      parseMoneyInput(
+        currentInput
+      );
 
-        if (
-          field === "credit" &&
-          Number(value) > 0
-        ) {
-          return {
-            ...line,
+    const currentLine =
+      lines.find(
+        (line) =>
+          line.id ===
+          id
+      );
 
-            credit:
-              value as number,
+    const fallbackValue =
+      currentLine
+        ? currentLine[
+            field
+          ]
+        : 0;
 
-            debit: 0,
-          };
-        }
+    setAmountInputs(
+      (
+        previous
+      ) => ({
+        ...previous,
 
-        return {
-          ...line,
-          [field]: value,
-        };
+        [id]: {
+          ...(
+            previous[id] ||
+            {
+              debit:
+                "",
+
+              credit:
+                "",
+            }
+          ),
+
+          [field]:
+            parsed.valid
+              ? formatMoneyInput(
+                  parsed.amount
+                )
+              : formatMoneyInput(
+                  fallbackValue
+                ),
+        },
       })
     );
   };
@@ -576,10 +978,13 @@ export function VoucherForm({
       historicalPickerLineId;
 
     setLines(
-      (currentLines) =>
+      (
+        currentLines
+      ) =>
         currentLines.map(
           (line) =>
-            line.id === lineId
+            line.id ===
+            lineId
               ? {
                   ...line,
 
@@ -604,7 +1009,9 @@ export function VoucherForm({
 
   const handleFileChange = (
     event:
-      React.ChangeEvent<HTMLInputElement>
+      React.ChangeEvent<
+        HTMLInputElement
+      >
   ) => {
     const files =
       event.target.files;
@@ -613,7 +1020,9 @@ export function VoucherForm({
       return;
     }
 
-    Array.from(files).forEach(
+    Array.from(
+      files
+    ).forEach(
       (file) => {
         const isValid =
           file.type.startsWith(
@@ -622,11 +1031,13 @@ export function VoucherForm({
           file.type ===
             "application/pdf";
 
-        if (!isValid) {
+        if (
+          !isValid
+        ) {
           toast.error(
             "Invalid file type: " +
-              file.name +
-              ". Only images and PDFs are allowed."
+            file.name +
+            ". Only images and PDFs are allowed."
           );
 
           return;
@@ -635,29 +1046,32 @@ export function VoucherForm({
         const reader =
           new FileReader();
 
-        reader.onload = () => {
-          const newAttachment:
-            PendingAttachment = {
-            id:
-              crypto.randomUUID(),
+        reader.onload =
+          () => {
+            const newAttachment:
+              PendingAttachment = {
+              id:
+                crypto.randomUUID(),
 
-            name:
-              file.name,
+              name:
+                file.name,
 
-            type:
-              file.type,
+              type:
+                file.type,
 
-            dataUrl:
-              reader.result as string,
+              dataUrl:
+                reader.result as string,
+            };
+
+            setPendingAttachments(
+              (
+                previous
+              ) => [
+                ...previous,
+                newAttachment,
+              ]
+            );
           };
-
-          setPendingAttachments(
-            (previous) => [
-              ...previous,
-              newAttachment,
-            ]
-          );
-        };
 
         reader.readAsDataURL(
           file
@@ -677,10 +1091,13 @@ export function VoucherForm({
     id: string
   ) => {
     setPendingAttachments(
-      (previous) =>
+      (
+        previous
+      ) =>
         previous.filter(
           (attachment) =>
-            attachment.id !== id
+            attachment.id !==
+            id
         )
     );
   };
@@ -691,29 +1108,21 @@ export function VoucherForm({
         (line) =>
           line.accountNumber &&
           (
-            line.debit > 0 ||
-            line.credit > 0
+            line.debit >
+              0 ||
+            line.credit >
+              0
           )
       );
 
   const validateBeforePosting =
     () => {
       if (
-        !validation.isValid
-      ) {
-        toast.error(
-          "Voucher must be balanced (debit = credit)"
-        );
-
-        return false;
-      }
-
-      if (
         !date ||
         !description.trim()
       ) {
         toast.error(
-          "Please fill in date and description"
+          "Fyll i datum och beskrivning."
         );
 
         return false;
@@ -728,7 +1137,7 @@ export function VoucherForm({
         date > today
       ) {
         toast.error(
-          "Date cannot be in the future"
+          "Datumet kan inte ligga i framtiden."
         );
 
         return false;
@@ -740,7 +1149,7 @@ export function VoucherForm({
         )
       ) {
         toast.error(
-          "Cannot create vouchers for a locked fiscal year"
+          "Det går inte att bokföra i ett stängt räkenskapsår."
         );
 
         return false;
@@ -753,6 +1162,19 @@ export function VoucherForm({
       ) {
         toast.error(
           "Momsperioden är låst. Skapa en rättelseverifikation istället."
+        );
+
+        return false;
+      }
+
+      if (
+        !validation.isValid
+      ) {
+        toast.error(
+          validation
+            .errors[0]
+            ?.message ||
+          "Verifikationen är inte giltig."
         );
 
         return false;
@@ -773,17 +1195,6 @@ export function VoucherForm({
       ) {
         toast.error(
           "Det finns ingen BAS-kontoplan installerad för verifikationens år."
-        );
-
-        return false;
-      }
-
-      if (
-        getValidLines()
-          .length < 2
-      ) {
-        toast.error(
-          "Voucher must have at least 2 valid lines"
         );
 
         return false;
@@ -842,7 +1253,9 @@ export function VoucherForm({
       const validLines =
         getValidLines();
 
-      if (editVoucher) {
+      if (
+        editVoucher
+      ) {
         const updated =
           updateVoucher(
             editVoucher.id,
@@ -860,8 +1273,9 @@ export function VoucherForm({
         if (updated) {
           toast.success(
             "Voucher #" +
-              updated.voucherNumber +
-              " updated successfully"
+            updated
+              .voucherNumber +
+            " updated successfully"
           );
 
           onSuccess();
@@ -892,7 +1306,9 @@ export function VoucherForm({
 
         if (voucher) {
           pendingAttachments.forEach(
-            (attachment) => {
+            (
+              attachment
+            ) => {
               const extension =
                 attachment.name
                   .split(".")
@@ -902,7 +1318,8 @@ export function VoucherForm({
               addReceipt({
                 name:
                   "voucher_" +
-                  voucher.voucherNumber +
+                  voucher
+                    .voucherNumber +
                   "." +
                   extension,
 
@@ -916,20 +1333,23 @@ export function VoucherForm({
                   voucher.id,
 
                 voucherNumber:
-                  voucher.voucherNumber,
+                  voucher
+                    .voucherNumber,
               });
             }
           );
 
           addEntry(
             "Created voucher #" +
-              voucher.voucherNumber
+            voucher
+              .voucherNumber
           );
 
           toast.success(
             "Voucher #" +
-              voucher.voucherNumber +
-              " created successfully"
+            voucher
+              .voucherNumber +
+            " created successfully"
           );
 
           onSuccess();
@@ -970,17 +1390,22 @@ export function VoucherForm({
           historicalPickerLineId !==
           null
         }
-        onOpenChange={(open) => {
+
+        onOpenChange={(
+          open
+        ) => {
           if (!open) {
             setHistoricalPickerLineId(
               null
             );
           }
         }}
+
         companyId={
           activeCompany?.id ||
           ""
         }
+
         fiscalYear={
           Number.isFinite(
             voucherYear
@@ -989,6 +1414,7 @@ export function VoucherForm({
             : new Date()
                 .getFullYear()
         }
+
         onSelect={
           selectHistoricalAccount
         }
@@ -999,10 +1425,12 @@ export function VoucherForm({
           <h2 className="text-xl font-semibold text-foreground">
             {editVoucher
               ? "Edit Voucher #" +
-                editVoucher.voucherNumber
+                editVoucher
+                  .voucherNumber
               : duplicateFrom
                 ? "Duplicate Voucher #" +
-                  duplicateFrom.voucherNumber
+                  duplicateFrom
+                    .voucherNumber
                 : "Create Voucher"}
           </h2>
 
@@ -1056,12 +1484,17 @@ export function VoucherForm({
           <Input
             id="date"
             type="date"
-            value={date}
+
+            value={
+              date
+            }
+
             max={
               new Date()
                 .toISOString()
                 .split("T")[0]
             }
+
             onChange={(
               event
             ) =>
@@ -1069,6 +1502,7 @@ export function VoucherForm({
                 event.target.value
               )
             }
+
             className={
               isDateInLockedYear(
                 date
@@ -1151,9 +1585,11 @@ export function VoucherForm({
 
           <Input
             id="description"
+
             value={
               description
             }
+
             onChange={(
               event
             ) =>
@@ -1161,6 +1597,7 @@ export function VoucherForm({
                 event.target.value
               )
             }
+
             placeholder="Transaction description"
           />
         </div>
@@ -1205,6 +1642,7 @@ export function VoucherForm({
                     key={
                       line.id
                     }
+
                     className="border-t border-border"
                   >
                     <td className="p-2">
@@ -1215,6 +1653,7 @@ export function VoucherForm({
                           ] ||
                           false
                         }
+
                         onOpenChange={(
                           open
                         ) =>
@@ -1248,14 +1687,18 @@ export function VoucherForm({
                                   );
                               }
                             }}
+
                             variant="outline"
+
                             role="combobox"
+
                             aria-expanded={
                               openComboboxes[
                                 line.id
                               ] ||
                               false
                             }
+
                             className="w-full justify-between font-normal overflow-hidden"
                           >
                             {line.accountNumber ? (
@@ -1305,15 +1748,16 @@ export function VoucherForm({
                                       key={
                                         account.number
                                       }
+
                                       value={
                                         account.number +
                                         " " +
                                         account.name
                                       }
+
                                       onSelect={() => {
-                                        updateLine(
+                                        updateLineAccount(
                                           line.id,
-                                          "accountNumber",
                                           account.number
                                         );
 
@@ -1367,7 +1811,9 @@ export function VoucherForm({
                               type="button"
                               variant="ghost"
                               size="sm"
+
                               className="w-full justify-start"
+
                               disabled={
                                 !date ||
                                 !Number.isFinite(
@@ -1376,6 +1822,7 @@ export function VoucherForm({
                                 eligibleHistoricalAccounts.length ===
                                   0
                               }
+
                               onClick={() => {
                                 setOpenComboboxes(
                                   (
@@ -1435,53 +1882,42 @@ export function VoucherForm({
                               );
                           }
                         }}
-                        type="number"
-                        min="0"
-                        step="1"
+
+                        type="text"
+
+                        inputMode="decimal"
+
                         className="text-right"
+
                         value={
-                          line.debit ||
+                          amountInputs[
+                            line.id
+                          ]?.debit ||
                           ""
                         }
+
                         onChange={(
                           event
                         ) =>
-                          updateLine(
+                          updateAmountInput(
                             line.id,
                             "debit",
-                            parseFloat(
-                              event
-                                .target
-                                .value
-                            ) ||
-                              0
+                            event
+                              .target
+                              .value
                           )
                         }
+
+                        onBlur={() =>
+                          normalizeAmountInput(
+                            line.id,
+                            "debit"
+                          )
+                        }
+
                         onKeyDown={(
                           event
                         ) => {
-                          if (
-                            !/[\d.\-+eE]/.test(
-                              event.key
-                            ) &&
-                            ![
-                              "Backspace",
-                              "Delete",
-                              "Tab",
-                              "Enter",
-                              "ArrowLeft",
-                              "ArrowRight",
-                              "Home",
-                              "End",
-                            ].includes(
-                              event.key
-                            ) &&
-                            !event.ctrlKey &&
-                            !event.metaKey
-                          ) {
-                            event.preventDefault();
-                          }
-
                           if (
                             event.key ===
                               "Tab" &&
@@ -1490,9 +1926,11 @@ export function VoucherForm({
                             event.preventDefault();
 
                             const creditInput =
-                              creditInputRefs.current.get(
-                                line.id
-                              );
+                              creditInputRefs
+                                .current
+                                .get(
+                                  line.id
+                                );
 
                             if (
                               creditInput
@@ -1502,7 +1940,8 @@ export function VoucherForm({
                             }
                           }
                         }}
-                        placeholder="0.00"
+
+                        placeholder="0,00"
                       />
                     </td>
 
@@ -1522,53 +1961,42 @@ export function VoucherForm({
                               );
                           }
                         }}
-                        type="number"
-                        min="0"
-                        step="1"
+
+                        type="text"
+
+                        inputMode="decimal"
+
                         className="text-right"
+
                         value={
-                          line.credit ||
+                          amountInputs[
+                            line.id
+                          ]?.credit ||
                           ""
                         }
+
                         onChange={(
                           event
                         ) =>
-                          updateLine(
+                          updateAmountInput(
                             line.id,
                             "credit",
-                            parseFloat(
-                              event
-                                .target
-                                .value
-                            ) ||
-                              0
+                            event
+                              .target
+                              .value
                           )
                         }
+
+                        onBlur={() =>
+                          normalizeAmountInput(
+                            line.id,
+                            "credit"
+                          )
+                        }
+
                         onKeyDown={(
                           event
                         ) => {
-                          if (
-                            !/[\d.\-+eE]/.test(
-                              event.key
-                            ) &&
-                            ![
-                              "Backspace",
-                              "Delete",
-                              "Tab",
-                              "Enter",
-                              "ArrowLeft",
-                              "ArrowRight",
-                              "Home",
-                              "End",
-                            ].includes(
-                              event.key
-                            ) &&
-                            !event.ctrlKey &&
-                            !event.metaKey
-                          ) {
-                            event.preventDefault();
-                          }
-
                           if (
                             event.key ===
                               "Tab" &&
@@ -1590,9 +2018,11 @@ export function VoucherForm({
                                 ];
 
                               const nextAccountButton =
-                                accountButtonRefs.current.get(
-                                  nextLine.id
-                                );
+                                accountButtonRefs
+                                  .current
+                                  .get(
+                                    nextLine.id
+                                  );
 
                               if (
                                 nextAccountButton
@@ -1602,7 +2032,8 @@ export function VoucherForm({
                             }
                           }
                         }}
-                        placeholder="0.00"
+
+                        placeholder="0,00"
                       />
                     </td>
 
@@ -1612,12 +2043,13 @@ export function VoucherForm({
                           line.vatCodeId ||
                           "__none__"
                         }
+
                         onValueChange={(
                           value
                         ) =>
-                          updateLine(
+                          updateVatCode(
                             line.id,
-                            "vatCodeId" as keyof VoucherLine,
+
                             value ===
                               "__none__"
                               ? ""
@@ -1642,6 +2074,7 @@ export function VoucherForm({
                                 key={
                                   code.id
                                 }
+
                                 value={
                                   code.id
                                 }
@@ -1671,11 +2104,13 @@ export function VoucherForm({
                         type="button"
                         variant="ghost"
                         size="icon"
+
                         onClick={() =>
                           removeLine(
                             line.id
                           )
                         }
+
                         disabled={
                           lines.length <=
                           2
@@ -1697,29 +2132,15 @@ export function VoucherForm({
 
                 <td className="p-3 text-right font-mono font-semibold">
                   {formatAmount(
-                    lines.reduce(
-                      (
-                        sum,
-                        line
-                      ) =>
-                        sum +
-                        line.debit,
-                      0
-                    )
+                    validation
+                      .totalDebit
                   )}
                 </td>
 
                 <td className="p-3 text-right font-mono font-semibold">
                   {formatAmount(
-                    lines.reduce(
-                      (
-                        sum,
-                        line
-                      ) =>
-                        sum +
-                        line.credit,
-                      0
-                    )
+                    validation
+                      .totalCredit
                   )}
                 </td>
 
@@ -1741,6 +2162,7 @@ export function VoucherForm({
           type="button"
           variant="outline"
           size="sm"
+
           onClick={
             addLine
           }
@@ -1749,6 +2171,51 @@ export function VoucherForm({
           Add Line
         </Button>
       </div>
+
+      {!validation.isValid &&
+        validation.errors.length >
+          0 && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+
+              <div>
+                <p className="text-sm font-medium text-destructive">
+                  Verifikationen
+                  kan inte
+                  bokföras ännu
+                </p>
+
+                <ul className="mt-1 space-y-1 text-xs text-destructive">
+                  {Array.from(
+                    new Set(
+                      validation
+                        .errors
+                        .map(
+                          (
+                            error
+                          ) =>
+                            error.message
+                        )
+                    )
+                  ).map(
+                    (
+                      message
+                    ) => (
+                      <li
+                        key={
+                          message
+                        }
+                      >
+                        {message}
+                      </li>
+                    )
+                  )}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -1761,6 +2228,7 @@ export function VoucherForm({
             type="button"
             variant="outline"
             size="sm"
+
             onClick={() =>
               fileInputRef
                 .current
@@ -1775,10 +2243,15 @@ export function VoucherForm({
             ref={
               fileInputRef
             }
+
             type="file"
+
             accept="image/*,.pdf"
+
             multiple
+
             className="hidden"
+
             onChange={
               handleFileChange
             }
@@ -1796,6 +2269,7 @@ export function VoucherForm({
                   key={
                     attachment.id
                   }
+
                   className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2 text-sm"
                 >
                   {attachment.type.startsWith(
@@ -1816,7 +2290,9 @@ export function VoucherForm({
                     type="button"
                     variant="ghost"
                     size="icon"
+
                     className="h-5 w-5"
+
                     onClick={() =>
                       removeAttachment(
                         attachment.id
@@ -1848,80 +2324,78 @@ export function VoucherForm({
                 (line) =>
                   line.vatCodeId
               )
-              .map((line) => {
-                const code =
-                  getVatCodeById(
-                    vatCodes,
-                    line.vatCodeId
-                  );
+              .map(
+                (line) => {
+                  const code =
+                    getVatCodeById(
+                      vatCodes,
+                      line.vatCodeId
+                    );
 
-                if (!code) {
-                  return null;
-                }
+                  if (
+                    !code
+                  ) {
+                    return null;
+                  }
 
-                const amount =
-                  (line.debit ||
-                    0) +
-                  (line.credit ||
-                    0);
+                  const amount =
+                    (
+                      line.debit ||
+                      0
+                    ) +
+                    (
+                      line.credit ||
+                      0
+                    );
 
-                return (
-                  <li
-                    key={
-                      line.id
-                    }
-                    className="flex justify-between"
-                  >
-                    <span>
-                      <span className="font-mono">
-                        {line.accountNumber ||
-                          "—"}
-                      </span>{" "}
+                  return (
+                    <li
+                      key={
+                        line.id
+                      }
 
-                      <span className="text-muted-foreground">
-                        {
-                          code.code
-                        }{" "}
-                        (
-                        {
-                          code.sats
-                        }
-                        %)
+                      className="flex justify-between"
+                    >
+                      <span>
+                        <span className="font-mono">
+                          {line.accountNumber ||
+                            "—"}
+                        </span>{" "}
+
+                        <span className="text-muted-foreground">
+                          {
+                            code.code
+                          }{" "}
+                          (
+                          {
+                            code.sats
+                          }
+                          %)
+                        </span>
+
+                        <span className="text-muted-foreground">
+                          {" "}
+                          → ruta{" "}
+                          {
+                            code
+                              .rapportRutor
+                              .join(
+                                ", "
+                              )
+                          }
+                        </span>
                       </span>
 
-                      <span className="text-muted-foreground">
-                        {" "}
-                        → ruta{" "}
-                        {code.rapportRutor.join(
-                          ", "
+                      <span className="font-mono">
+                        {formatAmount(
+                          amount
                         )}
                       </span>
-                    </span>
-
-                    <span className="font-mono">
-                      {formatAmount(
-                        amount
-                      )}
-                    </span>
-                  </li>
-                );
-              })}
+                    </li>
+                  );
+                }
+              )}
           </ul>
-        </div>
-      )}
-
-      {!validation.isValid && (
-        <div className="flex items-center gap-2 text-destructive text-sm">
-          <AlertCircle className="h-4 w-4" />
-
-          <span>
-            Difference:{" "}
-            {formatAmount(
-              validation.difference
-            )}{" "}
-            SEK — Voucher must
-            be balanced.
-          </span>
         </div>
       )}
 
@@ -1930,6 +2404,7 @@ export function VoucherForm({
           onSaveDraft && (
             <Button
               variant="secondary"
+
               onClick={
                 handleSaveDraft
               }
@@ -1940,6 +2415,7 @@ export function VoucherForm({
 
         <Button
           variant="outline"
+
           onClick={
             onCancel
           }
@@ -1951,6 +2427,7 @@ export function VoucherForm({
           onClick={
             handleSubmit
           }
+
           disabled={
             !validation.isValid
           }
@@ -1967,6 +2444,7 @@ export function VoucherForm({
         open={
           showConfirmation
         }
+
         onOpenChange={
           setShowConfirmation
         }
@@ -2034,11 +2512,14 @@ export function VoucherForm({
 
                 <tbody>
                   {getValidLines().map(
-                    (line) => (
+                    (
+                      line
+                    ) => (
                       <tr
                         key={
                           line.id
                         }
+
                         className="border-t"
                       >
                         <td className="p-2 font-mono">
@@ -2079,20 +2560,25 @@ export function VoucherForm({
                   <tr>
                     <td
                       className="p-2 font-semibold"
-                      colSpan={2}
+
+                      colSpan={
+                        2
+                      }
                     >
                       Summa
                     </td>
 
                     <td className="p-2 text-right font-mono font-semibold">
                       {formatAmount(
-                        validation.totalDebit
+                        validation
+                          .totalDebit
                       )}
                     </td>
 
                     <td className="p-2 text-right font-mono font-semibold">
                       {formatAmount(
-                        validation.totalCredit
+                        validation
+                          .totalCredit
                       )}
                     </td>
                   </tr>
