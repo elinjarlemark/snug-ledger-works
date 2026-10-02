@@ -305,3 +305,20 @@ class CompanyJoinRequest(Base):
         Index('ix_joinreq_requester', 'requester_user_id'),
         Index('ix_joinreq_status', 'status'),
     )
+
+
+class PostedVoucherRecord(Base):
+    """Append-only original of a posted voucher (workspace writes are checked against it)."""
+    __tablename__ = "posted_voucher_records"
+    __table_args__ = (
+        UniqueConstraint("company_id", "voucher_id", name="uq_posted_voucher_company_id"),
+        UniqueConstraint("company_id", "voucher_number", name="uq_posted_voucher_company_number"),
+        Index("ix_posted_voucher_company", "company_id"),
+    )
+    id = Column(Integer, primary_key=True)
+    company_id = Column(Integer, ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False)
+    voucher_id = Column(String(80), nullable=False)
+    voucher_number = Column(Integer, nullable=False)
+    payload_json = Column(Text, nullable=False)
+    registered_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    registered_at = Column(DateTime, server_default=func.now(), nullable=False)
