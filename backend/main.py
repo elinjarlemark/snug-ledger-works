@@ -27,6 +27,8 @@ from models import (
     Customer,
     Product,
     CompanySIEState,
+    WorkspaceState,
+    PostedVoucherRecord,
     CompanyLock,
     CompanyJoinRequest,
     CompanyJoinRequestStatus,
@@ -734,6 +736,51 @@ def unlock_company(company_id: int, payload: CompanyUnlockRequest, db: Session =
     return {"success": True, "companyId": company_id, "locked": False}
 
 
+# Keep this guard inside main.py so this file can be installed before the
+# separate voucher_integrity.py and workspace.py files are delivered.
+def check_sie_replacement(original: str, updated: str) -> None:
+    """Reject edits/removal of existing #VER blocks in the SIE mirror.
+
+    Identical blocks may occur in an export; preserve their multiplicity.
+    New blocks may be appended in any order. This is a safeguard for the
+    legacy SIE mirror, not a replacement for the append-only database ledger.
+    """
+    from collections import Counter
+
+    def collect(source: str) -> Counter:
+        blocks = []
+        current = None
+        inside = False
+        for raw_line in source.splitlines():
+            line = raw_line.strip()
+            if line.startswith('#VER '):
+                if current is not None:
+                    blocks.append('\n'.join(current))
+                current = [line]
+                inside = False
+                continue
+            if current is None:
+                continue
+            current.append(line)
+            if line == '{':
+                inside = True
+            elif line == '}' and inside:
+                blocks.append('\n'.join(current))
+                current = None
+                inside = False
+        if current is not None:
+            blocks.append('\n'.join(current))
+        return Counter(blocks)
+
+    before = collect(original or '')
+    after = collect(updated or '')
+    if any(after[block] < count for block, count in before.items()):
+        raise HTTPException(
+            status_code=409,
+            detail='SIE-kopian får inte ändra eller ta bort tidigare verifikationer. Skapa en rättelse.',
+        )
+
+
 # ------------------------------------------------------------
 # Company SIE State
 # ------------------------------------------------------------
@@ -758,6 +805,8 @@ def get_company_sie_state(company_id: int, user_id: int, db: Session = Depends(g
 def upsert_company_sie_state(company_id: int, payload: CompanySIEStateUpsert, db: Session = Depends(get_db)):
     # must have access
     membership = require_company_access(db, company_id, payload.user_id)
+    if membership.role == "READ_ONLY":
+        raise HTTPException(status_code=403, detail="Read-only users cannot update SIE data")
 
     # require lock (or allow OWNER/ADMIN to break)
     lock = _cleanup_expired_lock(db, company_id)
@@ -794,6 +843,7 @@ def upsert_company_sie_state(company_id: int, payload: CompanySIEStateUpsert, db
         db.refresh(state)
         return {"id": state.id, "companyId": state.company_id, "version": state.version}
 
+    check_sie_replacement(state.sie_content or "", payload.sie_content)
     state.sie_content = payload.sie_content
     state.version = (state.version or 1) + 1
     state.updated_by_user_id = payload.user_id
@@ -1345,6 +1395,27 @@ def delete_company(company_id: int, user_id: int, db: Session = Depends(get_db))
     company = db.query(Company).filter(Company.id == company_id).first()
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
+
+    if db.query(PostedVoucherRecord).filter(PostedVoucherRecord.company_id == company_id).first():
+        raise HTTPException(status_code=409, detail="Företaget har bokförda verifikationer och kan inte raderas här.")
+
+    # Also protect legacy data from before posted_voucher_records was introduced.
+    # Older vouchers must not disappear simply because snapshots have not been
+    # created for them yet.
+    state = db.query(CompanySIEState).filter(CompanySIEState.company_id == company_id).first()
+    if state and "#VER " in (state.sie_content or ""):
+        raise HTTPException(status_code=409, detail="Företaget har tidigare bokföring i SIE och kan inte raderas här.")
+
+    workspace = db.get(WorkspaceState, "company:" + str(company_id))
+    if workspace and workspace.values_json:
+        import json
+        try:
+            values = json.loads(workspace.values_json)
+            vouchers = json.loads(values.get("accountpro_vouchers_" + str(company_id), "[]"))
+        except (ValueError, TypeError, AttributeError):
+            raise HTTPException(status_code=409, detail="Företagets bokföring kunde inte kontrolleras. Radering stoppad.")
+        if vouchers:
+            raise HTTPException(status_code=409, detail="Företaget har sparade verifikationer och kan inte raderas här.")
 
     db.query(CompanySIEState).filter(CompanySIEState.company_id == company_id).delete()
     db.query(CompanyMember).filter(CompanyMember.company_id == company_id).delete()
