@@ -8,6 +8,7 @@ The database transaction is committed by workspace.write_workspace, not here.
 import json
 from datetime import date
 from decimal import Decimal, InvalidOperation
+from collections import Counter
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -68,10 +69,11 @@ def validate_posting(voucher: dict) -> None:
     if not isinstance(number, int) or isinstance(number, bool) or number < 0:
         raise HTTPException(status_code=422, detail="Bokförd verifikation saknar giltigt nummer")
 
-    if number == 0:
-        if voucher.get("description") == "Ingående balans från SIE":
-            return  # Synthetic opening balance, verified during SIE import.
+    if number == 0 and voucher.get("description") != "Ingående balans från SIE":
         raise HTTPException(status_code=422, detail="Nummer 0 är reserverat för ingående balans")
+    if number == 0 and not voucher.get("importSourceId"):
+        # An existing, unmodified legacy opening balance is handled below.
+        raise HTTPException(status_code=422, detail="Ingående balans får endast skapas genom en verifierad SIE-import")
 
     raw_date = voucher.get("date")
     if not isinstance(raw_date, str) or not isinstance(voucher.get("description"), str) or not voucher["description"].strip():
@@ -110,6 +112,39 @@ def validate_posting(voucher: dict) -> None:
 
     if posting_lines < 2 or len(accounts) < 2 or debit <= 0 or debit != credit:
         raise HTTPException(status_code=422, detail="Verifikationen måste ha två olika konton och balansera exakt")
+
+
+def _validate_reversal_links(by_id: dict[str, dict]) -> None:
+    """Verify reversals independently of the browser's own validation."""
+    reversals: Counter = Counter()
+    for voucher in by_id.values():
+        original_id = voucher.get("reversesVoucherId")
+        if original_id:
+            original = by_id.get(original_id)
+            if original is None or original_id == voucher["id"] or original.get("voucherNumber") == 0:
+                raise HTTPException(409, "Vändningen hänvisar till en ogiltig originalverifikation")
+            if voucher.get("reversesVoucherNumber") != original.get("voucherNumber"):
+                raise HTTPException(409, "Originalets verifikationsnummer stämmer inte")
+            if original.get("reversedByVoucherId") != voucher["id"] or original.get("reversedByVoucherNumber") != voucher["voucherNumber"]:
+                raise HTTPException(409, "Originalet och vändningen måste vara länkade åt båda håll")
+            reversals[original_id] += 1
+            if reversals[original_id] > 1:
+                raise HTTPException(409, "En verifikation får inte vändas två gånger")
+            # A reversal must actually cancel each entry in the original.
+            def entry_counter(lines: list, reverse: bool) -> Counter:
+                result = Counter()
+                for line in lines:
+                    debit = _posting_amount(line.get("credit" if reverse else "debit", 0))
+                    credit = _posting_amount(line.get("debit" if reverse else "credit", 0))
+                    if debit or credit:
+                        result[(line.get("accountNumber"), debit, credit, line.get("vatCodeId"))] += 1
+                return result
+            if entry_counter(original.get("lines", []), True) != entry_counter(voucher.get("lines", []), False):
+                raise HTTPException(409, "En vändning måste innehålla originalets konteringar med omvänd debet och kredit")
+        elif voucher.get("reversedByVoucherId") or voucher.get("reversedByVoucherNumber"):
+            target = by_id.get(voucher.get("reversedByVoucherId"))
+            if not target or target.get("reversesVoucherId") != voucher["id"] or target.get("voucherNumber") != voucher.get("reversedByVoucherNumber"):
+                raise HTTPException(409, "Originalet hänvisar inte till en giltig vändning")
 
 
 def check_workspace_vouchers(db: Session, company_id: int, old: dict, new: dict, user_id: int) -> None:
@@ -159,7 +194,14 @@ def check_workspace_vouchers(db: Session, company_id: int, old: dict, new: dict,
             raise HTTPException(status_code=409, detail="Verifikationsnumret är ogiltigt eller förekommer mer än en gång")
         used_numbers.add(number)
         if voucher["id"] not in existing:
-            validate_posting(voucher)
+            # Historical records in the previous workspace become immutable
+            # snapshots without rewriting them or claiming they were newly booked.
+            if voucher["id"] not in {record.get("id") for record in old_rows}:
+                if str(voucher.get("companyId")) != str(company_id):
+                    raise HTTPException(409, "Verifikationen tillhör ett annat företag")
+                if voucher.get("status") != "POSTED":
+                    raise HTTPException(409, "En ny bokförd verifikation måste ha status POSTED")
+                validate_posting(voucher)
             db.add(
                 PostedVoucherRecord(
                     company_id=company_id,
@@ -169,6 +211,8 @@ def check_workspace_vouchers(db: Session, company_id: int, old: dict, new: dict,
                     registered_by_user_id=user_id,
                 )
             )
+
+    _validate_reversal_links(new_by_id)
 
 
 def check_workspace_receipts(company_id: int, old: dict, new: dict) -> None:
