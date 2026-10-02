@@ -3,7 +3,7 @@ import {
   getAccountClass,
 } from "./bas-accounts";
 
-import {
+import type {
   Voucher,
   VoucherLine,
 } from "@/contexts/AccountingContexts";
@@ -31,6 +31,10 @@ export interface SIEVoucher {
 
   lines:
     VoucherLine[];
+
+  // Datum och signatur som källfilen uppgav vid #VER.
+  registrationDate?: string;
+  signature?: string;
 }
 
 export interface SIEBalance {
@@ -166,435 +170,198 @@ function validateBalanceCollection(
   }
 }
 
-export function parseSIEFile(
-  content:
-    string
-):
-  SIEParseResult {
-  const result:
-    SIEParseResult = {
+export function parseSIEFile(content: string): SIEParseResult {
+  const result: SIEParseResult = {
     accounts: [],
     vouchers: [],
-
-    openingBalances:
-      [],
-
-    previousClosingBalances:
-      [],
-
+    openingBalances: [],
+    previousClosingBalances: [],
     metadata: {},
-
     errors: [],
   };
 
-  const lines =
-    content
-      .replace(
-        /\r\n/g,
-        "\n"
-      )
-      .replace(
-        /\r/g,
-        "\n"
-      )
-      .split(
-        "\n"
+  const lines = content.replace(/\r\n?/g, "\n").split("\n");
+  const seenIdentities = new Set<string>();
+  let currentVoucher: SIEVoucher | null = null;
+  let inVoucherBlock = false;
+
+  // Ett verifikationsnummer är unikt inom serie och räkenskapsår.
+  // Brutna räkenskapsår behöver därför skiljas från kalenderår.
+  const fiscalPeriodKey = (date: string): string => {
+    const firstDay = result.metadata.fiscalYearStart?.slice(5) || "01-01";
+    const startYear = Number(date.slice(0, 4)) - (date.slice(5) < firstDay ? 1 : 0);
+    return String(startYear) + "-" + firstDay;
+  };
+
+  const completeVoucher = (lineNumber: number) => {
+    if (!currentVoucher) return;
+
+    const identity = [
+      currentVoucher.series,
+      String(currentVoucher.number),
+      fiscalPeriodKey(currentVoucher.date),
+    ].join(":");
+
+    if (seenIdentities.has(identity)) {
+      result.errors.push(
+        "Rad " + lineNumber + ": Dubblerat ursprungligt verifikationsnummer " +
+        currentVoucher.series + currentVoucher.number +
+        " under räkenskapsåret som börjar " + fiscalPeriodKey(currentVoucher.date) +
+        ". Importen stoppas för att undvika att bokföring skrivs över."
       );
-
-  let currentVoucher:
-    SIEVoucher |
-    null =
-    null;
-
-  let lineNumber =
-    0;
-
-  for (
-    const line of
-    lines
-  ) {
-    lineNumber +=
-      1;
-
-    const trimmedLine =
-      line.trim();
-
-    if (
-      !trimmedLine
-    ) {
-      continue;
-    }
-
-    if (
-      trimmedLine ===
-      "}"
-    ) {
-      if (
-        currentVoucher
-      ) {
-        if (
-          addVoucherValidationErrors(
-            result,
-            currentVoucher,
-            lineNumber
-          )
-        ) {
-          result.vouchers.push(
-            currentVoucher
-          );
-        }
-
-        currentVoucher =
-          null;
+    } else {
+      seenIdentities.add(identity);
+      if (addVoucherValidationErrors(result, currentVoucher, lineNumber)) {
+        result.vouchers.push(currentVoucher);
       }
-
-      continue;
     }
 
-    if (
-      !trimmedLine.startsWith(
-        "#"
-      )
-    ) {
-      continue;
+    currentVoucher = null;
+    inVoucherBlock = false;
+  };
+
+  lines.forEach((rawLine, index) => {
+    const lineNumber = index + 1;
+    const line = rawLine.trim();
+    if (!line) return;
+
+    if (line === "{") {
+      if (currentVoucher) inVoucherBlock = true;
+      return;
     }
 
-    const parsed =
-      parseSIELine(
-        trimmedLine
-      );
-
-    if (
-      !parsed
-    ) {
-      continue;
+    if (line === "}") {
+      if (currentVoucher && inVoucherBlock) completeVoucher(lineNumber);
+      return;
     }
 
-    const command =
-      parsed.command;
+    if (!line.startsWith("#")) return;
+    const parsed = parseSIELine(line);
+    if (!parsed) return;
 
-    const values =
-      parsed.values;
-
-    switch (
-      command
-    ) {
+    const { command, values } = parsed;
+    switch (command) {
       case "FNAMN":
-        result.metadata.companyName =
-          values[0] ||
-          "";
+        result.metadata.companyName = values[0] || "";
         break;
 
       case "ORGNR":
-        result.metadata.organizationNumber =
-          values[0] ||
-          "";
+        result.metadata.organizationNumber = values[0] || "";
         break;
 
       case "RAR":
-        if (
-          values.length >=
-            3 &&
-          values[0] ===
-            "0"
-        ) {
-          const startDate =
-            parseSIEDate(
-              values[1]
-            );
-
-          const endDate =
-            parseSIEDate(
-              values[2]
-            );
-
-          if (
-            startDate
-          ) {
-            result.metadata.fiscalYearStart =
-              startDate;
-          }
-
-          if (
-            endDate
-          ) {
-            result.metadata.fiscalYearEnd =
-              endDate;
+        if (values[0] === "0" && values.length >= 3) {
+          const startDate = parseSIEDate(values[1]);
+          const endDate = parseSIEDate(values[2]);
+          if (startDate) result.metadata.fiscalYearStart = startDate;
+          if (endDate) result.metadata.fiscalYearEnd = endDate;
+          if (!startDate || !endDate) {
+            result.errors.push("Rad " + lineNumber + ": Ogiltig räkenskapsperiod i #RAR.");
           }
         }
         break;
 
       case "KONTO":
-        if (
-          values.length >=
-          2
-        ) {
-          const accountNumber =
-            values[0];
-
-          const accountName =
-            values[1];
-
-          if (
-            accountNumber &&
-            accountName
-          ) {
-            result.accounts.push({
-              number:
-                accountNumber,
-
-              name:
-                accountName,
-            });
-          }
+        if (values.length >= 2 && values[0] && values[1]) {
+          result.accounts.push({ number: values[0], name: values[1] });
         }
         break;
 
-      case "VER":
-        if (
-          values.length >=
-          3
-        ) {
-          const series =
-            values[0] ||
-            "A";
-
-          const number =
-            Number.parseInt(
-              values[1],
-              10
-            ) ||
-            0;
-
-          const date =
-            parseSIEDate(
-              values[2]
-            );
-
-          const description =
-            values[3] ||
-            "";
-
-          if (date) {
-            currentVoucher = {
-              series,
-              number,
-              date,
-              description,
-              lines: [],
-            };
-          } else {
-            result.errors.push(
-              "Rad " +
-              String(
-                lineNumber
-              ) +
-              ": Ogiltigt datum i verifikation."
-            );
-          }
+      case "VER": {
+        if (currentVoucher) {
+          result.errors.push(
+            "Rad " + lineNumber + ": Föregående verifikation stängdes inte före nästa #VER."
+          );
+          currentVoucher = null;
+          inVoucherBlock = false;
         }
-        break;
-
-      case "TRANS":
+        const series = values[0] || "A";
+        const number = Number(values[1]);
+        const date = parseSIEDate(values[2]);
         if (
-          currentVoucher &&
-          values.length >=
-            2
+          values.length < 3 ||
+          !Number.isSafeInteger(number) ||
+          number < 0 ||
+          !date
         ) {
-          const accountNumber =
-            values[0];
-
-          let amountIndex =
-            1;
-
-          if (
-            values[1] ===
-            "{}"
-          ) {
-            amountIndex =
-              2;
-          }
-
-          const parsedAmount =
-            parseSIEAmount(
-              values[
-                amountIndex
-              ]
-            );
-
-          if (
-            parsedAmount ===
-            null
-          ) {
-            result.errors.push(
-              "Rad " +
-              String(
-                lineNumber
-              ) +
-              ": Ogiltigt belopp i SIE-transaktion."
-            );
-
-            break;
-          }
-
-          if (
-            accountNumber
-          ) {
-            const account =
-              result.accounts.find(
-                (entry) =>
-                  entry.number ===
-                  accountNumber
-              );
-
-            currentVoucher
-              .lines
-              .push({
-                id:
-                  crypto.randomUUID(),
-
-                accountNumber,
-
-                accountName:
-                  account?.name ||
-                  "Konto " +
-                  accountNumber,
-
-                debit:
-                  parsedAmount >
-                  0
-                    ? parsedAmount
-                    : 0,
-
-                credit:
-                  parsedAmount <
-                  0
-                    ? Math.abs(
-                        parsedAmount
-                      )
-                    : 0,
-              });
-          }
+          result.errors.push("Rad " + lineNumber + ": Ogiltig serie, nummer eller datum i #VER.");
+          return;
         }
+        const registrationDate = values[4] ? parseSIEDate(values[4]) : undefined;
+        if (values[4] && !registrationDate) {
+          result.errors.push("Rad " + lineNumber + ": Ogiltigt registreringsdatum i #VER.");
+        }
+        currentVoucher = {
+          series,
+          number,
+          date,
+          description: values[3] || "",
+          lines: [],
+          registrationDate: registrationDate || undefined,
+          signature: values[5] || undefined,
+        };
+        inVoucherBlock = false;
         break;
+      }
+
+      case "TRANS": {
+        if (!currentVoucher || !inVoucherBlock) return;
+        const accountNumber = values[0];
+        const amountIndex = values[1]?.startsWith("{") ? 2 : 1;
+        const amount = parseSIEAmount(values[amountIndex]);
+        if (!accountNumber || amount === null) {
+          result.errors.push(
+            "Rad " + lineNumber + ": Konto eller belopp saknas/är ogiltigt i #TRANS."
+          );
+          return;
+        }
+        if (amount === 0) return; // En nollrad är ingen bokföringspost.
+        const account = result.accounts.find((item) => item.number === accountNumber);
+        currentVoucher.lines.push({
+          id: crypto.randomUUID(),
+          accountNumber,
+          accountName: account?.name || "Konto " + accountNumber,
+          debit: amount > 0 ? amount : 0,
+          credit: amount < 0 ? Math.abs(amount) : 0,
+        });
+        break;
+      }
 
       case "IB":
-        if (
-          values.length >=
-            3 &&
-          values[0] ===
-            "0"
-        ) {
-          const parsedAmount =
-            parseSIEAmount(
-              values[2]
-            );
-
-          if (
-            parsedAmount ===
-            null
-          ) {
-            result.errors.push(
-              "Rad " +
-              String(
-                lineNumber
-              ) +
-              ": Ogiltigt belopp i ingående balans."
-            );
-
-            break;
-          }
-
-          result
-            .openingBalances
-            .push({
-              accountNumber:
-                values[1],
-
-              amount:
-                parsedAmount,
-            });
+      case "UB": {
+        const isOpening = command === "IB" && values[0] === "0";
+        const isPreviousClosing = command === "UB" && values[0] === "-1";
+        if (!isOpening && !isPreviousClosing) break;
+        const amount = parseSIEAmount(values[2]);
+        if (!values[1] || amount === null) {
+          result.errors.push(
+            "Rad " + lineNumber + ": Ogiltigt konto eller belopp i #" + command + "."
+          );
+          return;
         }
+        const target = isOpening ? result.openingBalances : result.previousClosingBalances;
+        target.push({ accountNumber: values[1], amount });
         break;
-
-      case "UB":
-        if (
-          values.length >=
-            3 &&
-          values[0] ===
-            "-1"
-        ) {
-          const parsedAmount =
-            parseSIEAmount(
-              values[2]
-            );
-
-          if (
-            parsedAmount ===
-            null
-          ) {
-            result.errors.push(
-              "Rad " +
-              String(
-                lineNumber
-              ) +
-              ": Ogiltigt belopp i föregående års utgående balans."
-            );
-
-            break;
-          }
-
-          result
-            .previousClosingBalances
-            .push({
-              accountNumber:
-                values[1],
-
-              amount:
-                parsedAmount,
-            });
-        }
-        break;
+      }
 
       default:
         break;
     }
-  }
+  });
 
-  if (
-    currentVoucher
-  ) {
+  if (currentVoucher) {
     result.errors.push(
       "SIE-filen avslutades innan verifikation " +
-      currentVoucher.series +
-      String(
-        currentVoucher.number
-      ) +
-      " stängdes."
+      currentVoucher.series + currentVoucher.number + " stängdes."
     );
   }
 
-  if (
-    result
-      .openingBalances
-      .length >
-    0
-  ) {
-    validateBalanceCollection(
-      result
-        .openingBalances,
-
-      "Ingående balans i SIE-filen",
-
-      result.errors
-    );
+  if (result.openingBalances.length) {
+    validateBalanceCollection(result.openingBalances, "Ingående balans i SIE-filen", result.errors);
   } else {
     validateBalanceCollection(
-      result
-        .previousClosingBalances,
-
+      result.previousClosingBalances,
       "Föregående års utgående balans i SIE-filen",
-
       result.errors
     );
   }
@@ -602,190 +369,72 @@ export function parseSIEFile(
   return result;
 }
 
-function parseSIELine(
-  line:
-    string
-): {
-  command:
-    string;
+function parseSIELine(line: string): { command: string; values: string[] } | null {
+  const match = line.match(/^#(\w+)\s*(.*)$/);
+  if (!match) return null;
+  const rest = match[2] || "";
+  const values: string[] = [];
+  let current = "";
+  let quoted = false;
+  let hasToken = false;
 
-  values:
-    string[];
-} | null {
-  const match =
-    line.match(
-      /^#(\w+)\s*(.*)?$/
-    );
-
-  if (
-    !match
-  ) {
-    return null;
-  }
-
-  const command =
-    match[1];
-
-  const rest =
-    match[2] ||
-    "";
-
-  const values:
-    string[] =
-    [];
-
-  let current =
-    "";
-
-  let inQuotes =
-    false;
-
-  let index =
-    0;
-
-  while (
-    index <
-    rest.length
-  ) {
-    const char =
-      rest[index];
-
-    if (
-      char ===
-      '"'
-    ) {
-      if (
-        inQuotes
-      ) {
-        values.push(
-          current
-        );
-
-        current =
-          "";
-
-        inQuotes =
-          false;
+  for (let index = 0; index < rest.length; index += 1) {
+    const char = rest[index];
+    if (quoted) {
+      if (char === "\\" && rest[index + 1] === '"') {
+        current += '"';
+        index += 1;
+      } else if (char === '"' && rest[index + 1] === '"') {
+        current += '"';
+        index += 1;
+      } else if (char === '"') {
+        quoted = false;
       } else {
-        inQuotes =
-          true;
+        current += char;
       }
-    } else if (
-      char ===
-        " " &&
-      !inQuotes
-    ) {
-      if (
-        current
-      ) {
-        values.push(
-          current
-        );
-
-        current =
-          "";
+    } else if (char === '"') {
+      quoted = true;
+      hasToken = true;
+    } else if (/\s/.test(char)) {
+      if (hasToken) {
+        values.push(current);
+        current = "";
+        hasToken = false;
       }
-    } else if (
-      char ===
-        "{" &&
-      !inQuotes
-    ) {
-      const closeIndex =
-        rest.indexOf(
-          "}",
-          index
-        );
-
-      if (
-        closeIndex >
-        index
-      ) {
-        values.push(
-          rest.substring(
-            index,
-            closeIndex +
-              1
-          )
-        );
-
-        index =
-          closeIndex;
+    } else if (char === "{") {
+      if (hasToken) {
+        values.push(current);
+        current = "";
+        hasToken = false;
       }
-    } else if (
-      char !==
-        "}" ||
-      inQuotes
-    ) {
-      current +=
-        char;
+      const closing = rest.indexOf("}", index);
+      if (closing >= 0) {
+        values.push(rest.slice(index, closing + 1));
+        index = closing;
+      } else {
+        current = rest.slice(index);
+        hasToken = true;
+        break;
+      }
+    } else {
+      current += char;
+      hasToken = true;
     }
-
-    index +=
-      1;
   }
 
-  if (
-    current
-  ) {
-    values.push(
-      current
-    );
-  }
-
-  return {
-    command,
-    values,
-  };
+  if (hasToken) values.push(current);
+  return { command: match[1], values };
 }
 
-function parseSIEAmount(
-  amountString:
-    string |
-    undefined
-):
-  number | null {
-  if (
-    !amountString
-  ) {
-    return null;
-  }
-
-  const normalized =
-    amountString
-      .trim()
-      .replace(
-        /\s/g,
-        ""
-      )
-      .replace(
-        ",",
-        "."
-      );
-
-  if (
-    !/^[+-]?\d+(?:\.\d+)?$/.test(
-      normalized
-    )
-  ) {
-    return null;
-  }
-
-  const parsed =
-    Number(
-      normalized
-    );
-
-  if (
-    !Number.isFinite(
-      parsed
-    )
-  ) {
-    return null;
-  }
-
-  return roundToOre(
-    parsed
-  );
+function parseSIEAmount(amountString: string | undefined): number | null {
+  if (typeof amountString !== "string") return null;
+  const normalized = amountString.trim().replace(/\s/g, "").replace(",", ".");
+  if (!/^[+-]?\d+(?:\.\d+)?$/.test(normalized)) return null;
+  const amount = Number(normalized);
+  if (!Number.isFinite(amount)) return null;
+  const absoluteOre = toOre(Math.abs(amount));
+  if (absoluteOre === null || !Number.isSafeInteger(absoluteOre)) return null;
+  return amount < 0 ? -fromOre(absoluteOre) : fromOre(absoluteOre);
 }
 
 function parseSIEDate(
@@ -1556,201 +1205,89 @@ export function generateSIEFile(
   );
 }
 
+// Identiteten i SIE är serie + nummer i räkenskapsåret.
+// AccountPros interna verifikationsnummer är inte SIE-källans nummer.
 export function findDuplicateVoucher(
-  existingVouchers:
-    Voucher[],
-
-  _series:
-    string,
-
-  number:
-    number,
-
-  date:
-    string
-):
-  Voucher |
-  undefined {
-  return existingVouchers.find(
-    (voucher) =>
-      voucher.voucherNumber ===
-        number &&
-      voucher.date ===
-        date
+  existingVouchers: Voucher[],
+  series: string,
+  number: number,
+  date: string
+): Voucher | undefined {
+  const year = date.slice(0, 4);
+  return existingVouchers.find((voucher) =>
+    (voucher.originalSeries || "A") === series &&
+    (voucher.originalVoucherNumber ?? voucher.voucherNumber) === number &&
+    voucher.date.slice(0, 4) === year
   );
 }
 
 export function convertSIEVouchersToInternal(
-  sieVouchers:
-    SIEVoucher[],
-
-  companyId:
-    string,
-
-  existingVouchers:
-    Voucher[],
-
-  accounts:
-    BASAccount[]
+  sieVouchers: SIEVoucher[],
+  companyId: string,
+  existingVouchers: Voucher[],
+  accounts: BASAccount[]
 ): {
-  newVouchers:
-    Voucher[];
-
-  skippedDuplicates:
-    number;
-
-  nextVoucherNumber:
-    number;
+  newVouchers: Voucher[];
+  skippedDuplicates: number;
+  nextVoucherNumber: number;
 } {
-  const newVouchers:
-    Voucher[] =
-    [];
+  const newVouchers: Voucher[] = [];
+  let skippedDuplicates = 0;
+  let nextVoucherNumber = existingVouchers.length
+    ? Math.max(0, ...existingVouchers.map((item) => item.voucherNumber)) + 1
+    : 1;
+  const accountNames = new Map(accounts.map((account) => [account.number, account.name]));
 
-  let skippedDuplicates =
-    0;
-
-  let nextVoucherNumber =
-    existingVouchers.length >
-    0
-      ? Math.max(
-          ...existingVouchers.map(
-            (voucher) =>
-              voucher.voucherNumber
-          )
-        ) +
-        1
-      : 1;
-
-  for (
-    const sieVoucher of
-    sieVouchers
-  ) {
-    const duplicate =
-      findDuplicateVoucher(
-        [
-          ...existingVouchers,
-          ...newVouchers,
-        ],
-
-        sieVoucher.series,
-
-        sieVoucher.number,
-
-        sieVoucher.date
-      );
-
-    if (
-      duplicate
-    ) {
-      skippedDuplicates +=
-        1;
-
-      continue;
-    }
-
-    const validation =
-      validateBookkeepingLines(
-        sieVoucher.lines
-      );
-
-    if (
-      !validation.isValid
-    ) {
-      continue;
-    }
-
-    const linesWithNames =
-      sieVoucher.lines
-        .filter(
-          (line) => {
-            const debitOre =
-              toOre(
-                line.debit
-              ) ||
-              0;
-
-            const creditOre =
-              toOre(
-                line.credit
-              ) ||
-              0;
-
-            return (
-              debitOre >
-                0 ||
-              creditOre >
-                0
-            );
-          }
-        )
-        .map(
-          (line) => {
-            const account =
-              accounts.find(
-                (entry) =>
-                  entry.number ===
-                  line.accountNumber
-              );
-
-            return {
-              ...line,
-
-              accountName:
-                account?.name ||
-                line.accountName,
-
-              debit:
-                roundToOre(
-                  line.debit
-                ),
-
-              credit:
-                roundToOre(
-                  line.credit
-                ),
-            };
-          }
-        );
-
-    const newVoucher:
-      Voucher = {
-      id:
-        crypto.randomUUID(),
-
-      companyId,
-
-      voucherNumber:
-        nextVoucherNumber,
-
-      date:
-        sieVoucher.date,
-
-      description:
-        sieVoucher.description,
-
-      lines:
-        linesWithNames,
-
-      createdAt:
-        new Date()
-          .toISOString(),
-    };
-
-    newVouchers.push(
-      newVoucher
+  for (const source of sieVouchers) {
+    const existing = findDuplicateVoucher(
+      [...existingVouchers, ...newVouchers], source.series, source.number, source.date
     );
+    if (existing) {
+      // Ny import till företag med bokförda verifikationer är tills vidare
+      // spärrad i AccountingContexts. Här identifieras dubbletter med käll-ID.
+      skippedDuplicates += 1;
+      continue;
+    }
 
-    nextVoucherNumber +=
-      1;
+    const validation = validateBookkeepingLines(source.lines);
+    if (!validation.isValid) {
+      // Parsern stoppar hela importen om en verifikation är obalanserad.
+      // Om funktionen används direkt ska den inte kunna skapa en ogiltig post.
+      throw new Error(
+        "SIE-verifikation " + source.series + source.number +
+        " är ogiltig: " + validation.errors.map((error) => error.message).join("; ")
+      );
+    }
+
+    const linesWithNames = source.lines
+      .filter((line) => (toOre(line.debit) || 0) !== 0 || (toOre(line.credit) || 0) !== 0)
+      .map((line) => ({
+        ...line,
+        accountName: accountNames.get(line.accountNumber) || line.accountName,
+        debit: roundToOre(line.debit),
+        credit: roundToOre(line.credit),
+      }));
+
+    const now = new Date().toISOString();
+    newVouchers.push({
+      id: crypto.randomUUID(),
+      companyId,
+      voucherNumber: nextVoucherNumber,
+      date: source.date,
+      description: source.description,
+      lines: linesWithNames,
+      createdAt: now,
+      status: "POSTED",
+      documentDate: source.date,
+      postedAt: now,
+      postedByName: source.signature || "SIE-import",
+      originalSeries: source.series,
+      originalVoucherNumber: source.number,
+    });
+    nextVoucherNumber += 1;
   }
 
-  return {
-    newVouchers,
-
-    skippedDuplicates,
-
-    nextVoucherNumber,
-  };
+  return { newVouchers, skippedDuplicates, nextVoucherNumber };
 }
 
 export function convertSIEOpeningBalancesToVoucher(
@@ -1909,6 +1446,10 @@ export function convertSIEOpeningBalancesToVoucher(
       "Ingående balans från SIE",
 
     lines,
+    status: "POSTED",
+    documentDate: date,
+    postedAt: new Date().toISOString(),
+    postedByName: "SIE-import",
 
     createdAt:
       new Date()
