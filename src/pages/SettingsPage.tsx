@@ -1,5 +1,5 @@
 import { appStorage } from "@/lib/appStorage";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,6 +68,9 @@ export default function SettingsPage() {
   const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
   const [showDeleteAccountBye, setShowDeleteAccountBye] = useState(false);
   const [pendingSIEContent, setPendingSIEContent] = useState<string | null>(null);
+  const [isImportingSIE, setIsImportingSIE] = useState(false);
+  // A ref closes the gap before React has rendered the disabled buttons.
+  const importInProgressRef = useRef(false);
 
   // Personal settings
   const [billingSettings, setBillingSettings] = useState(() => ({ approvedForFtax: false, paymentTermsDays: "30", reminderFee: "60", firstReminderFree: true, nextInvoiceNumber: "1", nextCustomerNumber: "1", nextQuoteNumber: "1", nextOrderNumber: "1" }));
@@ -241,18 +244,51 @@ export default function SettingsPage() {
     toast.info("Fill in company details and save");
   };
 
-  const runSIEImport = (content: string) => {
-    const result = importSIE(content);
-    if (result.success) {
-      toast.success(`SIE import complete. Replaced current bookkeeping with ${result.imported} voucher(s).`);
-      if (result.errors.length > 0) result.errors.forEach((err) => toast.warning(err));
-    } else {
-      toast.error("Failed to import SIE file");
-      result.errors.forEach((err) => toast.error(err));
+  const runSIEImport = async (content: string): Promise<void> => {
+    if (importInProgressRef.current) return;
+    if (!activeCompany) {
+      toast.error("Välj ett företag innan du importerar en SIE-fil.");
+      return;
+    }
+    // The accounting context independently enforces this condition as well.
+    if (vouchers.length > 0) {
+      toast.error("Företaget har redan bokförda verifikationer. SIE-import är bara möjlig i ett tomt företag.");
+      return;
+    }
+
+    importInProgressRef.current = true;
+    setIsImportingSIE(true);
+    try {
+      // importSIE returns only after the database has confirmed the saved vouchers.
+      const result = await importSIE(content);
+      if (!result.success) {
+        toast.error("SIE-importen kunde inte slutföras.");
+        result.errors.forEach((error) => toast.error(error));
+        return;
+      }
+
+      toast.success(`SIE-importen är sparad. ${result.imported} verifikation(er) importerades.`);
+      result.errors.forEach((error) => toast.warning(error));
+      setPendingSIEContent(null);
+    } catch (error) {
+      console.error("Oväntat fel vid SIE-import i inställningarna:", error);
+      toast.error("SIE-importen kunde inte bekräftas. Kontrollera lagringen innan du försöker igen.");
+    } finally {
+      importInProgressRef.current = false;
+      setIsImportingSIE(false);
     }
   };
 
   const handleSIEUpload = () => {
+    if (importInProgressRef.current) return;
+    if (!activeCompany) {
+      toast.error("Välj ett företag innan du importerar en SIE-fil.");
+      return;
+    }
+    if (vouchers.length > 0) {
+      toast.error("Företaget har redan bokförda verifikationer. SIE-import är bara möjlig i ett tomt företag.");
+      return;
+    }
     const input = document.createElement("input");
     input.type = "file";
     input.accept = ".se,.si,.sie";
@@ -759,25 +795,38 @@ export default function SettingsPage() {
         
       </div>
 
-      {/* Delete Company - Confirm Dialog */}
-      <AlertDialog open={Boolean(pendingSIEContent)} onOpenChange={(open) => !open && setPendingSIEContent(null)}>
+      {/* The import dialog remains open until the database confirms the import. */}
+      <AlertDialog
+        open={pendingSIEContent !== null}
+        onOpenChange={(open) => {
+          if (!open && !importInProgressRef.current) setPendingSIEContent(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>nu ersätts din bokföring med det från SIE filen, vill du fortsätta</AlertDialogTitle>
+            <AlertDialogTitle>Importera SIE-fil?</AlertDialogTitle>
             <AlertDialogDescription>
-              Importen ersätter alla nuvarande vouchers, konton och balanser i det aktiva bolaget med innehållet från SIE-filen.
-              Välj Nej om du vill behålla nuvarande bokföring.
+              Importen lägger in verifikationerna från SIE-filen i ett tomt företags bokföring.
+              Befintliga bokförda verifikationer kan inte ersättas eller skrivas över.
+              Vill du fortsätta?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setPendingSIEContent(null)}>Nej</AlertDialogCancel>
+            <AlertDialogCancel
+              disabled={isImportingSIE}
+              onClick={() => setPendingSIEContent(null)}
+            >
+              Nej
+            </AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
-                if (pendingSIEContent) runSIEImport(pendingSIEContent);
-                setPendingSIEContent(null);
+              disabled={isImportingSIE}
+              onClick={(event) => {
+                event.preventDefault();
+                if (pendingSIEContent === null || importInProgressRef.current) return;
+                void runSIEImport(pendingSIEContent);
               }}
             >
-              Ja
+              {isImportingSIE ? "Importerar och sparar…" : "Ja, importera"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
