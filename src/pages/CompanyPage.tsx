@@ -1,5 +1,5 @@
 // src/pages/CompanyPage.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -56,6 +56,8 @@ export default function CompanyPage() {
   const [showAccountingStandardConfirmAlert, setShowAccountingStandardConfirmAlert] = useState(false);
   const [pendingAccountingStandard, setPendingAccountingStandard] = useState<"K2" | "K3" | "" | null>(null);
   const [pendingSIEImport, setPendingSIEImport] = useState<{ content: string; filename: string } | null>(null);
+  const [isImportingSIE, setIsImportingSIE] = useState(false);
+  const importInProgressRef = useRef(false);
 
   // Check if we were redirected because company is required
   useEffect(() => {
@@ -192,28 +194,48 @@ export default function CompanyPage() {
     toast.info("Fill in company details and save");
   };
 
-  const runSIEImport = (content: string, filename: string) => {
-    const result = importSIE(content);
+  // SIE-importen är asynkron: visa inte lyckat resultat innan databasen har bekräftat sparandet.
+  // En ref spärrar även dubbla klick innan React hunnit uppdatera knapparna.
+  const runSIEImport = async (content: string, filename: string): Promise<void> => {
+    if (importInProgressRef.current) return;
+    importInProgressRef.current = true;
+    setIsImportingSIE(true);
 
-    if (result.success) {
+    try {
+      const result = await importSIE(content);
+
+      if (!result.success) {
+        toast.error("SIE-importen kunde inte slutföras.");
+        result.errors.forEach((error) => toast.error(error));
+        return;
+      }
+
+      // Registrera filens metadata först efter att bokföringen har sparats.
+      // Metadataregistreringen är separat och får inte rapporteras som bokföringsfel.
       if (authService.isDatabaseConnected() && user) {
-        fetch(API_BASE_URL + '/sie-files', {
+        fetch(API_BASE_URL + "/sie-files", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             user_id: Number(user.id),
             filename,
-            storage_path: 'browser-upload:' + filename,
+            storage_path: "browser-upload:" + filename,
             period: new Date().getFullYear().toString(),
           }),
-        }).catch(() => undefined);
+        }).catch((error) => {
+          console.warn("SIE-importen sparades, men filens metadata kunde inte registreras:", error);
+        });
       }
 
-      toast.success("SIE import completed. Replaced current bookkeeping with " + result.imported + " imported voucher(s).");
-      if (result.errors.length > 0) result.errors.forEach((err) => toast.warning(err));
-    } else {
-      toast.error("Failed to import SIE file");
-      result.errors.forEach((err) => toast.error(err));
+      toast.success("SIE-importen är sparad. " + result.imported + " verifikation(er) importerades.");
+      result.errors.forEach((error) => toast.warning(error));
+      setPendingSIEImport(null);
+    } catch (error) {
+      console.error("Oväntat fel vid SIE-import:", error);
+      toast.error("SIE-importen kunde inte bekräftas. Kontrollera lagringen innan du försöker igen.");
+    } finally {
+      importInProgressRef.current = false;
+      setIsImportingSIE(false);
     }
   };
 
@@ -302,25 +324,34 @@ export default function CompanyPage() {
 
 
       <AlertDialog open={!!pendingSIEImport} onOpenChange={(open) => {
-        if (!open) setPendingSIEImport(null);
+        if (!open && !importInProgressRef.current) setPendingSIEImport(null);
       }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Importera SIE?</AlertDialogTitle>
             <AlertDialogDescription>
-              nu ersätts din bokföring med det från SIE filen, vill du fortsätta
+              Importen lägger in verifikationerna från SIE-filen i ett tomt företags bokföring.
+              Ett företag som redan har bokförda verifikationer kan inte importeras över.
+              Vill du fortsätta?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setPendingSIEImport(null)}>Nej</AlertDialogCancel>
+            <AlertDialogCancel
+              disabled={isImportingSIE}
+              onClick={() => setPendingSIEImport(null)}
+            >
+              Nej
+            </AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
-                if (!pendingSIEImport) return;
-                runSIEImport(pendingSIEImport.content, pendingSIEImport.filename);
-                setPendingSIEImport(null);
+              disabled={isImportingSIE}
+              onClick={(event) => {
+                // Håll dialogen öppen tills den asynkrona importen är färdig.
+                event.preventDefault();
+                if (!pendingSIEImport || importInProgressRef.current) return;
+                void runSIEImport(pendingSIEImport.content, pendingSIEImport.filename);
               }}
             >
-              Ja
+              {isImportingSIE ? "Importerar och sparar…" : "Ja, importera"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
