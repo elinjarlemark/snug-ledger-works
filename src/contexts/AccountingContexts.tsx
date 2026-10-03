@@ -2048,7 +2048,7 @@ export function AccountingProvider({
   const importSIE = async (
     fileContent:
       string
-  ): {
+  ): Promise<{
     success:
       boolean;
 
@@ -2060,7 +2060,7 @@ export function AccountingProvider({
 
     errors:
       string[];
-  } => {
+  }> => {
     const parseResult =
       parseSIEFile(
         fileContent
@@ -2191,20 +2191,18 @@ export function AccountingProvider({
             b.voucherNumber
       );
 
-    if (companyId) {
-      appStorage.setItem(
-        "accountpro_sie_imported_" +
-          companyId,
-
-        "true"
-      );
-    }
-
     if (!(await commitVoucherState(replacementVouchers, converted.nextVoucherNumber))) {
       return { success: false, imported: 0, skipped: 0,
         errors: ["Importen kunde inte bekräftas av databasen. Sparningen är stoppad tills lagringsfelet är löst."] };
     }
     saveAccounts(contextAccounts);
+    // Mark the import complete only after the posted vouchers were committed.
+    if (companyId) {
+      appStorage.setItem(
+        "accountpro_sie_imported_" + companyId,
+        "true"
+      );
+    }
 
     syncSieStateToDatabase(
       replacementVouchers,
