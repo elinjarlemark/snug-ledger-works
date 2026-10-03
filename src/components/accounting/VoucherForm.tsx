@@ -457,6 +457,11 @@ export function VoucherForm({
       isVoucherConfirmationEnabled
     );
 
+  // Ref-låset sätts synkront och förhindrar dubbelklick innan React
+  // hinner uppdatera gränssnittet. State används för laddningsvisningen.
+  const postingRef = useRef(false);
+  const [isPosting, setIsPosting] = useState(false);
+
   const voucherYear =
     date
       ? Number(
@@ -1255,6 +1260,7 @@ export function VoucherForm({
 
   const handleSaveDraft =
     () => {
+      if (postingRef.current) return;
       if (
         !date &&
         !description.trim() &&
@@ -1277,100 +1283,94 @@ export function VoucherForm({
       );
     };
 
-  const postVoucher =
-    () => {
-      if (!validateBeforePosting()) return;
-      const validLines = getValidLines();
+  const postVoucher = async (): Promise<void> => {
+    if (postingRef.current) return;
+    if (!validateBeforePosting()) return;
 
-      if (editVoucher && editVoucher.status !== "DRAFT") {
-        toast.error("Bokförda verifikationer kan inte ändras. Skapa en rättelse.");
-        return;
-      }
-      const voucher = createVoucher({
+    if (editVoucher && editVoucher.status !== "DRAFT") {
+      toast.error("Bokförda verifikationer kan inte ändras. Skapa en rättelse.");
+      return;
+    }
+
+    postingRef.current = true;
+    setIsPosting(true);
+
+    try {
+      const voucher = await createVoucher({
         date,
         documentDate,
         party: internalEntry ? INTERNAL_PARTY : party.trim(),
         partyId: internalEntry ? undefined : partyId || undefined,
         description: description.trim(),
-        lines: validLines,
+        lines: getValidLines(),
         attachments: pendingAttachments,
         reversesVoucherId: duplicateFrom?.reversesVoucherId,
         reversesVoucherNumber: duplicateFrom?.reversesVoucherNumber,
       });
 
-        if (voucher) {
-          pendingAttachments.forEach(
-            (
-              attachment
-            ) => {
-              const extension =
-                attachment.name
-                  .split(".")
-                  .pop() ||
-                "jpg";
-
-              addReceipt({
-                name:
-                  "voucher_" +
-                  voucher
-                    .voucherNumber +
-                  "." +
-                  extension,
-
-                type:
-                  attachment.type,
-
-                dataUrl:
-                  attachment.dataUrl,
-
-                voucherId:
-                  voucher.id,
-
-                voucherNumber:
-                  voucher
-                    .voucherNumber,
-              });
-            }
-          );
-
-          addEntry(
-            "Created voucher #" +
-            voucher
-              .voucherNumber
-          );
-
-          toast.success(
-            "Verifikation #" +
-            voucher.voucherNumber +
-            " bokförd"
-          );
-
-          onSuccess();
-        } else {
-          toast.error(
-            "Failed to create voucher"
-          );
-        }
-    };
-
-  const handleSubmit =
-    () => {
-      if (
-        !validateBeforePosting()
-      ) {
-        return;
-      }
-
-      if (confirmationEnabled) {
-        setShowConfirmation(
-          true
+      // Contexten returnerar null om databasen inte bekräftade sparandet.
+      // Visa då inte något verifikationsnummer eller ett lyckat-resultat.
+      if (!voucher) {
+        toast.error(
+          "Bokföringen kunde inte bekräftas. Kontrollera lagringen innan du försöker igen."
         );
-
         return;
       }
 
-      postVoucher();
-    };
+      let failedReceiptCount = 0;
+      for (const attachment of pendingAttachments) {
+        try {
+          const extension = attachment.name.split(".").pop() || "jpg";
+          addReceipt({
+            name: "voucher_" + voucher.voucherNumber + "." + extension,
+            type: attachment.type,
+            dataUrl: attachment.dataUrl,
+            voucherId: voucher.id,
+            voucherNumber: voucher.voucherNumber,
+          });
+        } catch (error) {
+          failedReceiptCount += 1;
+          console.error("Kvitto kunde inte registreras på kvittosidan:", error);
+        }
+      }
+
+      try {
+        addEntry("Created voucher #" + voucher.voucherNumber);
+      } catch (error) {
+        // Bokföringen är redan bekräftad och får inte upprepas bara för att
+        // den separata händelseloggningen misslyckas.
+        console.error("Händelsen kunde inte läggas till i loggen:", error);
+      }
+
+      setShowConfirmation(false);
+      toast.success("Verifikation #" + voucher.voucherNumber + " bokförd");
+
+      if (failedReceiptCount > 0) {
+        toast.warning(
+          "Verifikationen är bokförd, men " +
+          String(failedReceiptCount) +
+          " kvittokoppling(ar) kunde inte registreras. Kontrollera underlagen."
+        );
+      }
+
+      onSuccess();
+    } catch (error) {
+      console.error("Fel under bokföringen:", error);
+      toast.error("Det gick inte att slutföra bokföringen. Kontrollera lagringen.");
+    } finally {
+      postingRef.current = false;
+      setIsPosting(false);
+    }
+  };
+
+  const handleSubmit = () => {
+    if (postingRef.current || !validateBeforePosting()) return;
+    if (confirmationEnabled) {
+      setShowConfirmation(true);
+      return;
+    }
+    void postVoucher();
+  };
 
   // A posted voucher must never be opened as an editable form.
   if (editVoucher && editVoucher.status !== "DRAFT") {
@@ -1386,7 +1386,7 @@ export function VoucherForm({
   }
 
   return (
-    <div className="bg-card rounded-xl border border-border p-6 space-y-6">
+    <div className={cn("bg-card rounded-xl border border-border p-6 space-y-6", isPosting && "pointer-events-none opacity-70")} aria-busy={isPosting}>
       <HistoricalAccountPickerDialog
         open={
           historicalPickerLineId !==
@@ -2430,7 +2430,7 @@ export function VoucherForm({
           onSaveDraft && (
             <Button
               variant="secondary"
-
+              disabled={isPosting}
               onClick={
                 handleSaveDraft
               }
@@ -2441,7 +2441,7 @@ export function VoucherForm({
 
         <Button
           variant="outline"
-
+          disabled={isPosting}
           onClick={
             onCancel
           }
@@ -2455,10 +2455,10 @@ export function VoucherForm({
           }
 
           disabled={
-            !validation.isValid
+            !validation.isValid || isPosting
           }
         >
-          {confirmationEnabled ? "Granska och bokför" : "Bokför"}
+          {isPosting ? "Bokför och inväntar lagring..." : confirmationEnabled ? "Granska och bokför" : "Bokför"}
         </Button>
       </div>
 
@@ -2467,9 +2467,9 @@ export function VoucherForm({
           showConfirmation
         }
 
-        onOpenChange={
-          setShowConfirmation
-        }
+        onOpenChange={(open) => {
+          if (!postingRef.current) setShowConfirmation(open);
+        }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -2644,16 +2644,20 @@ export function VoucherForm({
           </div>
 
           <AlertDialogFooter>
-            <AlertDialogCancel>
+            <AlertDialogCancel disabled={isPosting}>
               Ändra
             </AlertDialogCancel>
 
             <AlertDialogAction
-              onClick={
-                postVoucher
-              }
+              disabled={isPosting}
+              onClick={(event) => {
+                // Radix stänger normalt dialogen direkt vid klick.
+                // Behåll den öppen tills databasen bekräftat bokföringen.
+                event.preventDefault();
+                void postVoucher();
+              }}
             >
-              Bokför
+              {isPosting ? "Bokför och inväntar lagring..." : "Bokför"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
