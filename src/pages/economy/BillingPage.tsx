@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { FileText, Users, Package, Plus, Trash2, Edit, Receipt, Eye, X, Calendar, Send, Download, Mail, CheckCircle, DollarSign, FileCog, Settings, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -317,6 +317,9 @@ function InvoiceDetailView({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showSendDialog, setShowSendDialog] = useState(false);
   const [showPaidConfirm, setShowPaidConfirm] = useState(false);
+  const [isBooking, setIsBooking] = useState(false);
+  // Ref blocks a second click immediately, before React has rendered the disabled button.
+  const bookingInProgressRef = useRef(false);
   const linkedTemplate = invoice.templateId ? templates.find(t => t.id === invoice.templateId) : undefined;
 
   const handleSendManually = () => {
@@ -335,22 +338,32 @@ function InvoiceDetailView({
     setShowSendDialog(false);
   };
 
-  const handleMarkPaid = (useAutomatic: boolean) => {
-    onStatusChange(invoice.id, "paid");
-    setShowPaidConfirm(false);
-    toast.success("Invoice marked as paid");
-    if (!useAutomatic) return;
+  const handleMarkPaid = async (useAutomatic: boolean): Promise<void> => {
+    if (bookingInProgressRef.current) return;
+
+    if (!useAutomatic) {
+      onStatusChange(invoice.id, "paid");
+      setShowPaidConfirm(false);
+      toast.success("Invoice marked as paid");
+      return;
+    }
 
     const tpl = linkedTemplate;
 
-    // No template linked — fall back to old prefill flow on the accounting page.
+    // Without a template, open the ordinary voucher form. No automatic
+    // bookkeeping has taken place, so don't display a posting confirmation.
     if (!tpl) {
       const bookingAccount = activeCompany?.invoiceBookingAccount || "1930";
+      onStatusChange(invoice.id, "paid");
+      setShowPaidConfirm(false);
+      toast.info("Invoice marked as paid. Complete the voucher in the accounting form.");
       navigate("/economy/accounting", {
         state: {
           openCreateVoucher: true,
           prefillVoucher: {
             description: `Invoice #${invoice.invoiceNumber} - ${invoice.customerName}`,
+            party: invoice.customerName,
+            partyId: invoice.customerId,
             lines: [
               { accountNumber: bookingAccount, accountName: "", debit: invoice.total, credit: 0 },
               { accountNumber: "", accountName: "", debit: 0, credit: invoice.total },
@@ -362,13 +375,17 @@ function InvoiceDetailView({
     }
 
     if (!isTemplateBalanced(invoice, tpl)) {
-      toast.error("Template is not balanced — opening voucher form to fix");
       const built = buildVoucherFromTemplate(invoice, tpl);
+      onStatusChange(invoice.id, "paid");
+      setShowPaidConfirm(false);
+      toast.error("Template is not balanced. Complete the voucher in the accounting form.");
       navigate("/economy/accounting", {
         state: {
           openCreateVoucher: true,
           prefillVoucher: {
             description: built.description,
+            party: invoice.customerName,
+            partyId: invoice.customerId,
             lines: built.lines,
           },
         },
@@ -376,18 +393,46 @@ function InvoiceDetailView({
       return;
     }
 
-    const built = buildVoucherFromTemplate(invoice, tpl);
-    const created = createVoucher({
-      date: built.date,
-      description: built.description,
-      lines: built.lines,
-    });
-    if (created) {
+    bookingInProgressRef.current = true;
+    setIsBooking(true);
+    try {
+      const postingDate = invoice.paidDate || new Date().toLocaleDateString("sv-SE");
+      const built = buildVoucherFromTemplate(invoice, tpl, postingDate);
+      const created = await createVoucher({
+        date: built.date,
+        documentDate: invoice.issueDate || built.date,
+        party: invoice.customerName,
+        partyId: invoice.customerId,
+        description: built.description,
+        lines: built.lines,
+      });
+      if (!created) {
+        toast.error("Verifikationen kunde inte sparas. Fakturan har inte markerats som betald. Kontrollera lagringen innan du försöker igen.");
+        return;
+      }
+
+      // Only update the invoice after the voucher's storage has confirmed it.
+      // If the invoice status update fails, the voucher may already exist;
+      // warn the user not to post the same invoice a second time.
+      try {
+        onStatusChange(invoice.id, "paid");
+      } catch (statusError) {
+        console.error("The voucher was posted, but the invoice status could not be updated:", statusError);
+        setShowPaidConfirm(false);
+        toast.error(`Verifikation #${created.voucherNumber} är bokförd, men fakturans status kunde inte uppdateras. Kontrollera verifikationslistan innan du försöker igen.`);
+        return;
+      }
+
+      setShowPaidConfirm(false);
       toast.success(`Voucher #${created.voucherNumber} created`, {
         description: `From "${tpl.name}" template`,
       });
-    } else {
-      toast.error("Could not create voucher — please review the template");
+    } catch (error) {
+      console.error("Failed to post voucher from invoice:", error);
+      toast.error("Bokföringen kunde inte bekräftas. Kontrollera verifikationslistan och lagringen innan du försöker igen.");
+    } finally {
+      bookingInProgressRef.current = false;
+      setIsBooking(false);
     }
   };
 
@@ -524,7 +569,12 @@ function InvoiceDetailView({
       </AlertDialog>
 
       {/* Paid Confirmation - Automatic booking? */}
-      <AlertDialog open={showPaidConfirm} onOpenChange={setShowPaidConfirm}>
+      <AlertDialog
+        open={showPaidConfirm}
+        onOpenChange={(open) => {
+          if (!bookingInProgressRef.current) setShowPaidConfirm(open);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Invoice Paid</AlertDialogTitle>
@@ -535,10 +585,18 @@ function InvoiceDetailView({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => handleMarkPaid(false)}>No</AlertDialogCancel>
-            <AlertDialogAction onClick={() => handleMarkPaid(true)}>
-              {linkedTemplate ? "Yes, book automatically" : "Yes, open voucher form"}
-            </AlertDialogAction>
+            <AlertDialogCancel disabled={isBooking} onClick={() => void handleMarkPaid(false)}>No</AlertDialogCancel>
+            <Button
+              type="button"
+              disabled={isBooking}
+              onClick={() => void handleMarkPaid(true)}
+            >
+              {isBooking
+                ? "Posting voucher..."
+                : linkedTemplate
+                  ? "Yes, book automatically"
+                  : "Yes, open voucher form"}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
