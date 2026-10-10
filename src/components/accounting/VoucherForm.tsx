@@ -1365,6 +1365,7 @@ export function VoucherForm({
             dataUrl: attachment.dataUrl,
             voucherId: voucher.id,
             voucherNumber: voucher.voucherNumber,
+            voucherSeries: voucher.series || series,
           });
         } catch (error) {
           failedReceiptCount += 1;
