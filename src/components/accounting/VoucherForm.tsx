@@ -110,6 +110,12 @@ const VOUCHER_CONFIRMATION_KEY =
 
 const INTERNAL_PARTY = "Intern bokslutspost";
 
+const VOUCHER_SERIES_OPTIONS = [
+  { value: "A", label: "A – Manuella verifikationer" },
+  { value: "B", label: "B – Kundfakturor" },
+  { value: "C", label: "C – Leverantörsfakturor" },
+] as const;
+
 function todayLocalIsoDate(): string {
   const today = new Date();
   const year = String(today.getFullYear());
@@ -233,7 +239,8 @@ export function VoucherForm({
     duplicateFrom;
 
   const {
-    nextVoucherNumber,
+    defaultVoucherSeries,
+    getNextVoucherNumberFor,
     createVoucher,
     validateVoucher,
   } = useAccounting();
@@ -376,6 +383,14 @@ export function VoucherForm({
       : todayLocalIsoDate()
   );
 
+  const [series, setSeries] = useState(
+    sourceVoucher?.series || defaultVoucherSeries
+  );
+
+  // En vändning ska ligga i samma interna serie som originalet.
+  // Vanliga utkast och kopior får däremot byta serie innan bokföring.
+  const seriesLockedToSource = Boolean(sourceVoucher?.reversesVoucherId);
+
   const [
     lines,
     setLines,
@@ -471,6 +486,11 @@ export function VoucherForm({
           )
         )
       : Number.NaN;
+
+  const previewVoucherNumber =
+    date && isValidIsoDate(date)
+      ? getNextVoucherNumberFor(date, series)
+      : null;
 
   const historicalAccounts =
     useMemo(
@@ -1241,6 +1261,8 @@ export function VoucherForm({
     () => ({
       date,
 
+      series,
+
       description: description.trim(),
       party: internalEntry ? INTERNAL_PARTY : party.trim(),
       partyId: internalEntry ? undefined : partyId || undefined,
@@ -1298,6 +1320,7 @@ export function VoucherForm({
     try {
       const voucher = await createVoucher({
         date,
+        series,
         documentDate,
         party: internalEntry ? INTERNAL_PARTY : party.trim(),
         partyId: internalEntry ? undefined : partyId || undefined,
@@ -1317,12 +1340,15 @@ export function VoucherForm({
         return;
       }
 
+      const voucherReference =
+        (voucher.series || series) + String(voucher.voucherNumber);
+
       let failedReceiptCount = 0;
       for (const attachment of pendingAttachments) {
         try {
           const extension = attachment.name.split(".").pop() || "jpg";
           addReceipt({
-            name: "voucher_" + voucher.voucherNumber + "." + extension,
+            name: "voucher_" + voucherReference + "." + extension,
             type: attachment.type,
             dataUrl: attachment.dataUrl,
             voucherId: voucher.id,
@@ -1335,7 +1361,7 @@ export function VoucherForm({
       }
 
       try {
-        addEntry("Created voucher #" + voucher.voucherNumber);
+        addEntry("Created voucher " + voucherReference);
       } catch (error) {
         // Bokföringen är redan bekräftad och får inte upprepas bara för att
         // den separata händelseloggningen misslyckas.
@@ -1343,7 +1369,7 @@ export function VoucherForm({
       }
 
       setShowConfirmation(false);
-      toast.success("Verifikation #" + voucher.voucherNumber + " bokförd");
+      toast.success("Verifikation " + voucherReference + " bokförd");
 
       if (failedReceiptCount > 0) {
         toast.warning(
@@ -1428,18 +1454,18 @@ export function VoucherForm({
             {editVoucher
               ? "Redigera utkast"
               : duplicateFrom
-                ? "Duplicate Voucher #" +
-                  duplicateFrom
-                    .voucherNumber
+                ? "Duplicera verifikation " +
+                  (duplicateFrom.series || "A") +
+                  duplicateFrom.voucherNumber
                 : "Create Voucher"}
           </h2>
 
-          {!editVoucher && (
-            <p className="text-sm text-muted-foreground">
-              Verifikation #
-              {nextVoucherNumber}
-            </p>
-          )}
+          <p className="text-sm text-muted-foreground">
+            Serie {series}
+            {previewVoucherNumber !== null
+              ? " · preliminärt " + series + String(previewVoucherNumber)
+              : " · nummer tilldelas vid bokföring"}
+          </p>
 
           {!editVoucher &&
             templateName && (
@@ -1570,6 +1596,38 @@ export function VoucherForm({
                 kan visas.
               </p>
             )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="voucher-series">Verifikationsserie</Label>
+
+          <Select
+            value={series}
+            onValueChange={setSeries}
+            disabled={seriesLockedToSource || isPosting}
+          >
+            <SelectTrigger id="voucher-series">
+              <SelectValue placeholder="Välj serie" />
+            </SelectTrigger>
+            <SelectContent>
+              {VOUCHER_SERIES_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+              {!VOUCHER_SERIES_OPTIONS.some((option) => option.value === series) && (
+                <SelectItem value={series}>
+                  {series} – Befintlig serie
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+
+          <p className="text-xs text-muted-foreground">
+            {seriesLockedToSource
+              ? "Vändningen använder samma serie som originalverifikationen."
+              : "Numret tilldelas definitivt av databasen när verifikationen bokförs."}
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -2511,6 +2569,13 @@ export function VoucherForm({
             </div>
 
             <div className="grid grid-cols-2 gap-2 text-xs">
+              <div><span className="text-muted-foreground">Serie: </span>{series}</div>
+              <div>
+                <span className="text-muted-foreground">Preliminärt nummer: </span>
+                {previewVoucherNumber !== null
+                  ? series + String(previewVoucherNumber)
+                  : "Tilldelas vid bokföring"}
+              </div>
               <div><span className="text-muted-foreground">Verifikationsdatum: </span>{documentDate}</div>
               <div><span className="text-muted-foreground">Motpart: </span>{internalEntry ? INTERNAL_PARTY : party}</div>
             </div>
