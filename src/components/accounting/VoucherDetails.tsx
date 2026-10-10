@@ -43,6 +43,17 @@ function displayTimestamp(value?: string): string {
     : parsed.toLocaleString("sv-SE");
 }
 
+function voucherSeries(value?: string): string {
+  const normalized = (value || "A").trim().toUpperCase();
+  return /^[A-Z][A-Z0-9]{0,9}$/.test(normalized) ? normalized : "A";
+}
+
+function voucherReference(
+  value: Pick<Voucher, "voucherNumber" | "series">
+): string {
+  return `${voucherSeries(value.series)}${value.voucherNumber}`;
+}
+
 function openAttachment(dataUrl: string, type: string): void {
   if (!dataUrl) {
     toast.error("Underlaget saknar filinnehåll.");
@@ -88,6 +99,20 @@ export function VoucherDetails({
   const actualReversal = vouchers.find((entry) =>
     entry.reversesVoucherId === voucher.id
   );
+  const reversalSource = voucher.reversesVoucherId
+    ? vouchers.find((entry) => entry.id === voucher.reversesVoucherId)
+    : undefined;
+  const voucherRef = voucherReference(voucher);
+  const reversalSourceRef = voucher.reversesVoucherNumber
+    ? reversalSource
+      ? voucherReference(reversalSource)
+      : `${voucherSeries(voucher.series)}${voucher.reversesVoucherNumber}`
+    : undefined;
+  const reversedByRef = voucher.reversedByVoucherNumber || actualReversal
+    ? actualReversal
+      ? voucherReference(actualReversal)
+      : `${voucherSeries(voucher.series)}${voucher.reversedByVoucherNumber}`
+    : undefined;
   const alreadyReversed = Boolean(voucher.reversedByVoucherId || actualReversal);
   const mayStartReversal = Boolean(onDuplicate) && !correctionYearLocked && !alreadyReversed;
 
@@ -113,7 +138,7 @@ export function VoucherDetails({
       status: "DRAFT",
       date: correctionDate,
       documentDate: correctionDate,
-      description: "Vändning av verifikation #" + voucher.voucherNumber + ": " + voucher.description,
+      description: "Vändning av verifikation " + voucherRef + ": " + voucher.description,
       party: voucher.party,
       lines: voucher.lines.map((line) => ({
         ...line,
@@ -138,7 +163,7 @@ export function VoucherDetails({
     };
 
     onDuplicate(draft);
-    addEntry("Påbörjade vändningsutkast för verifikation #" + voucher.voucherNumber);
+    addEntry("Påbörjade vändningsutkast för verifikation " + voucherRef);
     toast.info("Kontrollera vändningen innan du bokför den.");
     onClose();
   };
@@ -167,7 +192,7 @@ export function VoucherDetails({
           voucherNumber: voucher.voucherNumber,
         });
         addEntry(
-          "Kompletterade verifikation #" + voucher.voucherNumber +
+          "Kompletterade verifikation " + voucherRef +
           " med underlaget " + file.name + " (ID: " + newReceipt.id + ")"
         );
         toast.success("Kompletterande underlag tillagt.");
@@ -183,7 +208,7 @@ export function VoucherDetails({
     const comment = addComment({
       targetType: "voucher",
       targetId: voucher.id,
-      targetLabel: "Verifikation #" + voucher.voucherNumber + " · " + voucher.description,
+      targetLabel: "Verifikation " + voucherRef + " · " + voucher.description,
       text,
     });
     if (comment) {
@@ -206,7 +231,7 @@ export function VoucherDetails({
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
           <h2 className="text-xl font-semibold text-foreground">
-            Verifikation #{voucher.voucherNumber}
+            Verifikation {voucherRef}
           </h2>
           <p className="flex items-center gap-1 text-sm text-muted-foreground">
             <Lock className="h-3.5 w-3.5" /> Bokförd – originaluppgifterna är låsta
@@ -217,16 +242,16 @@ export function VoucherDetails({
         </Button>
       </div>
 
-      {(voucher.reversesVoucherNumber || voucher.reversedByVoucherNumber || actualReversal) && (
+      {(reversalSourceRef || reversedByRef) && (
         <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm space-y-1">
           <div className="flex items-center gap-2 font-medium">
             <Link2 className="h-4 w-4" /> Kopplade verifikationer
           </div>
-          {voucher.reversesVoucherNumber && (
-            <p>Den här verifikationen vänder verifikation #{voucher.reversesVoucherNumber}.</p>
+          {reversalSourceRef && (
+            <p>Den här verifikationen vänder verifikation {reversalSourceRef}.</p>
           )}
-          {(voucher.reversedByVoucherNumber || actualReversal) && (
-            <p>Den här verifikationen har vänts av verifikation #{voucher.reversedByVoucherNumber || actualReversal?.voucherNumber}.</p>
+          {reversedByRef && (
+            <p>Den här verifikationen har vänts av verifikation {reversedByRef}.</p>
           )}
         </div>
       )}
@@ -352,7 +377,7 @@ export function VoucherDetails({
       <Dialog open={showReceiptsDialog} onOpenChange={setShowReceiptsDialog}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Underlag för verifikation #{voucher.voucherNumber}</DialogTitle>
+            <DialogTitle>Underlag för verifikation {voucherRef}</DialogTitle>
           </DialogHeader>
           <div className="max-h-96 space-y-2 overflow-y-auto">
             {originalAttachments.map((attachment) => (
