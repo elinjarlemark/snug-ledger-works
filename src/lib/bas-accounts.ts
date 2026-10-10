@@ -19,6 +19,14 @@ export type AccountClass =
   | "revenue"
   | "expense";
 
+export type NormalBalanceSide =
+  | "debit"
+  | "credit";
+
+export type BalanceSide =
+  | NormalBalanceSide
+  | "zero";
+
 export type AccountingStandard =
   | "K2"
   | "K3"
@@ -802,36 +810,148 @@ export function getAccountClassName(
   }
 }
 
-export function calculateBalance(
-  accountClass:
-    AccountClass,
+/**
+ * Returns the side that normally increases an account class.
+ *
+ * asset / expense          -> debit
+ * equity-liability/revenue -> credit
+ *
+ * Class 8 is deliberately not hard-coded here. getAccountClass() uses
+ * the installed BAS/INK2 mapping when it is available, so financial
+ * income can be credit-normal while financial expenses are debit-normal.
+ */
+export function getNormalBalanceSide(
+  accountClass: AccountClass
+): NormalBalanceSide {
+  if (
+    accountClass === "asset" ||
+    accountClass === "expense"
+  ) {
+    return "debit";
+  }
+
+  return "credit";
+}
+
+export function getAccountNormalBalanceSide(
+  accountNumber: string
+): NormalBalanceSide {
+  return getNormalBalanceSide(
+    getAccountClass(accountNumber)
+  );
+}
+
+/**
+ * Raw ledger sign: debit is positive and credit is negative.
+ * This is useful when a report must explicitly show which side a
+ * balance is on. It is NOT the normalized BAS balance used for totals.
+ */
+export function calculateDebitCreditBalance(
   totalDebit: number,
   totalCredit: number
 ): number {
-  if (
-    accountClass ===
-      "asset" ||
-    accountClass ===
-      "expense"
-  ) {
-    return (
-      totalDebit -
+  return totalDebit - totalCredit;
+}
+
+/**
+ * Normalized BAS balance. A positive value means that the account has
+ * a balance on its normal side; a negative value means that it has an
+ * opposite-side balance.
+ */
+export function calculateBalance(
+  accountClass: AccountClass,
+  totalDebit: number,
+  totalCredit: number
+): number {
+  const debitCreditBalance =
+    calculateDebitCreditBalance(
+      totalDebit,
       totalCredit
     );
+
+  return getNormalBalanceSide(
+    accountClass
+  ) === "debit"
+    ? debitCreditBalance
+    : -debitCreditBalance;
+}
+
+export function calculateAccountBalance(
+  accountNumber: string,
+  totalDebit: number,
+  totalCredit: number
+): number {
+  return calculateBalance(
+    getAccountClass(accountNumber),
+    totalDebit,
+    totalCredit
+  );
+}
+
+/**
+ * Returns the actual debit/credit side of totals, independent of the
+ * account's normal BAS side. Amounts smaller than half an öre are zero.
+ */
+export function getDebitCreditBalanceSide(
+  totalDebit: number,
+  totalCredit: number
+): BalanceSide {
+  const balance =
+    calculateDebitCreditBalance(
+      totalDebit,
+      totalCredit
+    );
+
+  if (Math.abs(balance) < 0.005) {
+    return "zero";
   }
 
-  return (
-    totalCredit -
-    totalDebit
+  return balance > 0
+    ? "debit"
+    : "credit";
+}
+
+/**
+ * Returns the actual side represented by a normalized BAS balance.
+ * Positive = normal side, negative = opposite side.
+ */
+export function getBalanceSide(
+  accountClass: AccountClass,
+  balance: number
+): BalanceSide {
+  if (Math.abs(balance) < 0.005) {
+    return "zero";
+  }
+
+  const normalSide =
+    getNormalBalanceSide(
+      accountClass
+    );
+
+  if (balance > 0) {
+    return normalSide;
+  }
+
+  return normalSide === "debit"
+    ? "credit"
+    : "debit";
+}
+
+export function getAccountBalanceSide(
+  accountNumber: string,
+  balance: number
+): BalanceSide {
+  return getBalanceSide(
+    getAccountClass(accountNumber),
+    balance
   );
 }
 
 export function isBalanceNormal(
-  _accountClass:
-    AccountClass,
+  _accountClass: AccountClass,
   balance: number
 ): boolean {
-  return balance >= 0;
+  return balance >= -0.004999999;
 }
 
 // Behåll exportnamnet eftersom äldre
