@@ -18,6 +18,7 @@ export interface CompanyProfile {
   fiscalYearStart: string;
   fiscalYearEnd: string;
   accountingStandard: 'K2' | 'K3' | '';
+  defaultVoucherSeries?: string;
   invoiceBookingAccount?: string;
 }
 
@@ -76,6 +77,7 @@ const DEFAULT_COMPANY_PROFILE: Omit<CompanyProfile, 'id'> = {
   fiscalYearStart: '01-01',
   fiscalYearEnd: '12-31',
   accountingStandard: '',
+  defaultVoucherSeries: 'A',
 };
 
 // Predefined company for test user (test@test.com)
@@ -90,10 +92,17 @@ const TEST_USER_COMPANY: Omit<CompanyProfile, 'id'> = {
   fiscalYearStart: '01-01',
   fiscalYearEnd: '12-31',
   accountingStandard: 'K2',
+  defaultVoucherSeries: 'A',
 };
 
 const TEST_USER_EMAIL = 'test@test.com';
 const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? 'http://localhost:8000';
+
+const normalizeVoucherSeries = (value: unknown, fallback = 'A'): string => {
+  if (typeof value !== 'string') return fallback;
+  const normalized = value.trim().toUpperCase();
+  return normalized || fallback;
+};
 
 const mapCompanyFromApi = (company: any): CompanyProfile => ({
   id: String(company.id),
@@ -108,6 +117,9 @@ const mapCompanyFromApi = (company: any): CompanyProfile => ({
   fiscalYearEnd: company.fiscalYearEnd ?? '12-31',
   accountingStandard:
     company.accountingStandard === 'K3' ? 'K3' : company.accountingStandard === 'K2' ? 'K2' : '',
+  defaultVoucherSeries: normalizeVoucherSeries(
+    company.defaultVoucherSeries ?? company.default_voucher_series,
+  ),
 });
 
 const toCompanyRequestBody = (company: Omit<CompanyProfile, 'id'>, userId?: string | number) => {
@@ -125,6 +137,9 @@ const toCompanyRequestBody = (company: Omit<CompanyProfile, 'id'>, userId?: stri
     fiscal_year_start: company.fiscalYearStart,
     fiscal_year_end: company.fiscalYearEnd,
     accounting_standard: company.accountingStandard || null,
+    ...(company.defaultVoucherSeries
+      ? { default_voucher_series: normalizeVoucherSeries(company.defaultVoucherSeries) }
+      : {}),
   };
 };
 
@@ -356,6 +371,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           fiscal_year_start: defaultCompany.fiscalYearStart,
           fiscal_year_end: defaultCompany.fiscalYearEnd,
           accounting_standard: defaultCompany.accountingStandard || null,
+          default_voucher_series: normalizeVoucherSeries(defaultCompany.defaultVoucherSeries),
         }),
       });
 
