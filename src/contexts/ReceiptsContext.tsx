@@ -8,6 +8,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { useAuth } from "./AuthContext";
+import { useAccounting } from "./AccountingContext";
 
 export interface Receipt {
   id: string;
@@ -72,6 +73,7 @@ function readReceipts(companyId: string): Receipt[] {
 
 export function ReceiptsProvider({ children }: { children: ReactNode }) {
   const { activeCompany } = useAuth();
+  const { getVoucherById } = useAccounting();
   const companyId = activeCompany?.id || "";
 
   // Företagets ID följer med tillståndet så att data från ett tidigare
@@ -102,10 +104,23 @@ export function ReceiptsProvider({ children }: { children: ReactNode }) {
       throw new Error("Välj ett företag innan du lägger till ett underlag.");
     }
 
+    // Om underlaget kopplas direkt till en verifikation hämtar kvittolagret
+    // serien från själva verifikationen. Då behöver varje anropare inte komma
+    // ihåg att skicka serien separat, och A1/B1 kan aldrig blandas ihop bara
+    // för att metadata saknas. Ett uttryckligt giltigt värde får företräde.
+    const explicitSeries = normalizeVoucherSeries(data.voucherSeries);
+    const linkedVoucher = data.voucherId ? getVoucherById(data.voucherId) : undefined;
+    const linkedSeries = linkedVoucher
+      ? normalizeVoucherSeries(linkedVoucher.series) || "A"
+      : null;
+
     // Kompletteringar skapas alltid som NYA underlag med egna ID:n.
     // Vi ändrar aldrig en redan sparad fils innehåll eller ID.
     const receipt: Receipt = {
       ...data,
+      voucherSeries: data.voucherId
+        ? explicitSeries ?? linkedSeries
+        : explicitSeries,
       id: crypto.randomUUID(),
       companyId,
       createdAt: new Date().toISOString(),
@@ -168,11 +183,15 @@ export function ReceiptsProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
-    const normalizedVoucherSeries = normalizeVoucherSeries(voucherSeries);
-    if (voucherSeries !== undefined && voucherSeries !== null && !normalizedVoucherSeries) {
+    const suppliedVoucherSeries = normalizeVoucherSeries(voucherSeries);
+    if (voucherSeries !== undefined && voucherSeries !== null && !suppliedVoucherSeries) {
       toast.error("Verifikationsserien är ogiltig.");
       return false;
     }
+
+    const linkedVoucher = getVoucherById(voucherId);
+    const normalizedVoucherSeries = suppliedVoucherSeries ??
+      (linkedVoucher ? normalizeVoucherSeries(linkedVoucher.series) || "A" : null);
 
     if (receipt.voucherId) {
       if (
