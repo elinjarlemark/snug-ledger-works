@@ -1835,35 +1835,24 @@ export function AccountingProvider({
       return null;
     }
 
-    let runningBalance =
-      0;
+    type StatementSourceEntry = {
+      voucherId: string;
+      date: string;
+      voucherNumber: number;
+      series: string;
+      description: string;
+      debit: number;
+      credit: number;
+      createdAt: string;
+    };
 
-    const entries =
+    const allEntries: StatementSourceEntry[] =
       vouchers
         .filter(
-          (voucher) => {
-            if (
-              startDate &&
-              voucher.date <
-                startDate
-            ) {
-              return false;
-            }
-
-            if (
-              endDate &&
-              voucher.date >
-                endDate
-            ) {
-              return false;
-            }
-
-            return voucher.lines.some(
-              (line) =>
-                line.accountNumber ===
-                accountNumber
-            );
-          }
+          (voucher) =>
+            !endDate ||
+            voucher.date <=
+              endDate
         )
         .flatMap(
           (voucher) =>
@@ -1874,58 +1863,153 @@ export function AccountingProvider({
                   accountNumber
               )
               .map(
-                (line) => {
-                  const balanceChange =
-                    calculateAccountBalance(
-                      accountNumber,
-                      line.debit,
-                      line.credit
-                    );
+                (line) => ({
+                  voucherId:
+                    voucher.id,
 
-                  runningBalance =
-                    roundToOre(
-                      runningBalance +
-                        balanceChange
-                    );
+                  date:
+                    voucher.date,
 
-                  return {
-                    voucherId:
-                      voucher.id,
+                  voucherNumber:
+                    voucher
+                      .voucherNumber,
 
-                    date:
-                      voucher.date,
+                  series:
+                    voucherSeriesOf(voucher),
 
-                    voucherNumber:
-                      voucher
-                        .voucherNumber,
+                  description:
+                    voucher
+                      .description,
 
-                    series:
-                      voucherSeriesOf(voucher),
+                  debit:
+                    line.debit,
 
-                    description:
-                      voucher
-                        .description,
+                  credit:
+                    line.credit,
 
-                    debit:
-                      line.debit,
-
-                    credit:
-                      line.credit,
-
-                    balance:
-                      runningBalance,
-                  };
-                }
+                  createdAt:
+                    voucher.createdAt ||
+                    "",
+                })
               )
+        )
+        .sort(
+          (a, b) => {
+            const dateCompare =
+              a.date.localeCompare(
+                b.date
+              );
+
+            if (dateCompare !== 0) {
+              return dateCompare;
+            }
+
+            const numberCompare =
+              a.voucherNumber -
+              b.voucherNumber;
+
+            if (numberCompare !== 0) {
+              return numberCompare;
+            }
+
+            const seriesCompare =
+              a.series.localeCompare(
+                b.series
+              );
+
+            if (seriesCompare !== 0) {
+              return seriesCompare;
+            }
+
+            const createdCompare =
+              a.createdAt.localeCompare(
+                b.createdAt
+              );
+
+            if (createdCompare !== 0) {
+              return createdCompare;
+            }
+
+            return a.voucherId.localeCompare(
+              b.voucherId
+            );
+          }
         );
+
+    let runningBalance =
+      roundToOre(
+        allEntries
+          .filter(
+            (entry) =>
+              Boolean(startDate) &&
+              entry.date <
+                startDate!
+          )
+          .reduce(
+            (sum, entry) =>
+              sum +
+              calculateAccountBalance(
+                accountNumber,
+                entry.debit,
+                entry.credit
+              ),
+            0
+          )
+      );
+
+    const periodEntries =
+      allEntries.filter(
+        (entry) =>
+          !startDate ||
+          entry.date >=
+            startDate
+      );
+
+    const entries =
+      periodEntries.map(
+        (entry) => {
+          runningBalance =
+            roundToOre(
+              runningBalance +
+                calculateAccountBalance(
+                  accountNumber,
+                  entry.debit,
+                  entry.credit
+                )
+            );
+
+          return {
+            voucherId:
+              entry.voucherId,
+
+            date:
+              entry.date,
+
+            voucherNumber:
+              entry.voucherNumber,
+
+            series:
+              entry.series,
+
+            description:
+              entry.description,
+
+            debit:
+              entry.debit,
+
+            credit:
+              entry.credit,
+
+            balance:
+              runningBalance,
+          };
+        }
+      );
 
     const totalDebit =
       roundToOre(
         entries.reduce(
-          (
-            sum,
-            entry
-          ) =>
+          (sum, entry) =>
             sum +
             entry.debit,
           0
@@ -1935,10 +2019,7 @@ export function AccountingProvider({
     const totalCredit =
       roundToOre(
         entries.reduce(
-          (
-            sum,
-            entry
-          ) =>
+          (sum, entry) =>
             sum +
             entry.credit,
           0
