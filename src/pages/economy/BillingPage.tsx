@@ -361,6 +361,7 @@ function InvoiceDetailView({
         state: {
           openCreateVoucher: true,
           prefillVoucher: {
+            series: "B",
             description: `Invoice #${invoice.invoiceNumber} - ${invoice.customerName}`,
             party: invoice.customerName,
             partyId: invoice.customerId,
@@ -383,6 +384,7 @@ function InvoiceDetailView({
         state: {
           openCreateVoucher: true,
           prefillVoucher: {
+            series: "B",
             description: built.description,
             party: invoice.customerName,
             partyId: invoice.customerId,
@@ -399,6 +401,7 @@ function InvoiceDetailView({
       const postingDate = invoice.paidDate || new Date().toLocaleDateString("sv-SE");
       const built = buildVoucherFromTemplate(invoice, tpl, postingDate);
       const created = await createVoucher({
+        series: "B",
         date: built.date,
         documentDate: invoice.issueDate || built.date,
         party: invoice.customerName,
@@ -419,12 +422,14 @@ function InvoiceDetailView({
       } catch (statusError) {
         console.error("The voucher was posted, but the invoice status could not be updated:", statusError);
         setShowPaidConfirm(false);
-        toast.error(`Verifikation #${created.voucherNumber} är bokförd, men fakturans status kunde inte uppdateras. Kontrollera verifikationslistan innan du försöker igen.`);
+        const voucherRef = `${created.series || "B"}${created.voucherNumber}`;
+        toast.error(`Verifikation ${voucherRef} är bokförd, men fakturans status kunde inte uppdateras. Kontrollera verifikationslistan innan du försöker igen.`);
         return;
       }
 
       setShowPaidConfirm(false);
-      toast.success(`Voucher #${created.voucherNumber} created`, {
+      const voucherRef = `${created.series || "B"}${created.voucherNumber}`;
+      toast.success(`Voucher ${voucherRef} created`, {
         description: `From "${tpl.name}" template`,
       });
     } catch (error) {
