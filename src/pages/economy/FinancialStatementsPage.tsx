@@ -8,7 +8,12 @@ import { format } from "date-fns";
 import { Link, useOutletContext } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccounting, GeneralLedgerEntry } from "@/contexts/AccountingContext";
-import { formatAmount, getAccountClassName, getAccountClass } from "@/lib/bas-accounts";
+import {
+  formatAmount,
+  getAccountClassName,
+  getAccountClass,
+  getAccountBalanceSide,
+} from "@/lib/bas-accounts";
 import { exportIncomeStatementPDF, exportBalanceSheetPDF } from "@/lib/pdf-export";
 import { toast } from "sonner";
 import { DateInputPicker } from "@/components/ui/date-input-picker";
@@ -23,13 +28,6 @@ const groupByClass = (entries: GeneralLedgerEntry[]) => {
     groups[classNum].push(entry);
   });
   return groups;
-};
-
-const balanceSide = (entry: GeneralLedgerEntry) => {
-  const amount = entry.totalDebit - entry.totalCredit;
-  if (amount > 0) return { label: "Debet", className: "text-success" };
-  if (amount < 0) return { label: "Kredit", className: "text-primary" };
-  return { label: "Noll", className: "text-muted-foreground" };
 };
 
 interface ReportPanelProps {
@@ -74,23 +72,47 @@ function ReportPanel({ compact }: ReportPanelProps) {
   const closingLedger = getGeneralLedger(undefined, endDateStr);
 
   const balanceRows = [
-    ...new Set([...openingLedger, ...periodLedger, ...closingLedger].map((entry) => entry.accountNumber).filter((number) => number.startsWith("1") || number.startsWith("2")))
-  ].sort().map((accountNumber) => {
-    const opening = openingLedger.find((entry) => entry.accountNumber === accountNumber);
-    const change = periodLedger.find((entry) => entry.accountNumber === accountNumber);
-    const closing = closingLedger.find((entry) => entry.accountNumber === accountNumber);
-    const accountName = closing?.accountName || change?.accountName || opening?.accountName || "Unknown";
-    const signed = (amount: number) => accountNumber.startsWith("2") ? -amount : amount;
-    const closingSigned = signed(closing?.balance || 0);
-    return {
-      accountNumber, accountName,
-      opening: signed(opening?.balance || 0),
-      change: signed(change?.balance || 0),
-      closing: closingSigned,
-      side: closingSigned > 0 ? "Debet" : closingSigned < 0 ? "Kredit" : "Noll",
-    };
-  });
-  const balanceDiff = (field: "opening" | "change" | "closing") => balanceRows.reduce((sum, row) => sum + row[field], 0);
+    ...new Set(
+      [...openingLedger, ...periodLedger, ...closingLedger]
+        .map((entry) => entry.accountNumber)
+        .filter((accountNumber) => {
+          const accountClass = getAccountClass(accountNumber);
+          return accountClass === "asset" || accountClass === "equity_liability";
+        })
+    ),
+  ]
+    .sort()
+    .map((accountNumber) => {
+      const opening = openingLedger.find((entry) => entry.accountNumber === accountNumber);
+      const change = periodLedger.find((entry) => entry.accountNumber === accountNumber);
+      const closing = closingLedger.find((entry) => entry.accountNumber === accountNumber);
+      const accountName = closing?.accountName || change?.accountName || opening?.accountName || "Unknown";
+      const openingBalance = opening?.balance || 0;
+      const changeBalance = change?.balance || 0;
+      const closingBalance = closing?.balance || 0;
+      const side = getAccountBalanceSide(accountNumber, closingBalance);
+
+      return {
+        accountNumber,
+        accountName,
+        accountClass: getAccountClass(accountNumber),
+        opening: openingBalance,
+        change: changeBalance,
+        closing: closingBalance,
+        side: side === "debit" ? "Debet" : side === "credit" ? "Kredit" : "Noll",
+      };
+    });
+
+  const balanceDiff = (field: "opening" | "change" | "closing") => {
+    const assets = balanceRows
+      .filter((row) => row.accountClass === "asset")
+      .reduce((sum, row) => sum + row[field], 0);
+    const equityLiabilities = balanceRows
+      .filter((row) => row.accountClass === "equity_liability")
+      .reduce((sum, row) => sum + row[field], 0);
+
+    return assets - equityLiabilities;
+  };
 
   const totalRevenue = incomeStatement.revenues.reduce((sum, e) => sum + e.balance, 0);
   const totalExpenses = incomeStatement.expenses.reduce((sum, e) => sum + e.balance, 0);
@@ -202,7 +224,7 @@ function ReportPanel({ compact }: ReportPanelProps) {
               <div>
                 <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-success"></span>
-                  Revenue (Intäkter) - Class 3
+                  Revenue (Intäkter)
                 </h3>
                 {!compact && (
                   <p className="text-sm text-muted-foreground mb-4">
@@ -249,7 +271,7 @@ function ReportPanel({ compact }: ReportPanelProps) {
               <div>
                 <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-destructive"></span>
-                  Expenses (Kostnader) - Classes 4-8
+                  Expenses (Kostnader)
                 </h3>
                 {!compact && (
                   <p className="text-sm text-muted-foreground mb-4">
