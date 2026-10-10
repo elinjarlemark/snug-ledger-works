@@ -286,6 +286,10 @@ export interface Voucher {
   voucherNumber:
     number;
 
+  // AccountPros interna verifikationsserie. Äldre verifikationer utan fältet
+  // tillhör serie A; original serie från SIE sparas separat i originalSeries.
+  series?: string;
+
   date: string;
 
   description:
@@ -331,8 +335,10 @@ export interface AccountStatement {
   accountName: string;
 
   entries: {
+    voucherId: string;
     date: string;
     voucherNumber: number;
+    series: string;
     description: string;
 
     debit: number;
@@ -366,6 +372,14 @@ interface AccountingContextType {
 
   nextVoucherNumber:
     number;
+
+  defaultVoucherSeries:
+    string;
+
+  getNextVoucherNumberFor: (
+    date: string,
+    series?: string
+  ) => number;
 
   addAccount: (
     account:
@@ -431,7 +445,9 @@ interface AccountingContextType {
 
   getVoucherByNumber: (
     voucherNumber:
-      number
+      number,
+    series?: string,
+    date?: string
   ) =>
     Voucher | undefined;
 
@@ -526,6 +542,115 @@ const API_BASE_URL =
   import.meta.env
     .VITE_API_BASE_URL ??
   "http://localhost:8000";
+
+const FALLBACK_VOUCHER_SERIES = "A";
+const VOUCHER_SERIES_PATTERN = /^[A-Z][A-Z0-9]{0,9}$/;
+
+function normalizeVoucherSeries(
+  value: unknown,
+  fallback = FALLBACK_VOUCHER_SERIES
+): string | null {
+  const source =
+    typeof value === "string" && value.trim()
+      ? value.trim()
+      : fallback;
+
+  const normalized = source.toUpperCase();
+  return VOUCHER_SERIES_PATTERN.test(normalized)
+    ? normalized
+    : null;
+}
+
+function voucherSeriesOf(voucher: Pick<Voucher, "series">): string {
+  // Revision 0013 migrates legacy posted vouchers to internal series A.
+  // Do not write this fallback back into old voucher JSON: immutable snapshots
+  // created before series support intentionally lack the field.
+  return normalizeVoucherSeries(voucher.series, FALLBACK_VOUCHER_SERIES) ??
+    FALLBACK_VOUCHER_SERIES;
+}
+
+function fiscalYearStartForDate(
+  postingDate: string,
+  configuredStart?: string
+): string | null {
+  const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(postingDate);
+  if (!dateMatch) {
+    return null;
+  }
+
+  const year = Number(dateMatch[1]);
+  const month = Number(dateMatch[2]);
+  const day = Number(dateMatch[3]);
+  const transaction = new Date(Date.UTC(year, month - 1, day));
+  if (
+    transaction.getUTCFullYear() !== year ||
+    transaction.getUTCMonth() !== month - 1 ||
+    transaction.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  const rawStart = (configuredStart || "01-01").trim();
+  const startMatch = /^(?:(?:\d{4})-)?(\d{2})-(\d{2})$/.exec(rawStart);
+  if (!startMatch) {
+    return null;
+  }
+
+  const startMonth = Number(startMatch[1]);
+  const startDay = Number(startMatch[2]);
+  let startYear = year;
+  if (month < startMonth || (month === startMonth && day < startDay)) {
+    startYear -= 1;
+  }
+
+  const start = new Date(Date.UTC(startYear, startMonth - 1, startDay));
+  if (
+    start.getUTCFullYear() !== startYear ||
+    start.getUTCMonth() !== startMonth - 1 ||
+    start.getUTCDate() !== startDay
+  ) {
+    return null;
+  }
+
+  return [
+    String(startYear).padStart(4, "0"),
+    String(startMonth).padStart(2, "0"),
+    String(startDay).padStart(2, "0"),
+  ].join("-");
+}
+
+function nextVoucherNumberForSeries(
+  vouchers: Voucher[],
+  date: string,
+  series: string,
+  configuredFiscalStart?: string
+): number {
+  const normalizedSeries = normalizeVoucherSeries(series);
+  const targetFiscalYear = fiscalYearStartForDate(date, configuredFiscalStart);
+  if (!normalizedSeries || !targetFiscalYear) {
+    return 1;
+  }
+
+  let highest = 0;
+  for (const voucher of vouchers) {
+    if (voucher.voucherNumber <= 0 || voucherSeriesOf(voucher) !== normalizedSeries) {
+      continue;
+    }
+    if (fiscalYearStartForDate(voucher.date, configuredFiscalStart) !== targetFiscalYear) {
+      continue;
+    }
+    highest = Math.max(highest, voucher.voucherNumber);
+  }
+  return highest + 1;
+}
+
+function compareVouchers(a: Voucher, b: Voucher): number {
+  return (
+    a.date.localeCompare(b.date) ||
+    voucherSeriesOf(a).localeCompare(voucherSeriesOf(b)) ||
+    a.voucherNumber - b.voucherNumber
+  );
+}
 
 function mergeAccountsPreferFirst(
   ...groups:
@@ -653,6 +778,24 @@ export function AccountingProvider({
   const companyId =
     activeCompany?.id ||
     "";
+
+  const defaultVoucherSeries =
+    normalizeVoucherSeries(
+      (activeCompany as (typeof activeCompany & { defaultVoucherSeries?: string }) | null)
+        ?.defaultVoucherSeries,
+      FALLBACK_VOUCHER_SERIES
+    ) ?? FALLBACK_VOUCHER_SERIES;
+
+  const getNextVoucherNumberFor = (
+    date: string,
+    series = defaultVoucherSeries
+  ): number =>
+    nextVoucherNumberForSeries(
+      vouchers,
+      date,
+      series,
+      activeCompany?.fiscalYearStart
+    );
 
   const activeCompanyIdRef =
     useRef(
@@ -883,6 +1026,9 @@ export function AccountingProvider({
                 voucherNumber:
                   voucherNo,
 
+                series:
+                  FALLBACK_VOUCHER_SERIES,
+
                 date:
                   today,
 
@@ -964,8 +1110,14 @@ export function AccountingProvider({
         initialVouchers
       );
 
+      const todayForSequence = new Date().toLocaleDateString("sv-SE");
       setNextVoucherNumber(
-        initialNextNumber
+        nextVoucherNumberForSeries(
+          initialVouchers,
+          todayForSequence,
+          defaultVoucherSeries,
+          activeCompany?.fiscalYearStart
+        )
       );
 
       const numericUserId =
@@ -1103,6 +1255,7 @@ export function AccountingProvider({
               openingBalanceVoucher
                 .voucherNumber =
                 0;
+              openingBalanceVoucher.series = FALLBACK_VOUCHER_SERIES;
             }
 
             const converted =
@@ -1112,6 +1265,9 @@ export function AccountingProvider({
                 [],
                 conversionAccounts
               );
+            converted.newVouchers.forEach((voucher) => {
+              voucher.series = FALLBACK_VOUCHER_SERIES;
+            });
 
             const dbVouchers =
               [
@@ -1125,20 +1281,7 @@ export function AccountingProvider({
 
                 ...converted
                   .newVouchers,
-              ].sort(
-                (
-                  a,
-                  b
-                ) =>
-                  new Date(
-                    a.date
-                  ).getTime() -
-                    new Date(
-                      b.date
-                    ).getTime() ||
-                  a.voucherNumber -
-                    b.voucherNumber
-              );
+              ].sort(compareVouchers);
 
             if (
               activeCompanyIdRef
@@ -1156,10 +1299,13 @@ export function AccountingProvider({
               dbVouchers
             );
 
-            setNextVoucherNumber(
-              converted
-                .nextVoucherNumber
+            const hydratedNextNumber = nextVoucherNumberForSeries(
+              dbVouchers,
+              new Date().toLocaleDateString("sv-SE"),
+              defaultVoucherSeries,
+              activeCompany?.fiscalYearStart
             );
+            setNextVoucherNumber(hydratedNextNumber);
 
             persistVouchers(
               requestedCompanyId,
@@ -1167,12 +1313,8 @@ export function AccountingProvider({
             );
 
             appStorage.setItem(
-              "accountpro_next_voucher_" +
-                requestedCompanyId,
-
-              converted
-                .nextVoucherNumber
-                .toString()
+              "accountpro_next_voucher_" + requestedCompanyId,
+              hydratedNextNumber.toString()
             );
           }
         )
@@ -1196,6 +1338,8 @@ export function AccountingProvider({
     [
       companyId,
       user?.id,
+      defaultVoucherSeries,
+      activeCompany?.fiscalYearStart,
     ]
   );
 
@@ -1209,41 +1353,63 @@ export function AccountingProvider({
   };
 
   const saveVouchers = async (
-    newVouchers: Voucher[],
-    newNextNumber: number
-  ): Promise<void> => {
-    if (!companyId) throw new Error("Välj ett företag innan du bokför.");
+    newVouchers: Voucher[]
+  ): Promise<Voucher[]> => {
+    if (!companyId) {
+      throw new Error("Välj ett företag innan du bokför.");
+    }
+
     const requestedCompanyId = companyId;
+    const storageKey = "accountpro_vouchers_" + requestedCompanyId;
     persistVouchers(requestedCompanyId, newVouchers);
-    appStorage.setItem("accountpro_next_voucher_" + requestedCompanyId, String(newNextNumber));
-    // appStorage lagrar först ändringen i en återställningsjournal. Vänta
-    // här på databasens kvittens innan vi visar att bokföringen lyckades.
+
+    // appStorage lagrar först ändringen i en återställningsjournal. Vänta här
+    // på databasens kvittens. När serverstyrd nummersättning aktiveras kan
+    // backend returnera andra definitiva nummer än de preliminära. Läs därför
+    // alltid tillbaka den bekräftade arbetsytan efter flush.
     await flushAppStorage();
     if (activeCompanyIdRef.current !== requestedCompanyId) {
       throw new Error("Företaget byttes medan verifikationen sparades.");
     }
-    setVouchers(newVouchers);
-    setNextVoucherNumber(newNextNumber);
+
+    const confirmedRaw = appStorage.getItem(storageKey);
+    const confirmed = confirmedRaw
+      ? rehydrateVouchers(
+          requestedCompanyId,
+          JSON.parse(confirmedRaw) as Voucher[]
+        ) as Voucher[]
+      : newVouchers;
+
+    setVouchers(confirmed);
+
+    const today = new Date().toLocaleDateString("sv-SE");
+    const legacyNextNumber = nextVoucherNumberForSeries(
+      confirmed,
+      today,
+      defaultVoucherSeries,
+      activeCompany?.fiscalYearStart
+    );
+    setNextVoucherNumber(legacyNextNumber);
+
+    return confirmed;
   };
 
   const commitVoucherState = async (
-    newVouchers: Voucher[],
-    newNextNumber: number
-  ): Promise<boolean> => {
+    newVouchers: Voucher[]
+  ): Promise<Voucher[] | null> => {
     if (writingRef.current || failedWriteRef.current) {
       console.warn("Bokföringen är upptagen eller en tidigare sparning misslyckades.");
-      return false;
+      return null;
     }
     writingRef.current = true;
     try {
-      await saveVouchers(newVouchers, newNextNumber);
-      return true;
+      return await saveVouchers(newVouchers);
     } catch (error) {
       failedWriteRef.current = true;
       console.error("Bokföringen kunde inte bekräftas av lagringen:", error);
       // AppStorage behåller sin återställningsjournal. Tillåt inte en ny
       // bokföringspost med samma nummer innan felet har lösts.
-      return false;
+      return null;
     } finally {
       writingRef.current = false;
     }
@@ -1307,10 +1473,28 @@ export function AccountingProvider({
       return null;
     }
 
+    const series = normalizeVoucherSeries(
+      voucherData.series,
+      defaultVoucherSeries
+    );
+    if (!series) {
+      return null;
+    }
+
+    const fiscalStart = fiscalYearStartForDate(
+      voucherData.date,
+      activeCompany?.fiscalYearStart
+    );
+    if (!fiscalStart) {
+      return null;
+    }
+
     const postedAt = new Date().toISOString();
     const newVoucher:
       Voucher = {
       ...voucherData,
+
+      series,
 
       lines:
         normalizedLines,
@@ -1326,7 +1510,12 @@ export function AccountingProvider({
       companyId,
 
       voucherNumber:
-        Math.max(nextVoucherNumber, ...vouchers.map((entry) => entry.voucherNumber + 1)),
+        nextVoucherNumberForSeries(
+          vouchers,
+          voucherData.date,
+          series,
+          activeCompany?.fiscalYearStart
+        ),
 
       createdAt:
         new Date()
@@ -1378,31 +1567,25 @@ export function AccountingProvider({
         ),
 
         newVoucher,
-      ].sort(
-        (
-          a,
-          b
-        ) =>
-          new Date(
-            a.date
-          ).getTime() -
-            new Date(
-              b.date
-            ).getTime() ||
-          a.voucherNumber -
-            b.voucherNumber
-      );
+      ].sort(compareVouchers);
 
-    if (!(await commitVoucherState(newVouchers, newVoucher.voucherNumber + 1))) {
+    const committedVouchers = await commitVoucherState(newVouchers);
+    if (!committedVouchers) {
+      return null;
+    }
+
+    const committedVoucher =
+      committedVouchers.find((entry) => entry.id === newVoucher.id) ?? null;
+    if (!committedVoucher) {
       return null;
     }
 
     syncSieStateToDatabase(
-      newVouchers,
+      committedVouchers,
       accounts
     );
 
-    return newVoucher;
+    return committedVoucher;
   };
 
   // Posted vouchers are permanent. Drafts live outside this context and may be deleted.
@@ -1487,10 +1670,20 @@ export function AccountingProvider({
     if (date > today || JSON.parse(appStorage.getItem("accountpro_locked_years_" + companyId) || "[]").includes(Number(date.slice(0, 4)))) {
       return null;
     }
+    const reversalSeries = voucherSeriesOf(existingVoucher);
+    const fiscalStart = fiscalYearStartForDate(
+      date,
+      activeCompany?.fiscalYearStart
+    );
+    if (!fiscalStart) {
+      return null;
+    }
+
     const postedAt = new Date().toISOString();
     const reversalVoucher:
       Voucher = {
       status: "POSTED",
+      series: reversalSeries,
       documentDate: today,
       postedAt,
       postedByUserId: String(user?.id || ""),
@@ -1501,7 +1694,12 @@ export function AccountingProvider({
       companyId,
 
       voucherNumber:
-        Math.max(nextVoucherNumber, ...vouchers.map((entry) => entry.voucherNumber + 1)),
+        nextVoucherNumberForSeries(
+          vouchers,
+          date,
+          reversalSeries,
+          activeCompany?.fiscalYearStart
+        ),
 
       date,
 
@@ -1552,31 +1750,25 @@ export function AccountingProvider({
         .concat(
           reversalVoucher
         )
-        .sort(
-          (
-            a,
-            b
-          ) =>
-            new Date(
-              a.date
-            ).getTime() -
-              new Date(
-                b.date
-              ).getTime() ||
-            a.voucherNumber -
-              b.voucherNumber
-        );
+        .sort(compareVouchers);
 
-    if (!(await commitVoucherState(newVouchers, reversalVoucher.voucherNumber + 1))) {
+    const committedVouchers = await commitVoucherState(newVouchers);
+    if (!committedVouchers) {
+      return null;
+    }
+
+    const committedReversal =
+      committedVouchers.find((entry) => entry.id === reversalVoucher.id) ?? null;
+    if (!committedReversal) {
       return null;
     }
 
     syncSieStateToDatabase(
-      newVouchers,
+      committedVouchers,
       accounts
     );
 
-    return reversalVoucher;
+    return committedReversal;
   };
 
   const getVoucherById = (
@@ -1592,13 +1784,32 @@ export function AccountingProvider({
 
   const getVoucherByNumber = (
     voucherNumber:
-      number
+      number,
+    series?: string,
+    date?: string
   ) => {
-    return vouchers.find(
-      (voucher) =>
-        voucher.voucherNumber ===
-        voucherNumber
-    );
+    const normalizedSeries = series
+      ? normalizeVoucherSeries(series)
+      : null;
+    const fiscalStart = date
+      ? fiscalYearStartForDate(date, activeCompany?.fiscalYearStart)
+      : null;
+
+    return vouchers.find((voucher) => {
+      if (voucher.voucherNumber !== voucherNumber) {
+        return false;
+      }
+      if (normalizedSeries && voucherSeriesOf(voucher) !== normalizedSeries) {
+        return false;
+      }
+      if (
+        fiscalStart &&
+        fiscalYearStartForDate(voucher.date, activeCompany?.fiscalYearStart) !== fiscalStart
+      ) {
+        return false;
+      }
+      return true;
+    });
   };
 
   const getAccountStatement = (
@@ -1683,12 +1894,18 @@ export function AccountingProvider({
                     );
 
                   return {
+                    voucherId:
+                      voucher.id,
+
                     date:
                       voucher.date,
 
                     voucherNumber:
                       voucher
                         .voucherNumber,
+
+                    series:
+                      voucherSeriesOf(voucher),
 
                     description:
                       voucher
@@ -2146,6 +2363,7 @@ export function AccountingProvider({
       openingBalanceVoucher
     ) {
       openingBalanceVoucher.voucherNumber = 0;
+      openingBalanceVoucher.series = FALLBACK_VOUCHER_SERIES;
       openingBalanceVoucher.importSourceId = importSourceId;
       openingBalanceVoucher.importedAt = importedAt;
       openingBalanceVoucher.status = "POSTED";
@@ -2159,6 +2377,7 @@ export function AccountingProvider({
         conversionAccounts
       );
     converted.newVouchers.forEach((voucher) => {
+      voucher.series = FALLBACK_VOUCHER_SERIES;
       voucher.importSourceId = importSourceId;
       voucher.importedAt = importedAt;
       voucher.status = "POSTED";
@@ -2176,22 +2395,10 @@ export function AccountingProvider({
 
         ...converted
           .newVouchers,
-      ].sort(
-        (
-          a,
-          b
-        ) =>
-          new Date(
-            a.date
-          ).getTime() -
-            new Date(
-              b.date
-            ).getTime() ||
-          a.voucherNumber -
-            b.voucherNumber
-      );
+      ].sort(compareVouchers);
 
-    if (!(await commitVoucherState(replacementVouchers, converted.nextVoucherNumber))) {
+    const committedVouchers = await commitVoucherState(replacementVouchers);
+    if (!committedVouchers) {
       return { success: false, imported: 0, skipped: 0,
         errors: ["Importen kunde inte bekräftas av databasen. Sparningen är stoppad tills lagringsfelet är löst."] };
     }
@@ -2205,7 +2412,7 @@ export function AccountingProvider({
     }
 
     syncSieStateToDatabase(
-      replacementVouchers,
+      committedVouchers,
       conversionAccounts
     );
 
@@ -2214,7 +2421,7 @@ export function AccountingProvider({
         true,
 
       imported:
-        replacementVouchers
+        committedVouchers
           .length,
 
       skipped:
@@ -2264,6 +2471,10 @@ export function AccountingProvider({
         vouchers,
 
         nextVoucherNumber,
+
+        defaultVoucherSeries,
+
+        getNextVoucherNumberFor,
 
         addAccount,
 
