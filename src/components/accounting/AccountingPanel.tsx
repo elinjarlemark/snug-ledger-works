@@ -34,6 +34,17 @@ function localDate(): string {
   return year + "-" + month + "-" + day;
 }
 
+// Äldre verifikationer saknar ibland explicit intern serie. De ska visas som A
+// utan att den sparade verifikationen behöver skrivas om. SIE-originalets serie
+// hanteras separat via originalSeries/originalVoucherNumber.
+function voucherSeries(voucher: Pick<Voucher, "series">): string {
+  return (voucher.series || "A").trim().toUpperCase() || "A";
+}
+
+function voucherReference(voucher: Pick<Voucher, "series" | "voucherNumber">): string {
+  return `${voucherSeries(voucher)}${voucher.voucherNumber}`;
+}
+
 function readStoredList<T>(key: string): T[] {
   const raw = appStorage.getItem(key);
   if (!raw) return [];
@@ -230,12 +241,17 @@ export function AccountingPanel({
     if (hideReversedVouchers && (v.reversesVoucherId || v.reversedByVoucherId)) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
+      const internalReference = voucherReference(v).toLowerCase();
+      const originalReference =
+        v.originalSeries && v.originalVoucherNumber !== undefined
+          ? `${v.originalSeries}${v.originalVoucherNumber}`.toLowerCase()
+          : "";
       if (
         !v.description.toLowerCase().includes(q) &&
         !(v.party || "").toLowerCase().includes(q) &&
+        !internalReference.includes(q) &&
         !v.voucherNumber.toString().includes(q) &&
-        !(v.originalSeries || "").toLowerCase().includes(q) &&
-        !(v.originalVoucherNumber === undefined ? "" : String(v.originalVoucherNumber)).includes(q) &&
+        !originalReference.includes(q) &&
         !v.date.includes(q)
       ) {
         return false;
@@ -504,7 +520,11 @@ export function AccountingPanel({
       onDuplicateToOther(duplicateVoucher);
     } else {
       setDuplicatingVoucher(duplicateVoucher);
-      setActiveTemplateName(isExplicitReversalDraft && voucher.reversesVoucherNumber ? `Vändning av verifikation #${voucher.reversesVoucherNumber}` : "");
+      setActiveTemplateName(
+        isExplicitReversalDraft && voucher.reversesVoucherNumber
+          ? `Vändning av verifikation ${voucherSeries(voucher)}${voucher.reversesVoucherNumber}`
+          : ""
+      );
       setShowCreateForm(true);
       setSelectedVoucher(null);
       setEditingVoucher(null);
@@ -664,7 +684,9 @@ export function AccountingPanel({
               <div key={draft.id} className="flex items-center justify-between rounded-md border p-3 text-sm">
                 <button className="text-left" onClick={() => openDraft(draft)}>
                   <div className="font-medium">{draft.description || "Namnlöst utkast"}</div>
-                  <div className="text-xs text-muted-foreground">{draft.date || "Datum saknas"} · {draft.lines.length} rader · Inget verifikationsnummer tilldelat</div>
+                  <div className="text-xs text-muted-foreground">
+                    {draft.date || "Datum saknas"} · {draft.lines.length} rader · Serie {voucherSeries(draft)} · Inget verifikationsnummer tilldelat
+                  </div>
                 </button>
                 <Button variant="ghost" size="icon" aria-label="Radera utkast" onClick={() => deleteDraft(draft.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
               </div>
@@ -863,7 +885,7 @@ export function AccountingPanel({
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="Sök namn, nummer eller datum..."
+                  placeholder="Sök namn, A1/B1, SIE-nr eller datum..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9"
@@ -881,7 +903,7 @@ export function AccountingPanel({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
-                  <th className="text-left py-2 px-3 font-medium text-foreground">#</th>
+                  <th className="text-left py-2 px-3 font-medium text-foreground">Ver.nr</th>
                   <th className="text-left py-2 px-3 font-medium text-foreground">Datum</th>
                   <th className="text-left py-2 px-3 font-medium text-foreground">Beskrivning</th>
                   <th className="text-right py-2 px-3 font-medium text-foreground">Belopp</th>
@@ -905,9 +927,12 @@ export function AccountingPanel({
                         onClick={() => handleVoucherClick(voucher)}
                       >
                         <td className="py-2 px-3 tabular-nums text-foreground">
-                          {voucher.originalSeries && voucher.originalVoucherNumber !== undefined
-                            ? voucher.originalSeries + voucher.originalVoucherNumber
-                            : voucher.voucherNumber}
+                          <div className="font-medium">{voucherReference(voucher)}</div>
+                          {voucher.originalSeries && voucher.originalVoucherNumber !== undefined && (
+                            <div className="text-[11px] text-muted-foreground whitespace-nowrap">
+                              SIE: {voucher.originalSeries}{voucher.originalVoucherNumber}
+                            </div>
+                          )}
                         </td>
                         <td className="py-2 px-3 text-muted-foreground">{voucher.date}</td>
                         <td className="py-2 px-3 text-foreground">
@@ -917,8 +942,26 @@ export function AccountingPanel({
                           {(voucher.reversesVoucherNumber || voucher.reversedByVoucherNumber) && (
                             <div className="text-[11px] text-amber-700">
                               {voucher.reversesVoucherNumber
-                                ? `Vänder #${voucher.reversesVoucherNumber}`
-                                : `Vänd av #${voucher.reversedByVoucherNumber}`}
+                                ? `Vänder ${
+                                    voucher.reversesVoucherId
+                                      ? voucherReference(
+                                          vouchers.find((item) => item.id === voucher.reversesVoucherId) || {
+                                            series: voucher.series,
+                                            voucherNumber: voucher.reversesVoucherNumber,
+                                          }
+                                        )
+                                      : `${voucherSeries(voucher)}${voucher.reversesVoucherNumber}`
+                                  }`
+                                : `Vänd av ${
+                                    voucher.reversedByVoucherId
+                                      ? voucherReference(
+                                          vouchers.find((item) => item.id === voucher.reversedByVoucherId) || {
+                                            series: voucher.series,
+                                            voucherNumber: voucher.reversedByVoucherNumber || 0,
+                                          }
+                                        )
+                                      : `${voucherSeries(voucher)}${voucher.reversedByVoucherNumber}`
+                                  }`}
                             </div>
                           )}
                         </td>
