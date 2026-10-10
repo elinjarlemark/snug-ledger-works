@@ -387,6 +387,18 @@ export function VoucherForm({
     sourceVoucher?.series || defaultVoucherSeries
   );
 
+  // Om företagsuppgifterna laddas efter att formuläret redan har hunnit renderas
+  // ska ett helt nytt verifikat följa företagets sparade standardserie. Ett utkast,
+  // en kopia eller en vändning behåller däremot sin egen serie, och ett manuellt
+  // serieval får aldrig skrivas över av en senare uppdatering från företaget.
+  const seriesManuallyChangedRef = useRef(false);
+
+  useEffect(() => {
+    if (!sourceVoucher && !seriesManuallyChangedRef.current) {
+      setSeries(defaultVoucherSeries);
+    }
+  }, [defaultVoucherSeries, sourceVoucher]);
+
   // En vändning ska ligga i samma interna serie som originalet.
   // Vanliga utkast och kopior får däremot byta serie innan bokföring.
   const seriesLockedToSource = Boolean(sourceVoucher?.reversesVoucherId);
@@ -1603,7 +1615,10 @@ export function VoucherForm({
 
           <Select
             value={series}
-            onValueChange={setSeries}
+            onValueChange={(value) => {
+              seriesManuallyChangedRef.current = true;
+              setSeries(value);
+            }}
             disabled={seriesLockedToSource || isPosting}
           >
             <SelectTrigger id="voucher-series">
