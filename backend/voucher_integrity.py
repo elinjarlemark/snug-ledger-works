@@ -3,24 +3,31 @@
 Posted vouchers are immutable. Subsequent reversal references are separate metadata
 and therefore are deliberately excluded from the immutable posting snapshot.
 The database transaction is committed by workspace.write_workspace, not here.
+
+Voucher numbering is scoped by company + fiscal year + internal series.  The
+workspace endpoint can opt in to server-side allocation by passing
+``allocate_numbers=True``.  Keeping that switch explicit lets older callers keep
+working while the frontend is migrated to the database-owned number sequence.
 """
 
 import json
+import re
+from collections import Counter
 from datetime import date
 from decimal import Decimal, InvalidOperation
-from collections import Counter
 
 from fastapi import HTTPException
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from models import PostedVoucherRecord
+from models import Company, PostedVoucherRecord
 
 
 # Fields that constitute the original posting. `reversedByVoucherId` and
 # `reversedByVoucherNumber` are intentionally omitted: they may be added when
 # a separate, immutable reversal voucher is posted.
 VOUCHER_FIELDS = (
-    "id", "companyId", "voucherNumber", "date", "description", "lines",
+    "id", "companyId", "voucherNumber", "series", "date", "description", "lines",
     "attachments", "createdAt", "documentDate", "party", "partyId",
     "postedAt", "postedByUserId", "postedByName", "status",
     "reversesVoucherId", "reversesVoucherNumber", "originalSeries",
@@ -30,6 +37,8 @@ VOUCHER_FIELDS = (
 # An original receipt cannot be changed or reassigned after linking it to a
 # posted voucher. Additional receipts may be appended with their own IDs.
 RECEIPT_FIELDS = ("id", "companyId", "name", "type", "dataUrl", "createdAt")
+
+_SERIES_RE = re.compile(r"^[A-Z][A-Z0-9]{0,9}$")
 
 
 def canonical(voucher: dict) -> str:
@@ -54,6 +63,120 @@ def parse_array(values: dict, key: str) -> list[dict]:
     return rows
 
 
+def normalize_series(value: object, fallback: str = "A") -> str:
+    """Return a normalized internal voucher series such as A, B or C."""
+    raw = value if isinstance(value, str) and value.strip() else fallback
+    series = str(raw).strip().upper()
+    if not _SERIES_RE.fullmatch(series):
+        raise HTTPException(
+            status_code=422,
+            detail="Verifikationsserien måste börja med en bokstav och vara högst 10 tecken (A-Z, 0-9).",
+        )
+    return series
+
+
+def _configured_fiscal_start(value: str | None) -> tuple[int, int]:
+    raw = (value or "01-01").strip()
+    if len(raw) == 5 and raw[2] == "-":
+        month_text, day_text = raw.split("-", 1)
+    elif len(raw) == 10 and raw[4] == "-" and raw[7] == "-":
+        month_text, day_text = raw[5:7], raw[8:10]
+    else:
+        raise HTTPException(status_code=422, detail="Företagets räkenskapsårsstart är ogiltig")
+
+    try:
+        month = int(month_text)
+        day = int(day_text)
+        date(2000, month, day)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Företagets räkenskapsårsstart är ogiltig")
+    return month, day
+
+
+def fiscal_year_start_for_date(posting_date: object, configured_start: str | None) -> str:
+    """Return the ISO start date for the fiscal year containing posting_date."""
+    if not isinstance(posting_date, str):
+        raise HTTPException(status_code=422, detail="Bokförd verifikation saknar giltigt datum")
+    try:
+        transaction_date = date.fromisoformat(posting_date)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Ogiltigt verifikationsdatum")
+
+    month, day = _configured_fiscal_start(configured_start)
+    start_year = transaction_date.year
+    if (transaction_date.month, transaction_date.day) < (month, day):
+        start_year -= 1
+    try:
+        return date(start_year, month, day).isoformat()
+    except ValueError:
+        raise HTTPException(
+            status_code=422,
+            detail="Räkenskapsårsstarten kan inte användas för verifikationens datum",
+        )
+
+
+def _sequence_at_least(
+    db: Session,
+    company_id: int,
+    fiscal_year_start: str,
+    series: str,
+    number: int,
+) -> None:
+    """Make the database counter at least number without ever moving it back."""
+    if number <= 0:
+        return
+    db.execute(
+        text(
+            """
+            INSERT INTO voucher_number_sequences
+                (company_id, fiscal_year_start, series, last_number)
+            VALUES
+                (:company_id, :fiscal_year_start, :series, :number)
+            ON CONFLICT (company_id, fiscal_year_start, series)
+            DO UPDATE SET
+                last_number = GREATEST(voucher_number_sequences.last_number, EXCLUDED.last_number),
+                updated_at = CURRENT_TIMESTAMP
+            """
+        ),
+        {
+            "company_id": company_id,
+            "fiscal_year_start": fiscal_year_start,
+            "series": series,
+            "number": number,
+        },
+    )
+
+
+def _allocate_next_number(
+    db: Session,
+    company_id: int,
+    fiscal_year_start: str,
+    series: str,
+) -> int:
+    """Atomically allocate the next number inside the caller's transaction."""
+    result = db.execute(
+        text(
+            """
+            INSERT INTO voucher_number_sequences
+                (company_id, fiscal_year_start, series, last_number)
+            VALUES
+                (:company_id, :fiscal_year_start, :series, 1)
+            ON CONFLICT (company_id, fiscal_year_start, series)
+            DO UPDATE SET
+                last_number = voucher_number_sequences.last_number + 1,
+                updated_at = CURRENT_TIMESTAMP
+            RETURNING last_number
+            """
+        ),
+        {
+            "company_id": company_id,
+            "fiscal_year_start": fiscal_year_start,
+            "series": series,
+        },
+    ).scalar_one()
+    return int(result)
+
+
 def _posting_amount(value: object) -> Decimal:
     try:
         amount = Decimal(str(value))
@@ -68,6 +191,9 @@ def validate_posting(voucher: dict) -> None:
     number = voucher.get("voucherNumber")
     if not isinstance(number, int) or isinstance(number, bool) or number < 0:
         raise HTTPException(status_code=422, detail="Bokförd verifikation saknar giltigt nummer")
+
+    if "series" in voucher:
+        normalize_series(voucher.get("series"))
 
     if number == 0 and voucher.get("description") != "Ingående balans från SIE":
         raise HTTPException(status_code=422, detail="Nummer 0 är reserverat för ingående balans")
@@ -130,7 +256,7 @@ def _validate_reversal_links(by_id: dict[str, dict]) -> None:
             reversals[original_id] += 1
             if reversals[original_id] > 1:
                 raise HTTPException(409, "En verifikation får inte vändas två gånger")
-            # A reversal must actually cancel each entry in the original.
+
             def entry_counter(lines: list, reverse: bool) -> Counter:
                 result = Counter()
                 for line in lines:
@@ -139,6 +265,7 @@ def _validate_reversal_links(by_id: dict[str, dict]) -> None:
                     if debit or credit:
                         result[(line.get("accountNumber"), debit, credit, line.get("vatCodeId"))] += 1
                 return result
+
             if entry_counter(original.get("lines", []), True) != entry_counter(voucher.get("lines", []), False):
                 raise HTTPException(409, "En vändning måste innehålla originalets konteringar med omvänd debet och kredit")
         elif voucher.get("reversedByVoucherId") or voucher.get("reversedByVoucherNumber"):
@@ -147,8 +274,46 @@ def _validate_reversal_links(by_id: dict[str, dict]) -> None:
                 raise HTTPException(409, "Originalet hänvisar inte till en giltig vändning")
 
 
-def check_workspace_vouchers(db: Session, company_id: int, old: dict, new: dict, user_id: int) -> None:
-    """Check every workspace save and append new postings to the SQL ledger."""
+def _update_number_references(new: dict, company_id: int, assignments: dict[str, int]) -> None:
+    """Keep reversal links and receipt references aligned with server numbers."""
+    if not assignments:
+        return
+
+    voucher_key = f"accountpro_vouchers_{company_id}"
+    vouchers = parse_array(new, voucher_key)
+    for voucher in vouchers:
+        target_id = voucher.get("reversedByVoucherId")
+        if target_id in assignments:
+            voucher["reversedByVoucherNumber"] = assignments[target_id]
+    new[voucher_key] = json.dumps(vouchers, ensure_ascii=False, separators=(",", ":"))
+
+    receipt_key = f"accountpro_receipts_{company_id}"
+    if receipt_key in new:
+        receipts = parse_array(new, receipt_key)
+        for receipt in receipts:
+            voucher_id = receipt.get("voucherId")
+            if voucher_id in assignments:
+                receipt["voucherNumber"] = assignments[voucher_id]
+        new[receipt_key] = json.dumps(receipts, ensure_ascii=False, separators=(",", ":"))
+
+
+def check_workspace_vouchers(
+    db: Session,
+    company_id: int,
+    old: dict,
+    new: dict,
+    user_id: int,
+    *,
+    allocate_numbers: bool = False,
+) -> dict[str, dict[str, object]]:
+    """Validate a workspace save and append newly posted vouchers to SQL.
+
+    When ``allocate_numbers`` is true, the database assigns the definitive
+    positive voucher number for every genuinely new posting.  The supplied
+    ``new`` workspace dictionary is updated in-place so its JSON can be stored
+    in the same transaction.  Number 0 remains reserved for imported opening
+    balance.
+    """
     key = f"accountpro_vouchers_{company_id}"
     existing = {
         record.voucher_id: record
@@ -158,9 +323,15 @@ def check_workspace_vouchers(db: Session, company_id: int, old: dict, new: dict,
         .all()
     }
     if key not in old and key not in new and not existing:
-        return
+        return {}
+
+    company = db.query(Company).filter(Company.id == company_id).first()
+    if not company:
+        raise HTTPException(status_code=404, detail="Företaget finns inte")
+    default_series = normalize_series(company.default_voucher_series or "A")
 
     old_rows = parse_array(old, key)
+    old_ids = {record.get("id") for record in old_rows if isinstance(record.get("id"), str)}
     new_rows = parse_array(new, key)
     new_by_id: dict[str, dict] = {}
     for voucher in new_rows:
@@ -185,34 +356,133 @@ def check_workspace_vouchers(db: Session, company_id: int, old: dict, new: dict,
         if record.payload_json != canonical(updated):
             raise HTTPException(status_code=409, detail="Det sparade originalet skiljer sig från verifikationen")
 
-    used_numbers: set[int] = set()
+    # Seed/guard existing and legacy identities before allocating any new ones.
+    used_numbers: set[tuple[str, str, int]] = set()
+    opening_balance_years: set[str] = set()
     for voucher in new_rows:
         if voucher.get("status") == "DRAFT":
             raise HTTPException(status_code=409, detail="Utkast får inte ligga bland bokförda verifikationer")
-        number = voucher.get("voucherNumber")
-        if not isinstance(number, int) or isinstance(number, bool) or number in used_numbers:
-            raise HTTPException(status_code=409, detail="Verifikationsnumret är ogiltigt eller förekommer mer än en gång")
-        used_numbers.add(number)
-        if voucher["id"] not in existing:
-            # Historical records in the previous workspace become immutable
-            # snapshots without rewriting them or claiming they were newly booked.
-            if voucher["id"] not in {record.get("id") for record in old_rows}:
-                if str(voucher.get("companyId")) != str(company_id):
-                    raise HTTPException(409, "Verifikationen tillhör ett annat företag")
-                if voucher.get("status") != "POSTED":
-                    raise HTTPException(409, "En ny bokförd verifikation måste ha status POSTED")
-                validate_posting(voucher)
-            db.add(
-                PostedVoucherRecord(
-                    company_id=company_id,
-                    voucher_id=voucher["id"],
-                    voucher_number=number,
-                    payload_json=canonical(voucher),
-                    registered_by_user_id=user_id,
-                )
+        ident = voucher["id"]
+        if ident in existing:
+            record = existing[ident]
+            identity = (record.fiscal_year_start, record.series, record.voucher_number)
+            if identity in used_numbers:
+                raise HTTPException(status_code=409, detail="Verifikationsnumret förekommer mer än en gång i samma serie och räkenskapsår")
+            used_numbers.add(identity)
+            if record.voucher_number == 0:
+                if record.fiscal_year_start in opening_balance_years:
+                    raise HTTPException(status_code=409, detail="Det finns mer än en ingående balans för samma räkenskapsår")
+                opening_balance_years.add(record.fiscal_year_start)
+            continue
+
+        # Historical workspace rows without an SQL snapshot retain their number.
+        if ident in old_ids:
+            number = voucher.get("voucherNumber")
+            if not isinstance(number, int) or isinstance(number, bool) or number < 0:
+                raise HTTPException(status_code=409, detail="Verifikationsnumret är ogiltigt")
+            series = normalize_series(voucher.get("series"), default_series)
+            fiscal_start = fiscal_year_start_for_date(voucher.get("date"), company.fiscal_year_start)
+            identity = (fiscal_start, series, number)
+            if identity in used_numbers:
+                raise HTTPException(status_code=409, detail="Verifikationsnumret förekommer mer än en gång i samma serie och räkenskapsår")
+            used_numbers.add(identity)
+            if number == 0:
+                if fiscal_start in opening_balance_years:
+                    raise HTTPException(status_code=409, detail="Det finns mer än en ingående balans för samma räkenskapsår")
+                opening_balance_years.add(fiscal_start)
+            else:
+                _sequence_at_least(db, company_id, fiscal_start, series, number)
+
+    assignments: dict[str, dict[str, object]] = {}
+
+    for voucher in new_rows:
+        ident = voucher["id"]
+        if ident in existing or ident in old_ids:
+            continue
+
+        if str(voucher.get("companyId")) != str(company_id):
+            raise HTTPException(409, "Verifikationen tillhör ett annat företag")
+        if voucher.get("status") != "POSTED":
+            raise HTTPException(409, "En ny bokförd verifikation måste ha status POSTED")
+
+        series = normalize_series(voucher.get("series"), default_series)
+        fiscal_start = fiscal_year_start_for_date(voucher.get("date"), company.fiscal_year_start)
+        supplied_number = voucher.get("voucherNumber")
+
+        # Opening balance is a verified SIE-only special record and never
+        # consumes a positive number from the regular series.
+        if supplied_number == 0:
+            assigned_number = 0
+        elif allocate_numbers:
+            assigned_number = _allocate_next_number(db, company_id, fiscal_start, series)
+        else:
+            if not isinstance(supplied_number, int) or isinstance(supplied_number, bool) or supplied_number <= 0:
+                raise HTTPException(status_code=409, detail="Verifikationsnumret är ogiltigt")
+            assigned_number = supplied_number
+            _sequence_at_least(db, company_id, fiscal_start, series, assigned_number)
+
+        voucher["voucherNumber"] = assigned_number
+        if "series" in voucher or allocate_numbers:
+            voucher["series"] = series
+
+        identity = (fiscal_start, series, assigned_number)
+        if identity in used_numbers:
+            raise HTTPException(status_code=409, detail="Verifikationsnumret förekommer mer än en gång i samma serie och räkenskapsår")
+        used_numbers.add(identity)
+        if assigned_number == 0:
+            if fiscal_start in opening_balance_years:
+                raise HTTPException(status_code=409, detail="Det finns mer än en ingående balans för samma räkenskapsår")
+            opening_balance_years.add(fiscal_start)
+
+        assignments[ident] = {
+            "voucherNumber": assigned_number,
+            "series": series,
+            "fiscalYearStart": fiscal_start,
+        }
+
+    # If numbers changed, update cross references before reversal validation and
+    # before the immutable snapshots are created.
+    if allocate_numbers and assignments:
+        number_map = {ident: int(data["voucherNumber"]) for ident, data in assignments.items()}
+        for voucher in new_rows:
+            target_id = voucher.get("reversedByVoucherId")
+            if target_id in number_map:
+                voucher["reversedByVoucherNumber"] = number_map[target_id]
+        new[key] = json.dumps(new_rows, ensure_ascii=False, separators=(",", ":"))
+        _update_number_references(new, company_id, number_map)
+        new_rows = parse_array(new, key)
+        new_by_id = {voucher["id"]: voucher for voucher in new_rows}
+
+    for voucher in new_rows:
+        ident = voucher["id"]
+        if ident in existing:
+            continue
+
+        if ident in old_ids:
+            series = normalize_series(voucher.get("series"), default_series)
+            fiscal_start = fiscal_year_start_for_date(voucher.get("date"), company.fiscal_year_start)
+            number = voucher.get("voucherNumber")
+        else:
+            data = assignments[ident]
+            series = str(data["series"])
+            fiscal_start = str(data["fiscalYearStart"])
+            number = int(data["voucherNumber"])
+            validate_posting(voucher)
+
+        db.add(
+            PostedVoucherRecord(
+                company_id=company_id,
+                voucher_id=ident,
+                voucher_number=number,
+                series=series,
+                fiscal_year_start=fiscal_start,
+                payload_json=canonical(voucher),
+                registered_by_user_id=user_id,
             )
+        )
 
     _validate_reversal_links(new_by_id)
+    return assignments
 
 
 def check_workspace_receipts(company_id: int, old: dict, new: dict) -> None:
