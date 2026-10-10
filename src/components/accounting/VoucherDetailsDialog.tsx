@@ -47,6 +47,17 @@ function displayTimestamp(value?: string): string {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString("sv-SE");
 }
 
+function voucherSeries(value?: string): string {
+  const normalized = (value || "A").trim().toUpperCase();
+  return /^[A-Z][A-Z0-9]{0,9}$/.test(normalized) ? normalized : "A";
+}
+
+function voucherReference(
+  value: Pick<Voucher, "voucherNumber" | "series">
+): string {
+  return `${voucherSeries(value.series)}${value.voucherNumber}`;
+}
+
 function openAttachment(dataUrl: string, type: string): void {
   if (!dataUrl) {
     toast.error("Underlaget saknar filinnehåll.");
@@ -96,11 +107,25 @@ export function VoucherDetailsDialog({
   // Använd den uppdaterade verifikationen från kontexten om den finns.
   // Då visas en ny koppling till en rättelse även om dialogen redan är öppen.
   const currentVoucher = vouchers.find((entry) => entry.id === voucher.id) || voucher;
+  const voucherRef = voucherReference(currentVoucher);
+  const reversalSource = currentVoucher.reversesVoucherId
+    ? vouchers.find((entry) => entry.id === currentVoucher.reversesVoucherId)
+    : undefined;
   const correctionDate = localDate();
   const correctionYearLocked = isYearLocked(Number(correctionDate.slice(0, 4)));
   const actualReversal = vouchers.find(
     (entry) => entry.reversesVoucherId === currentVoucher.id
   );
+  const reversalSourceRef = currentVoucher.reversesVoucherNumber
+    ? reversalSource
+      ? voucherReference(reversalSource)
+      : `${voucherSeries(currentVoucher.series)}${currentVoucher.reversesVoucherNumber}`
+    : undefined;
+  const reversedByRef = currentVoucher.reversedByVoucherNumber || actualReversal
+    ? actualReversal
+      ? voucherReference(actualReversal)
+      : `${voucherSeries(currentVoucher.series)}${currentVoucher.reversedByVoucherNumber}`
+    : undefined;
   const alreadyReversed = Boolean(
     currentVoucher.reversedByVoucherId || actualReversal
   );
@@ -133,7 +158,7 @@ export function VoucherDetailsDialog({
       status: "DRAFT",
       date: correctionDate,
       documentDate: correctionDate,
-      description: "Vändning av verifikation #" + currentVoucher.voucherNumber + ": " + currentVoucher.description,
+      description: "Vändning av verifikation " + voucherRef + ": " + currentVoucher.description,
       lines: currentVoucher.lines.map((line) => ({
         ...line,
         id: crypto.randomUUID(),
@@ -156,7 +181,7 @@ export function VoucherDetailsDialog({
       createdAt: new Date().toISOString(),
     };
     setReversalDraft(draft);
-    addEntry("Påbörjade vändningsutkast för verifikation #" + currentVoucher.voucherNumber);
+    addEntry("Påbörjade vändningsutkast för verifikation " + voucherRef);
     toast.info("Kontrollera vändningen innan du bokför den.");
   };
 
@@ -184,7 +209,7 @@ export function VoucherDetailsDialog({
           voucherNumber: currentVoucher.voucherNumber,
         });
         addEntry(
-          "Kompletterade verifikation #" + currentVoucher.voucherNumber +
+          "Kompletterade verifikation " + voucherRef +
           " med underlaget " + file.name + " (ID: " + receipt.id + ")"
         );
         toast.success("Kompletterande underlag tillagt.");
@@ -200,7 +225,7 @@ export function VoucherDetailsDialog({
     const added = addComment({
       targetType: "voucher",
       targetId: currentVoucher.id,
-      targetLabel: "Verifikation #" + currentVoucher.voucherNumber + " · " + currentVoucher.description,
+      targetLabel: "Verifikation " + voucherRef + " · " + currentVoucher.description,
       text: comment,
     });
     if (added) {
@@ -221,8 +246,8 @@ export function VoucherDetailsDialog({
         <DialogHeader>
           <DialogTitle>
             {reversalDraft
-              ? "Vändning av verifikation #" + currentVoucher.voucherNumber
-              : "Verifikation #" + currentVoucher.voucherNumber}
+              ? "Vändning av verifikation " + voucherRef
+              : "Verifikation " + voucherRef}
           </DialogTitle>
           <p className="flex items-center gap-1 text-sm text-muted-foreground">
             <Lock className="h-3.5 w-3.5" />
@@ -233,22 +258,22 @@ export function VoucherDetailsDialog({
         {reversalDraft ? (
           <VoucherForm
             duplicateFrom={reversalDraft}
-            templateName={"Vändning av verifikation #" + currentVoucher.voucherNumber}
+            templateName={"Vändning av verifikation " + voucherRef}
             onSuccess={closeDialog}
             onCancel={() => setReversalDraft(null)}
           />
         ) : (
           <div className="space-y-6">
-            {(currentVoucher.reversesVoucherNumber || currentVoucher.reversedByVoucherNumber || actualReversal) && (
+            {(reversalSourceRef || reversedByRef) && (
               <div className="space-y-1 rounded-lg border border-border bg-muted/30 p-4 text-sm">
                 <p className="flex items-center gap-2 font-medium">
                   <Link2 className="h-4 w-4" /> Kopplade verifikationer
                 </p>
-                {currentVoucher.reversesVoucherNumber && (
-                  <p>Den här verifikationen vänder verifikation #{currentVoucher.reversesVoucherNumber}.</p>
+                {reversalSourceRef && (
+                  <p>Den här verifikationen vänder verifikation {reversalSourceRef}.</p>
                 )}
-                {(currentVoucher.reversedByVoucherNumber || actualReversal) && (
-                  <p>Den här verifikationen har vänts av verifikation #{currentVoucher.reversedByVoucherNumber || actualReversal?.voucherNumber}.</p>
+                {reversedByRef && (
+                  <p>Den här verifikationen har vänts av verifikation {reversedByRef}.</p>
                 )}
               </div>
             )}
