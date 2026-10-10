@@ -82,7 +82,13 @@ export default function ReceiptsPage() {
   const receiptVoucherReference = (receipt: Receipt) => {
     const linkedVoucher = linkedVoucherForReceipt(receipt);
     if (linkedVoucher) return voucherReference(linkedVoucher);
-    return receipt.voucherNumber !== null ? String(receipt.voucherNumber) : "";
+
+    if (receipt.voucherNumber !== null) {
+      const series = receipt.voucherSeries?.trim().toUpperCase();
+      return series ? `${series}${receipt.voucherNumber}` : String(receipt.voucherNumber);
+    }
+
+    return "";
   };
 
   const filteredReceipts = receipts.filter((receipt) => {
@@ -139,7 +145,8 @@ export default function ReceiptsPage() {
     const linked = linkReceipt(
       receiptToLink.id,
       selectedVoucher.id,
-      selectedVoucher.voucherNumber
+      selectedVoucher.voucherNumber,
+      selectedVoucher.series?.trim().toUpperCase() || "A"
     );
 
     if (linked) {
