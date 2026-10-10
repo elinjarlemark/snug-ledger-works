@@ -34,6 +34,12 @@ import { useAccounting as useAccountingMain } from "@/contexts/AccountingContext
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8000";
 const VOUCHER_CONFIRMATION_KEY = "accountpro_voucher_confirmation_enabled";
+const VOUCHER_SERIES_PATTERN = /^[A-Z][A-Z0-9]{0,9}$/;
+
+const normalizeVoucherSeries = (value: string | undefined | null): string => {
+  const normalized = (value || "A").trim().toUpperCase();
+  return VOUCHER_SERIES_PATTERN.test(normalized) ? normalized : "A";
+};
 
 export default function SettingsPage() {
   const {
@@ -82,21 +88,65 @@ export default function SettingsPage() {
   );
 
   useEffect(() => {
-    if (activeCompany?.id) {
-      const savedBilling = appStorage.getItem(`accountpro_billing_settings_${activeCompany.id}`);
-      const savedBookkeeping = appStorage.getItem(`accountpro_bookkeeping_settings_${activeCompany.id}`);
-      const savedMisc = appStorage.getItem(`accountpro_misc_settings_${activeCompany.id}`);
-      if (savedBilling) setBillingSettings((prev) => ({ ...prev, ...JSON.parse(savedBilling) }));
-      if (savedBookkeeping) setBookkeepingSettings((prev) => ({ ...prev, ...JSON.parse(savedBookkeeping) }));
-      if (savedMisc) setMiscSettings((prev) => ({ ...prev, ...JSON.parse(savedMisc) }));
+    if (!activeCompany?.id) return;
+
+    const savedBilling = appStorage.getItem(`accountpro_billing_settings_${activeCompany.id}`);
+    const savedBookkeeping = appStorage.getItem(`accountpro_bookkeeping_settings_${activeCompany.id}`);
+    const savedMisc = appStorage.getItem(`accountpro_misc_settings_${activeCompany.id}`);
+
+    try {
+      if (savedBilling) {
+        setBillingSettings((prev) => ({ ...prev, ...JSON.parse(savedBilling) }));
+      }
+    } catch {
+      // Ignore malformed legacy local settings and keep the defaults.
     }
-  }, [activeCompany?.id]);
+
+    try {
+      const parsed = savedBookkeeping ? JSON.parse(savedBookkeeping) : {};
+      setBookkeepingSettings((prev) => ({
+        ...prev,
+        ...parsed,
+        // The company profile/database is authoritative for the default voucher series.
+        voucherSeries: normalizeVoucherSeries(activeCompany.defaultVoucherSeries),
+      }));
+    } catch {
+      setBookkeepingSettings((prev) => ({
+        ...prev,
+        voucherSeries: normalizeVoucherSeries(activeCompany.defaultVoucherSeries),
+      }));
+    }
+
+    try {
+      if (savedMisc) {
+        setMiscSettings((prev) => ({ ...prev, ...JSON.parse(savedMisc) }));
+      }
+    } catch {
+      // Ignore malformed legacy local settings and keep the defaults.
+    }
+  }, [activeCompany?.id, activeCompany?.defaultVoucherSeries]);
 
   const saveExtraSettings = () => {
     if (!activeCompany?.id) return;
+
+    const normalizedVoucherSeries = normalizeVoucherSeries(bookkeepingSettings.voucherSeries);
+    const normalizedBookkeepingSettings = {
+      ...bookkeepingSettings,
+      voucherSeries: normalizedVoucherSeries,
+    };
+
     appStorage.setItem(`accountpro_billing_settings_${activeCompany.id}`, JSON.stringify(billingSettings));
-    appStorage.setItem(`accountpro_bookkeeping_settings_${activeCompany.id}`, JSON.stringify(bookkeepingSettings));
+    appStorage.setItem(`accountpro_bookkeeping_settings_${activeCompany.id}`, JSON.stringify(normalizedBookkeepingSettings));
     appStorage.setItem(`accountpro_misc_settings_${activeCompany.id}`, JSON.stringify(miscSettings));
+
+    if (normalizeVoucherSeries(activeCompany.defaultVoucherSeries) !== normalizedVoucherSeries) {
+      updateCompany({
+        ...activeCompany,
+        defaultVoucherSeries: normalizedVoucherSeries,
+      });
+    }
+
+    setBookkeepingSettings(normalizedBookkeepingSettings);
     toast.success("Inställningar sparade");
   };
 
@@ -787,7 +837,105 @@ export default function SettingsPage() {
                   <Button onClick={saveExtraSettings}><Save className="mr-2 h-4 w-4" />Spara</Button>
                 </CardContent></Card>
               </TabsContent>
-              <TabsContent value="bookkeeping" className="space-y-6 mt-6"><Card><CardHeader><CardTitle>Bokföringsuppgifter</CardTitle><CardDescription>Passande standardinställningar för aktiebolag.</CardDescription></CardHeader><CardContent className="space-y-4"><div className="grid md:grid-cols-2 gap-4">{Object.entries(bookkeepingSettings).filter(([k]) => k !== "fiscalLockReminder").map(([key, value]) => <div className="space-y-2" key={key}><Label>{key}</Label><Input value={String(value)} onChange={(e) => setBookkeepingSettings((p) => ({ ...p, [key]: e.target.value }))} /></div>)}</div><div className="flex items-center justify-between rounded-lg border p-4"><Label>Påminn om låsning av räkenskapsår</Label><Switch checked={bookkeepingSettings.fiscalLockReminder} onCheckedChange={(v) => setBookkeepingSettings((p) => ({ ...p, fiscalLockReminder: v }))} /></div><Button onClick={saveExtraSettings}><Save className="mr-2 h-4 w-4" />Spara</Button></CardContent></Card></TabsContent>
+              <TabsContent value="bookkeeping" className="space-y-6 mt-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Bokföringsuppgifter</CardTitle>
+                    <CardDescription>Standardinställningar för företagets bokföring.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="defaultVoucherSeries">Standardserie för verifikationer</Label>
+                      <Select
+                        value={normalizeVoucherSeries(bookkeepingSettings.voucherSeries)}
+                        onValueChange={(value) =>
+                          setBookkeepingSettings((prev) => ({
+                            ...prev,
+                            voucherSeries: normalizeVoucherSeries(value),
+                          }))
+                        }
+                      >
+                        <SelectTrigger id="defaultVoucherSeries" className="md:max-w-md">
+                          <SelectValue placeholder="Välj standardserie" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="A">A – Manuella verifikationer</SelectItem>
+                          <SelectItem value="B">B – Kundfakturor</SelectItem>
+                          <SelectItem value="C">C – Leverantörsfakturor</SelectItem>
+                          {!['A', 'B', 'C'].includes(normalizeVoucherSeries(bookkeepingSettings.voucherSeries)) && (
+                            <SelectItem value={normalizeVoucherSeries(bookkeepingSettings.voucherSeries)}>
+                              {normalizeVoucherSeries(bookkeepingSettings.voucherSeries)} – Befintlig serie
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Serien används som förval när du skapar en ny manuell verifikation. Du kan fortfarande välja en annan serie innan verifikationen bokförs.
+                      </p>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="defaultVatMethod">Standardmetod för moms</Label>
+                        <Input
+                          id="defaultVatMethod"
+                          value={bookkeepingSettings.defaultVatMethod}
+                          onChange={(e) =>
+                            setBookkeepingSettings((prev) => ({
+                              ...prev,
+                              defaultVatMethod: e.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="resultAccount">Resultatkonto</Label>
+                        <Input
+                          id="resultAccount"
+                          value={bookkeepingSettings.resultAccount}
+                          onChange={(e) =>
+                            setBookkeepingSettings((prev) => ({
+                              ...prev,
+                              resultAccount: e.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="roundingAccount">Öresutjämningskonto</Label>
+                        <Input
+                          id="roundingAccount"
+                          value={bookkeepingSettings.roundingAccount}
+                          onChange={(e) =>
+                            setBookkeepingSettings((prev) => ({
+                              ...prev,
+                              roundingAccount: e.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between rounded-lg border p-4">
+                      <Label>Påminn om låsning av räkenskapsår</Label>
+                      <Switch
+                        checked={bookkeepingSettings.fiscalLockReminder}
+                        onCheckedChange={(value) =>
+                          setBookkeepingSettings((prev) => ({
+                            ...prev,
+                            fiscalLockReminder: value,
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <Button onClick={saveExtraSettings}>
+                      <Save className="mr-2 h-4 w-4" />
+                      Spara
+                    </Button>
+                  </CardContent>
+                </Card>
+              </TabsContent>
               <TabsContent value="misc" className="space-y-6 mt-6"><Card><CardHeader><CardTitle>Övrigt</CardTitle><CardDescription>Standardfraser för fakturor, offerter och påminnelser.</CardDescription></CardHeader><CardContent className="space-y-4">{Object.entries(miscSettings).map(([key, value]) => <div className="space-y-2" key={key}><Label>{key}</Label><Input value={String(value)} onChange={(e) => setMiscSettings((p) => ({ ...p, [key]: e.target.value }))} /></div>)}<Button onClick={saveExtraSettings}><Save className="mr-2 h-4 w-4" />Spara</Button></CardContent></Card></TabsContent>
             </Tabs>
           </div>
