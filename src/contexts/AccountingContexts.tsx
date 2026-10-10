@@ -12,7 +12,7 @@ import {
 import {
   BASAccount,
   getAccountClass,
-  calculateBalance,
+  calculateAccountBalance,
   getLatestBASAccounts,
 } from "@/lib/bas-accounts";
 
@@ -1835,11 +1835,6 @@ export function AccountingProvider({
       return null;
     }
 
-    const accountClass =
-      getAccountClass(
-        accountNumber
-      );
-
     let runningBalance =
       0;
 
@@ -1881,8 +1876,8 @@ export function AccountingProvider({
               .map(
                 (line) => {
                   const balanceChange =
-                    calculateBalance(
-                      accountClass,
+                    calculateAccountBalance(
+                      accountNumber,
                       line.debit,
                       line.credit
                     );
@@ -2063,11 +2058,6 @@ export function AccountingProvider({
                 accountNumber
             );
 
-          const accountClass =
-            getAccountClass(
-              accountNumber
-            );
-
           return {
             accountNumber,
 
@@ -2081,8 +2071,8 @@ export function AccountingProvider({
 
             balance:
               roundToOre(
-                calculateBalance(
-                  accountClass,
+                calculateAccountBalance(
+                  accountNumber,
                   totalDebit,
                   totalCredit
                 )
@@ -2114,31 +2104,21 @@ export function AccountingProvider({
     const revenues =
       ledger.filter(
         (entry) =>
-          entry.accountNumber
-            .startsWith("3") ||
-          entry.accountNumber ===
-            "8310"
+          entry.accountNumber !==
+            "8999" &&
+          getAccountClass(
+            entry.accountNumber
+          ) === "revenue"
       );
 
     const expenses =
       ledger.filter(
         (entry) =>
-          entry.accountNumber
-            .startsWith("4") ||
-          entry.accountNumber
-            .startsWith("5") ||
-          entry.accountNumber
-            .startsWith("6") ||
-          entry.accountNumber
-            .startsWith("7") ||
-          (
+          entry.accountNumber !==
+            "8999" &&
+          getAccountClass(
             entry.accountNumber
-              .startsWith("8") &&
-            entry.accountNumber !==
-              "8310" &&
-            entry.accountNumber !==
-              "8999"
-          )
+          ) === "expense"
       );
 
     const totalRevenue =
@@ -2195,15 +2175,18 @@ export function AccountingProvider({
     const assets =
       ledger.filter(
         (entry) =>
-          entry.accountNumber
-            .startsWith("1")
+          getAccountClass(
+            entry.accountNumber
+          ) === "asset"
       );
 
     const equityLiabilities =
       ledger.filter(
         (entry) =>
-          entry.accountNumber
-            .startsWith("2")
+          getAccountClass(
+            entry.accountNumber
+          ) ===
+          "equity_liability"
       );
 
     const totalAssets =
