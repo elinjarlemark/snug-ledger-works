@@ -249,6 +249,10 @@ def _validate_reversal_links(by_id: dict[str, dict]) -> None:
             original = by_id.get(original_id)
             if original is None or original_id == voucher["id"] or original.get("voucherNumber") == 0:
                 raise HTTPException(409, "Vändningen hänvisar till en ogiltig originalverifikation")
+            reversal_series = normalize_series(voucher.get("series"))
+            original_series = normalize_series(original.get("series"))
+            if reversal_series != original_series:
+                raise HTTPException(409, "En vändning måste ligga i samma verifikationsserie som originalet")
             if voucher.get("reversesVoucherNumber") != original.get("voucherNumber"):
                 raise HTTPException(409, "Originalets verifikationsnummer stämmer inte")
             if original.get("reversedByVoucherId") != voucher["id"] or original.get("reversedByVoucherNumber") != voucher["voucherNumber"]:
@@ -270,12 +274,21 @@ def _validate_reversal_links(by_id: dict[str, dict]) -> None:
                 raise HTTPException(409, "En vändning måste innehålla originalets konteringar med omvänd debet och kredit")
         elif voucher.get("reversedByVoucherId") or voucher.get("reversedByVoucherNumber"):
             target = by_id.get(voucher.get("reversedByVoucherId"))
-            if not target or target.get("reversesVoucherId") != voucher["id"] or target.get("voucherNumber") != voucher.get("reversedByVoucherNumber"):
-                raise HTTPException(409, "Originalet hänvisar inte till en giltig vändning")
+            if (
+                not target
+                or target.get("reversesVoucherId") != voucher["id"]
+                or target.get("voucherNumber") != voucher.get("reversedByVoucherNumber")
+                or normalize_series(target.get("series")) != normalize_series(voucher.get("series"))
+            ):
+                raise HTTPException(409, "Originalet hänvisar inte till en giltig vändning i samma verifikationsserie")
 
 
-def _update_number_references(new: dict, company_id: int, assignments: dict[str, int]) -> None:
-    """Keep reversal links and receipt references aligned with server numbers."""
+def _update_number_references(
+    new: dict,
+    company_id: int,
+    assignments: dict[str, dict[str, object]],
+) -> None:
+    """Keep reversal and receipt metadata aligned with server assignments."""
     if not assignments:
         return
 
@@ -283,17 +296,22 @@ def _update_number_references(new: dict, company_id: int, assignments: dict[str,
     vouchers = parse_array(new, voucher_key)
     for voucher in vouchers:
         target_id = voucher.get("reversedByVoucherId")
-        if target_id in assignments:
-            voucher["reversedByVoucherNumber"] = assignments[target_id]
+        assignment = assignments.get(target_id)
+        if assignment and isinstance(assignment.get("voucherNumber"), int):
+            voucher["reversedByVoucherNumber"] = int(assignment["voucherNumber"])
     new[voucher_key] = json.dumps(vouchers, ensure_ascii=False, separators=(",", ":"))
 
     receipt_key = f"accountpro_receipts_{company_id}"
     if receipt_key in new:
         receipts = parse_array(new, receipt_key)
         for receipt in receipts:
-            voucher_id = receipt.get("voucherId")
-            if voucher_id in assignments:
-                receipt["voucherNumber"] = assignments[voucher_id]
+            assignment = assignments.get(receipt.get("voucherId"))
+            if not assignment:
+                continue
+            if isinstance(assignment.get("voucherNumber"), int):
+                receipt["voucherNumber"] = int(assignment["voucherNumber"])
+            if isinstance(assignment.get("series"), str):
+                receipt["voucherSeries"] = str(assignment["series"])
         new[receipt_key] = json.dumps(receipts, ensure_ascii=False, separators=(",", ":"))
 
 
@@ -443,13 +461,13 @@ def check_workspace_vouchers(
     # If numbers changed, update cross references before reversal validation and
     # before the immutable snapshots are created.
     if allocate_numbers and assignments:
-        number_map = {ident: int(data["voucherNumber"]) for ident, data in assignments.items()}
         for voucher in new_rows:
             target_id = voucher.get("reversedByVoucherId")
-            if target_id in number_map:
-                voucher["reversedByVoucherNumber"] = number_map[target_id]
+            target_assignment = assignments.get(target_id)
+            if target_assignment and isinstance(target_assignment.get("voucherNumber"), int):
+                voucher["reversedByVoucherNumber"] = int(target_assignment["voucherNumber"])
         new[key] = json.dumps(new_rows, ensure_ascii=False, separators=(",", ":"))
-        _update_number_references(new, company_id, number_map)
+        _update_number_references(new, company_id, assignments)
         new_rows = parse_array(new, key)
         new_by_id = {voucher["id"]: voucher for voucher in new_rows}
 
@@ -506,6 +524,12 @@ def check_workspace_receipts(company_id: int, old: dict, new: dict) -> None:
             raise HTTPException(status_code=409, detail="Underlag till bokförd verifikation får inte raderas")
         if any(original.get(field) != updated.get(field) for field in RECEIPT_FIELDS):
             raise HTTPException(status_code=409, detail="Originalunderlaget får inte ändras")
-        if (original.get("voucherId") != updated.get("voucherId") or
-                original.get("voucherNumber") != updated.get("voucherNumber")):
-            raise HTTPException(status_code=409, detail="Kopplat originalunderlag får inte lossas eller flyttas")
+        if (
+            original.get("voucherId") != updated.get("voucherId")
+            or original.get("voucherNumber") != updated.get("voucherNumber")
+            or original.get("voucherSeries") != updated.get("voucherSeries")
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="Kopplat originalunderlag får inte lossas, flyttas eller byta verifikationsserie",
+            )
