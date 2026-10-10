@@ -15,6 +15,22 @@ import {
   validateBookkeepingLines,
 } from "@/lib/money";
 
+const INTERNAL_VOUCHER_SERIES_PATTERN = /^[A-Z][A-Z0-9]{0,9}$/;
+const FALLBACK_INTERNAL_VOUCHER_SERIES = "A";
+
+function internalVoucherSeries(
+  voucher: Pick<Voucher, "series">
+): string {
+  const raw =
+    typeof voucher.series === "string" && voucher.series.trim()
+      ? voucher.series.trim().toUpperCase()
+      : FALLBACK_INTERNAL_VOUCHER_SERIES;
+
+  return INTERNAL_VOUCHER_SERIES_PATTERN.test(raw)
+    ? raw
+    : FALLBACK_INTERNAL_VOUCHER_SERIES;
+}
+
 export interface SIEAccount {
   number: string;
   name: string;
@@ -1097,6 +1113,9 @@ export function generateSIEFile(
         a.date.localeCompare(
           b.date
         ) ||
+        internalVoucherSeries(a).localeCompare(
+          internalVoucherSeries(b)
+        ) ||
         a.voucherNumber -
           b.voucherNumber
     )
@@ -1114,7 +1133,9 @@ export function generateSIEFile(
         }
 
         const series =
-          "A";
+          internalVoucherSeries(
+            voucher
+          );
 
         const dateString =
           formatSIEDate(
@@ -1215,7 +1236,7 @@ export function findDuplicateVoucher(
 ): Voucher | undefined {
   const year = date.slice(0, 4);
   return existingVouchers.find((voucher) =>
-    (voucher.originalSeries || "A") === series &&
+    (voucher.originalSeries ?? internalVoucherSeries(voucher)) === series &&
     (voucher.originalVoucherNumber ?? voucher.voucherNumber) === number &&
     voucher.date.slice(0, 4) === year
   );
@@ -1273,6 +1294,7 @@ export function convertSIEVouchersToInternal(
       id: crypto.randomUUID(),
       companyId,
       voucherNumber: nextVoucherNumber,
+      series: FALLBACK_INTERNAL_VOUCHER_SERIES,
       date: source.date,
       description: source.description,
       lines: linesWithNames,
@@ -1439,6 +1461,9 @@ export function convertSIEOpeningBalancesToVoucher(
 
     voucherNumber:
       1,
+
+    series:
+      FALLBACK_INTERNAL_VOUCHER_SERIES,
 
     date,
 
