@@ -100,7 +100,7 @@ export function computeReportBoxes(params: {
         entry.sources.push({
           type: "voucher",
           id: v.id,
-          label: `Verifikation #${v.voucherNumber} – ${v.description}`,
+          label: `Verifikation ${(v.series || "A").toUpperCase()}${v.voucherNumber} – ${v.description}`,
           date: v.date,
           amount,
         });
