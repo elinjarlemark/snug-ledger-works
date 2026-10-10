@@ -18,6 +18,10 @@ class WorkspaceUpdate(BaseModel):
     version: int = Field(ge=0)
     values: dict[str, str]
 
+    # Kept opt-in while the frontend is migrated. Older clients do not send
+    # this field and therefore keep their existing numbering behaviour.
+    allocate_voucher_numbers: bool = False
+
 
 def authorize(db, kind, scope_id, user_id, write=False):
     # This API follows the existing local-only backend's user/membership model.
@@ -29,11 +33,18 @@ def authorize(db, kind, scope_id, user_id, write=False):
             raise HTTPException(403, "Access denied")
         parent = db.query(User).filter(User.id == scope_id)
     else:
-        member = db.query(CompanyMember).filter_by(company_id=scope_id, user_id=user_id, status="ACTIVE").first()
+        member = db.query(CompanyMember).filter_by(
+            company_id=scope_id,
+            user_id=user_id,
+            status="ACTIVE",
+        ).first()
         if not member or (write and member.role == "READ_ONLY"):
             raise HTTPException(403, "Access denied")
         parent = db.query(Company).filter(Company.id == scope_id)
-    # Serialize all updates to the same scope, including first insert.
+
+    # Serialize all updates to the same scope, including the first insert.
+    # This also protects voucher allocation in a company scope from two writes
+    # running through the same workspace version at the same time.
     if write:
         parent = parent.with_for_update()
     if not parent.first():
@@ -41,33 +52,84 @@ def authorize(db, kind, scope_id, user_id, write=False):
 
 
 @router.get("/{kind}/{scope_id}")
-def read_workspace(kind: Literal["company", "user"], scope_id: int, user_id: int, db: Session = Depends(get_db)):
+def read_workspace(
+    kind: Literal["company", "user"],
+    scope_id: int,
+    user_id: int,
+    db: Session = Depends(get_db),
+):
     authorize(db, kind, scope_id, user_id)
     row = db.get(WorkspaceState, f"{kind}:{scope_id}")
-    return {"version": row.version if row else 0, "values": json.loads(row.values_json) if row else {}}
+    return {
+        "version": row.version if row else 0,
+        "values": json.loads(row.values_json) if row else {},
+    }
 
 
 @router.put("/{kind}/{scope_id}")
-def write_workspace(kind: Literal["company", "user"], scope_id: int, payload: WorkspaceUpdate, db: Session = Depends(get_db)):
+def write_workspace(
+    kind: Literal["company", "user"],
+    scope_id: int,
+    payload: WorkspaceUpdate,
+    db: Session = Depends(get_db),
+):
     authorize(db, kind, scope_id, payload.user_id, write=True)
-    serialized = json.dumps(payload.values, ensure_ascii=False)
-    if len(serialized.encode("utf-8")) > 40 * 1024 * 1024:
-        raise HTTPException(413, "Företagets sparade data överstiger 40 MB. Minska storleken på bilagorna.")
+
     if any(len(key) > 300 for key in payload.values):
         raise HTTPException(422, "Invalid storage key")
+
     key = f"{kind}:{scope_id}"
     row = db.get(WorkspaceState, key)
-    if payload.version != (row.version if row else 0):
-        raise HTTPException(409, "Data har ändrats i en annan flik eller av en annan användare. Dina ändringar har inte skrivits över.")
+    current_version = row.version if row else 0
+    if payload.version != current_version:
+        raise HTTPException(
+            409,
+            "Data har ändrats i en annan flik eller av en annan användare. "
+            "Dina ändringar har inte skrivits över.",
+        )
+
     if not row:
-        row = WorkspaceState(scope=key, company_id=scope_id if kind == "company" else None,
-                             user_id=scope_id if kind == "user" else None, version=0)
+        row = WorkspaceState(
+            scope=key,
+            company_id=scope_id if kind == "company" else None,
+            user_id=scope_id if kind == "user" else None,
+            version=0,
+        )
         db.add(row)
+
+    # Work on a copy. Voucher integrity is allowed to replace provisional
+    # voucher numbers with database-owned numbers. The final JSON must therefore
+    # be serialized only AFTER integrity checks have completed.
+    next_values = dict(payload.values)
+    voucher_assignments: dict[str, dict[str, object]] = {}
+
     if kind == "company":
         old_values = json.loads(row.values_json) if row.values_json else {}
-        check_workspace_vouchers(db, scope_id, old_values, payload.values, payload.user_id)
-        check_workspace_receipts(scope_id, old_values, payload.values)
+        voucher_assignments = check_workspace_vouchers(
+            db,
+            scope_id,
+            old_values,
+            next_values,
+            payload.user_id,
+            allocate_numbers=payload.allocate_voucher_numbers,
+        )
+        check_workspace_receipts(scope_id, old_values, next_values)
+
+    serialized = json.dumps(next_values, ensure_ascii=False)
+    if len(serialized.encode("utf-8")) > 40 * 1024 * 1024:
+        raise HTTPException(
+            413,
+            "Företagets sparade data överstiger 40 MB. Minska storleken på bilagorna.",
+        )
+
     row.values_json = serialized
     row.version += 1
     db.commit()
-    return {"version": row.version}
+
+    # `values` lets the new frontend reconcile server-owned voucher numbers.
+    # Existing frontends safely ignore this extra response field.
+    return {
+        "version": row.version,
+        "values": next_values,
+        "voucher_assignments": voucher_assignments,
+    }
