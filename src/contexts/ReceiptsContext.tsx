@@ -17,6 +17,7 @@ export interface Receipt {
   dataUrl: string;
   voucherId: string | null;
   voucherNumber: number | null;
+  voucherSeries?: string | null;
   createdAt: string;
 }
 
@@ -25,7 +26,12 @@ interface ReceiptsContextType {
   addReceipt: (receipt: Omit<Receipt, "id" | "companyId" | "createdAt">) => Receipt;
   removeReceipt: (id: string) => boolean;
   unlinkReceipt: (id: string) => boolean;
-  linkReceipt: (receiptId: string, voucherId: string, voucherNumber: number) => boolean;
+  linkReceipt: (
+    receiptId: string,
+    voucherId: string,
+    voucherNumber: number,
+    voucherSeries?: string | null
+  ) => boolean;
   getReceiptsForVoucher: (voucherId: string) => Receipt[];
 }
 
@@ -35,6 +41,14 @@ interface ReceiptState {
 }
 
 const ReceiptsContext = createContext<ReceiptsContextType | undefined>(undefined);
+
+const VOUCHER_SERIES_PATTERN = /^[A-Z][A-Z0-9]{0,9}$/;
+
+function normalizeVoucherSeries(series?: string | null): string | null {
+  if (series === undefined || series === null || !series.trim()) return null;
+  const normalized = series.trim().toUpperCase();
+  return VOUCHER_SERIES_PATTERN.test(normalized) ? normalized : null;
+}
 
 function receiptKey(companyId: string): string {
   return "accountpro_receipts_" + companyId;
@@ -143,7 +157,8 @@ export function ReceiptsProvider({ children }: { children: ReactNode }) {
   const linkReceipt = (
     receiptId: string,
     voucherId: string,
-    voucherNumber: number
+    voucherNumber: number,
+    voucherSeries?: string | null
   ): boolean => {
     const receipt = receipts.find((item) => item.id === receiptId);
     if (!receipt) return false;
@@ -153,8 +168,19 @@ export function ReceiptsProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
+    const normalizedVoucherSeries = normalizeVoucherSeries(voucherSeries);
+    if (voucherSeries !== undefined && voucherSeries !== null && !normalizedVoucherSeries) {
+      toast.error("Verifikationsserien är ogiltig.");
+      return false;
+    }
+
     if (receipt.voucherId) {
-      if (receipt.voucherId === voucherId && receipt.voucherNumber === voucherNumber) {
+      if (
+        receipt.voucherId === voucherId &&
+        receipt.voucherNumber === voucherNumber &&
+        (normalizedVoucherSeries === null ||
+          normalizeVoucherSeries(receipt.voucherSeries) === normalizedVoucherSeries)
+      ) {
         return true;
       }
       toast.error("Underlaget är redan kopplat till en verifikation och kan inte flyttas.");
@@ -167,7 +193,7 @@ export function ReceiptsProvider({ children }: { children: ReactNode }) {
         companyId,
         receipts: previous.receipts.map((item) =>
           item.id === receiptId
-            ? { ...item, voucherId, voucherNumber }
+            ? { ...item, voucherId, voucherNumber, voucherSeries: normalizedVoucherSeries }
             : item
         ),
       };
