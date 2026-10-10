@@ -71,6 +71,15 @@ class Company(Base):
     fiscal_year_end = Column(String(10), nullable=True)
     accounting_standard = Column(String(2), nullable=True)
 
+    # Default internal voucher series for manually posted vouchers.
+    # Automatic flows can choose another series when the voucher is posted.
+    default_voucher_series = Column(
+        String(10),
+        nullable=False,
+        default="A",
+        server_default="A",
+    )
+
     created_at = Column(DateTime, default=datetime.utcnow)
 
     members = relationship("CompanyMember", back_populates="company")
@@ -312,13 +321,61 @@ class PostedVoucherRecord(Base):
     __tablename__ = "posted_voucher_records"
     __table_args__ = (
         UniqueConstraint("company_id", "voucher_id", name="uq_posted_voucher_company_id"),
-        UniqueConstraint("company_id", "voucher_number", name="uq_posted_voucher_company_number"),
+        UniqueConstraint(
+            "company_id",
+            "fiscal_year_start",
+            "series",
+            "voucher_number",
+            name="uq_posted_voucher_company_year_series_number",
+        ),
         Index("ix_posted_voucher_company", "company_id"),
+        Index(
+            "ix_posted_voucher_company_year_series",
+            "company_id",
+            "fiscal_year_start",
+            "series",
+        ),
     )
+
     id = Column(Integer, primary_key=True)
-    company_id = Column(Integer, ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False)
+    company_id = Column(
+        Integer,
+        ForeignKey("companies.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
     voucher_id = Column(String(80), nullable=False)
     voucher_number = Column(Integer, nullable=False)
+    series = Column(String(10), nullable=False, default="A", server_default="A")
+    fiscal_year_start = Column(String(10), nullable=False)
     payload_json = Column(Text, nullable=False)
-    registered_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    registered_by_user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     registered_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+
+class VoucherNumberSequence(Base):
+    """Atomic counter for one voucher series in one company and fiscal year."""
+    __tablename__ = "voucher_number_sequences"
+    __table_args__ = (
+        UniqueConstraint(
+            "company_id",
+            "fiscal_year_start",
+            "series",
+            name="uq_voucher_number_sequence_company_year_series",
+        ),
+        Index("ix_voucher_number_sequences_company", "company_id"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    company_id = Column(
+        Integer,
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    fiscal_year_start = Column(String(10), nullable=False)
+    series = Column(String(10), nullable=False)
+    last_number = Column(Integer, nullable=False, default=0, server_default="0")
+    updated_at = Column(DateTime, nullable=False, server_default=func.now())
