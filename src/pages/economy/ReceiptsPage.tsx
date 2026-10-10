@@ -69,14 +69,30 @@ export default function ReceiptsPage() {
     (voucher) => voucher.status !== "DRAFT" && voucher.voucherNumber > 0
   );
 
+  const voucherReference = (voucher: { series?: string; voucherNumber: number }) => {
+    const series = voucher.series?.trim().toUpperCase() || "A";
+    return `${series}${voucher.voucherNumber}`;
+  };
+
+  const linkedVoucherForReceipt = (receipt: Receipt) =>
+    receipt.voucherId
+      ? postedVouchers.find((voucher) => voucher.id === receipt.voucherId)
+      : undefined;
+
+  const receiptVoucherReference = (receipt: Receipt) => {
+    const linkedVoucher = linkedVoucherForReceipt(receipt);
+    if (linkedVoucher) return voucherReference(linkedVoucher);
+    return receipt.voucherNumber !== null ? String(receipt.voucherNumber) : "";
+  };
+
   const filteredReceipts = receipts.filter((receipt) => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return true;
 
     return (
       receipt.name.toLowerCase().includes(query) ||
-      (receipt.voucherNumber !== null &&
-        String(receipt.voucherNumber).includes(query))
+      receiptVoucherReference(receipt).toLowerCase().includes(query) ||
+      (receipt.voucherNumber !== null && String(receipt.voucherNumber).includes(query))
     );
   });
 
@@ -128,7 +144,7 @@ export default function ReceiptsPage() {
 
     if (linked) {
       toast.success(
-        "Underlaget har kopplats till verifikation #" + selectedVoucher.voucherNumber + "."
+        "Underlaget har kopplats till verifikation " + voucherReference(selectedVoucher) + "."
       );
       closeLinkDialog();
     }
@@ -233,7 +249,7 @@ export default function ReceiptsPage() {
                       {isLinked ? (
                         <p className="text-xs text-muted-foreground flex items-center gap-1">
                           <Lock className="h-3 w-3" />
-                          Kopplat till verifikation #{receipt.voucherNumber} · Skyddat underlag
+                          Kopplat till verifikation {receiptVoucherReference(receipt)} · Skyddat underlag
                         </p>
                       ) : (
                         <p className="text-xs text-muted-foreground">
@@ -331,7 +347,7 @@ export default function ReceiptsPage() {
                   className="w-full justify-between"
                 >
                   {selectedVoucher
-                    ? "#" + selectedVoucher.voucherNumber + " — " + selectedVoucher.description
+                    ? voucherReference(selectedVoucher) + " — " + selectedVoucher.description
                     : "Välj en bokförd verifikation..."}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
@@ -345,7 +361,13 @@ export default function ReceiptsPage() {
                       {postedVouchers.map((voucher) => (
                         <CommandItem
                           key={voucher.id}
-                          value={String(voucher.voucherNumber) + " " + voucher.description}
+                          value={
+                            voucherReference(voucher) +
+                            " " +
+                            voucher.voucherNumber +
+                            " " +
+                            voucher.description
+                          }
                           onSelect={() => {
                             setSelectedVoucherId(voucher.id);
                             setVoucherPickerOpen(false);
@@ -357,7 +379,7 @@ export default function ReceiptsPage() {
                               selectedVoucherId === voucher.id ? "opacity-100" : "opacity-0"
                             )}
                           />
-                          #{voucher.voucherNumber} — {voucher.description}
+                          {voucherReference(voucher)} — {voucher.description}
                         </CommandItem>
                       ))}
                     </CommandGroup>
