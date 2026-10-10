@@ -25,7 +25,7 @@ export function AccountStatementDialog({
   onOpenChange, 
   accountNumber 
 }: AccountStatementDialogProps) {
-  const { getAccountStatement, accounts, getVoucherByNumber } = useAccounting();
+  const { getAccountStatement, accounts, getVoucherById } = useAccounting();
   const { activeCompany } = useAuth();
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
   
@@ -34,12 +34,15 @@ export function AccountStatementDialog({
 
   if (!statement || !account) return null;
 
-  const handleVoucherClick = (voucherNumber: number) => {
-    const voucher = getVoucherByNumber(voucherNumber);
+  const handleVoucherClick = (voucherId: string) => {
+    const voucher = getVoucherById(voucherId);
     if (voucher) {
       setSelectedVoucher(voucher);
     }
   };
+
+  const voucherReference = (series: string | undefined, voucherNumber: number) =>
+    `${(series || "A").toUpperCase()}${voucherNumber}`;
 
   const handleExportPDF = () => {
     if (!statement || statement.entries.length === 0) return;
@@ -72,7 +75,7 @@ export function AccountStatementDialog({
       body: [
         ...statement.entries.map(entry => [
           entry.date,
-          `#${entry.voucherNumber}`,
+          voucherReference(entry.series, entry.voucherNumber),
           entry.description,
           entry.debit > 0 ? formatAmount(entry.debit) : "",
           entry.credit > 0 ? formatAmount(entry.credit) : "",
@@ -145,11 +148,11 @@ export function AccountStatementDialog({
                       <tr 
                         key={index} 
                         className="border-t hover:bg-muted/20 cursor-pointer transition-colors"
-                        onClick={() => handleVoucherClick(entry.voucherNumber)}
+                        onClick={() => handleVoucherClick(entry.voucherId)}
                       >
                         <td className="p-3 font-mono text-sm">{entry.date}</td>
-                        <td className="p-3 text-secondary hover:underline">
-                          #{entry.voucherNumber}
+                        <td className="p-3 text-secondary hover:underline font-mono">
+                          {voucherReference(entry.series, entry.voucherNumber)}
                         </td>
                         <td className="p-3 text-muted-foreground">{entry.description}</td>
                         <td className="p-3 text-right font-mono">
