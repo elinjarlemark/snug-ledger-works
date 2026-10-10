@@ -104,8 +104,8 @@ export default function EconomyIndex() {
     const yearStart = `${currentYear}-01-01`;
     const yearEnd = format(endOfMonth(new Date()), "yyyy-MM-dd");
     const { revenues, expenses, netResult } = getIncomeStatement(yearStart, yearEnd);
-    const totalRevenue = revenues.reduce((sum, r) => sum + Math.abs(r.balance), 0);
-    const totalExpenses = expenses.reduce((sum, e) => sum + Math.abs(e.balance), 0);
+    const totalRevenue = revenues.reduce((sum, r) => sum + r.balance, 0);
+    const totalExpenses = expenses.reduce((sum, e) => sum + e.balance, 0);
     return { totalRevenue, totalExpenses, netResult };
   }, [getIncomeStatement, currentYear]);
 
