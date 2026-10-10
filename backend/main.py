@@ -35,6 +35,7 @@ from models import (
     CompanyLockTakeoverRequest,
     CompanyLockTakeoverStatus,
 )
+from voucher_integrity import normalize_series
 
 # ------------------------------------------------------------
 # Logging
@@ -114,6 +115,7 @@ class CompanyCreate(BaseModel):
     fiscal_year_start: str | None = None
     fiscal_year_end: str | None = None
     accounting_standard: str | None = None
+    default_voucher_series: str | None = None
     
     
 class CompanyJoinRequestCreate(BaseModel):
@@ -141,6 +143,7 @@ class CompanyUpdate(BaseModel):
     fiscal_year_start: str | None = None
     fiscal_year_end: str | None = None
     accounting_standard: str | None = None
+    default_voucher_series: str | None = None
 
 
 class CompanySIEStateUpsert(BaseModel):
@@ -1106,6 +1109,7 @@ def list_companies(user_id: int, db: Session = Depends(get_db)):
             "fiscalYearStart": company.fiscal_year_start,
             "fiscalYearEnd": company.fiscal_year_end,
             "accountingStandard": company.accounting_standard,
+            "defaultVoucherSeries": company.default_voucher_series or "A",
         }
         for company in companies
     ]
@@ -1132,6 +1136,7 @@ def create_company(payload: CompanyCreate, db: Session = Depends(get_db)):
         fiscal_year_start=payload.fiscal_year_start,
         fiscal_year_end=payload.fiscal_year_end,
         accounting_standard=payload.accounting_standard,
+        default_voucher_series=normalize_series(payload.default_voucher_series or "A"),
     )
     db.add(company)
     db.commit()
@@ -1355,6 +1360,7 @@ def list_companies_for_user(user_id: int, db: Session = Depends(get_db)):
             'fiscalYearStart': c.fiscal_year_start,
             'fiscalYearEnd': c.fiscal_year_end,
             'accountingStandard': c.accounting_standard,
+            'defaultVoucherSeries': c.default_voucher_series or 'A',
             'memberRole': m.role,
             'memberStatus': m.status,
         }
@@ -1385,8 +1391,13 @@ def update_company(company_id: int, payload: CompanyUpdate, user_id: int, db: Se
     company.fiscal_year_start = payload.fiscal_year_start
     company.fiscal_year_end = payload.fiscal_year_end
     company.accounting_standard = payload.accounting_standard
+    if payload.default_voucher_series is not None:
+        company.default_voucher_series = normalize_series(payload.default_voucher_series)
     db.commit()
-    return {"id": company.id}
+    return {
+        "id": company.id,
+        "defaultVoucherSeries": company.default_voucher_series or "A",
+    }
 
 
 @app.delete("/companies/{company_id}")
