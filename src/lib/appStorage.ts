@@ -88,8 +88,13 @@ function applyVoucherAssignments(
       for (const receipt of rows) {
         if (!receipt || typeof receipt !== "object") continue;
         const assignment = assignments[String(receipt.voucherId ?? "")];
-        if (assignment && typeof assignment.voucherNumber === "number") {
-          receipt.voucherNumber = assignment.voucherNumber;
+        if (assignment) {
+          if (typeof assignment.voucherNumber === "number") {
+            receipt.voucherNumber = assignment.voucherNumber;
+          }
+          if (typeof assignment.series === "string") {
+            receipt.voucherSeries = assignment.series;
+          }
         }
       }
 
