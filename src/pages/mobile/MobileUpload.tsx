@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Receipt, Upload, LogOut, Camera, CheckCircle2, Loader2 } from "lucide-react";
@@ -6,6 +6,30 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useReceipts } from "@/contexts/ReceiptsContext";
 import { toast } from "sonner";
 import { ThemeSwitch } from "@/components/layout/ThemeSwitch";
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        reject(new Error("Filen kunde inte läsas som ett giltigt underlag."));
+        return;
+      }
+      resolve(reader.result);
+    };
+
+    reader.onerror = () => {
+      reject(new Error("Kunde inte läsa filen."));
+    };
+
+    reader.onabort = () => {
+      reject(new Error("Filuppladdningen avbröts."));
+    };
+
+    reader.readAsDataURL(file);
+  });
+}
 
 export default function MobileUpload() {
   const { user, activeCompany, logout } = useAuth();
@@ -27,42 +51,44 @@ export default function MobileUpload() {
 
   const handleFile = async (file: File) => {
     if (!activeCompany) {
-      toast.error("Ingen aktiv företag - kan inte spara kvitto");
+      toast.error("Inget aktivt företag – kan inte spara kvittot.");
       return;
     }
 
     setUploading(true);
+
     try {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const dataUrl = e.target?.result as string;
-        addReceipt({
-          name: file.name,
-          type: file.type,
-          dataUrl,
-          voucherId: null,
-          voucherNumber: null,
-        });
-        setLastUploaded(file.name);
-        toast.success("Kvitto uppladdat!");
-        setUploading(false);
-        setTimeout(() => setLastUploaded(null), 4000);
-      };
-      reader.onerror = () => {
-        toast.error("Kunde inte läsa filen");
-        setUploading(false);
-      };
-      reader.readAsDataURL(file);
-    } catch (err) {
-      toast.error("Något gick fel");
+      const dataUrl = await readFileAsDataUrl(file);
+
+      await addReceipt({
+        name: file.name,
+        type: file.type,
+        dataUrl,
+        voucherId: null,
+        voucherNumber: null,
+      });
+
+      setLastUploaded(file.name);
+      toast.success("Kvitto uppladdat!");
+      window.setTimeout(() => setLastUploaded(null), 4000);
+    } catch (error) {
+      console.error("Det gick inte att ladda upp kvittot:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Kunde inte spara kvittot. Försök igen."
+      );
+    } finally {
       setUploading(false);
     }
   };
 
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleFile(file);
-    e.target.value = "";
+  const onFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      void handleFile(file);
+    }
+    event.target.value = "";
   };
 
   const userReceiptsCount = receipts.length;
@@ -89,7 +115,9 @@ export default function MobileUpload() {
           Logga ut
         </Button>
       </header>
-      <div className="flex justify-end px-4 py-3"><ThemeSwitch /></div>
+      <div className="flex justify-end px-4 py-3">
+        <ThemeSwitch />
+      </div>
 
       {/* Main content */}
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-8 space-y-8">
@@ -156,14 +184,19 @@ export default function MobileUpload() {
             <CheckCircle2 className="h-5 w-5 text-success shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground">Sparat!</p>
-              <p className="text-xs text-muted-foreground truncate">{lastUploaded}</p>
+              <p className="text-xs text-muted-foreground truncate">
+                {lastUploaded}
+              </p>
             </div>
           </div>
         )}
 
         <div className="text-center pt-4">
           <p className="text-xs text-muted-foreground">
-            Totalt uppladdade kvitton: <span className="font-semibold text-foreground">{userReceiptsCount}</span>
+            Totalt uppladdade kvitton:{" "}
+            <span className="font-semibold text-foreground">
+              {userReceiptsCount}
+            </span>
           </p>
         </div>
       </main>
