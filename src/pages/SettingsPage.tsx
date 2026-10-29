@@ -23,6 +23,7 @@ import { useAccounting } from "@/contexts/AccountingContexts";
 import { useAuditTrail } from "@/contexts/AuditTrailContext";
 import { authService } from "@/services/auth";
 import { toast } from "sonner";
+import { decodeSIEFileBytes, encodeSIEFileBytes } from "@/lib/sie";
 import { Building, Save, ArrowLeft, Plus, Trash2, Check, Upload, Download, User, Calendar, Lock, Unlock, Receipt, BookOpen, MessageSquare } from "lucide-react";
 
 
@@ -346,9 +347,13 @@ export default function SettingsPage() {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
       try {
-        const content = await file.text();
+        const bytes = await file.arrayBuffer();
+        const content = decodeSIEFileBytes(bytes);
         setPendingSIEContent(content);
-      } catch { toast.error("Failed to read SIE file"); }
+      } catch (error) {
+        console.error("Failed to read SIE file:", error);
+        toast.error("Failed to read SIE file");
+      }
     };
     input.click();
   };
@@ -356,17 +361,24 @@ export default function SettingsPage() {
   const handleSIEExport = () => {
     if (!activeCompany) { toast.error("No company selected"); return; }
     if (vouchers.length === 0) { toast.error("No vouchers to export"); return; }
-    const sieContent = exportSIE();
-    const blob = new Blob([sieContent], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = (activeCompany.companyName || "company") + "_" + new Date().toISOString().split("T")[0] + ".se";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    toast.success("SIE file exported successfully");
+
+    try {
+      const sieContent = exportSIE();
+      const sieBytes = encodeSIEFileBytes(sieContent);
+      const blob = new Blob([sieBytes], { type: "application/octet-stream" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = (activeCompany.companyName || "company") + "_" + new Date().toISOString().split("T")[0] + ".se";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success("SIE file exported successfully");
+    } catch (error) {
+      console.error("Failed to export SIE file:", error);
+      toast.error("SIE-exporten kunde inte skapas. Kontrollera bokföringen och försök igen.");
+    }
   };
 
   const handleCancelNewCompany = () => {
@@ -386,18 +398,26 @@ export default function SettingsPage() {
   const handleDeleteCompanyExportAndComplete = () => {
     if (!activeCompany) return;
 
-    // Export SIE file
+    // Export SIE file. SIE 1-4 med #FORMAT PC8 måste laddas ned som riktiga
+    // PC437-bytes, inte som en UTF-8-kodad textblob.
     if (vouchers.length > 0) {
-      const sieContent = exportSIE();
-      const sieBlob = new Blob([sieContent], { type: "text/plain;charset=utf-8" });
-      const sieUrl = URL.createObjectURL(sieBlob);
-      const sieLink = document.createElement("a");
-      sieLink.href = sieUrl;
-      sieLink.download = (activeCompany.companyName || "company") + "_" + new Date().toISOString().split("T")[0] + ".se";
-      document.body.appendChild(sieLink);
-      sieLink.click();
-      document.body.removeChild(sieLink);
-      URL.revokeObjectURL(sieUrl);
+      try {
+        const sieContent = exportSIE();
+        const sieBytes = encodeSIEFileBytes(sieContent);
+        const sieBlob = new Blob([sieBytes], { type: "application/octet-stream" });
+        const sieUrl = URL.createObjectURL(sieBlob);
+        const sieLink = document.createElement("a");
+        sieLink.href = sieUrl;
+        sieLink.download = (activeCompany.companyName || "company") + "_" + new Date().toISOString().split("T")[0] + ".se";
+        document.body.appendChild(sieLink);
+        sieLink.click();
+        document.body.removeChild(sieLink);
+        URL.revokeObjectURL(sieUrl);
+      } catch (error) {
+        console.error("Failed to export SIE file before company deletion:", error);
+        toast.error("SIE-exporten kunde inte skapas. Företaget har inte tagits bort.");
+        return;
+      }
     }
 
     // Export audit trail as text file
