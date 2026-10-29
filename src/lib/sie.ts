@@ -558,67 +558,138 @@ export interface SIEExportOptions {
     string;
 }
 
-function encodePC8(
-  text:
-    string
+const PC437_HIGH_CHARS =
+  "ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ¢£¥₧ƒáíóúñÑªº¿⌐¬½¼¡«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■ ";
+
+const PC437_ENCODE_MAP = (() => {
+  const map = new Map<string, number>();
+
+  for (let index = 0; index < 128; index += 1) {
+    map.set(String.fromCharCode(index), index);
+  }
+
+  Array.from(PC437_HIGH_CHARS).forEach((character, index) => {
+    map.set(character, index + 128);
+  });
+
+  return map;
+})();
+
+function normalizeSIECharacters(
+  value: string
 ): string {
-  return text
-    .replace(
-      /å/g,
-      "„"
-    )
-    .replace(
-      /ä/g,
-      "„"
-    )
-    .replace(
-      /ö/g,
-      '"'
-    )
-    .replace(
-      /Å/g,
-      "Å"
-    )
-    .replace(
-      /Ä/g,
-      "Ä"
-    )
-    .replace(
-      /Ö/g,
-      "Ö"
-    );
+  return value
+    .normalize("NFC")
+    .replace(/[–—]/g, "-")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'");
+}
+
+function sanitizeSIEField(
+  value: string
+): string {
+  return normalizeSIECharacters(
+    value
+  ).replace(
+    /[\u0000-\u001F\u007F]/g,
+    " "
+  );
+}
+
+function quoteSIEText(
+  value: string
+): string {
+  return (
+    '"' +
+    sanitizeSIEField(value).replace(/"/g, '\\"') +
+    '"'
+  );
+}
+
+export function encodeSIEFileBytes(
+  content: string
+): Uint8Array {
+  const normalized = normalizeSIECharacters(content);
+  const bytes: number[] = [];
+
+  for (const character of normalized) {
+    const byte = PC437_ENCODE_MAP.get(character);
+    bytes.push(byte ?? 0x3f);
+  }
+
+  return new Uint8Array(bytes);
+}
+
+function decodePC437(
+  bytes: Uint8Array
+): string {
+  let result = "";
+
+  bytes.forEach((byte) => {
+    result +=
+      byte < 128
+        ? String.fromCharCode(byte)
+        : PC437_HIGH_CHARS[byte - 128] ?? "?";
+  });
+
+  return result;
+}
+
+export function decodeSIEFileBytes(
+  input: ArrayBuffer | Uint8Array
+): string {
+  const bytes =
+    input instanceof Uint8Array
+      ? input
+      : new Uint8Array(input);
+
+  if (
+    bytes.length >= 3 &&
+    bytes[0] === 0xef &&
+    bytes[1] === 0xbb &&
+    bytes[2] === 0xbf
+  ) {
+    return new TextDecoder("utf-8").decode(bytes.subarray(3));
+  }
+
+  const probeLength = Math.min(bytes.length, 1024);
+  let asciiProbe = "";
+  for (let index = 0; index < probeLength; index += 1) {
+    const byte = bytes[index];
+    asciiProbe += byte < 128 ? String.fromCharCode(byte) : "?";
+  }
+
+  if (/^|\n\s*#FORMAT\s+PC8(?:\s|$)/im.test(asciiProbe)) {
+    return decodePC437(bytes);
+  }
+
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return decodePC437(bytes);
+  }
 }
 
 function getAccountType(
   accountNumber:
     string
 ): string {
-  const firstDigit =
-    accountNumber.charAt(
-      0
-    );
-
   switch (
-    firstDigit
+    getAccountClass(
+      accountNumber
+    )
   ) {
-    case "1":
+    case "asset":
       return "T";
 
-    case "2":
+    case "equity_liability":
       return "S";
 
-    case "3":
+    case "revenue":
       return "I";
 
-    case "4":
-    case "5":
-    case "6":
-    case "7":
-    case "8":
+    case "expense":
       return "K";
-
-    default:
-      return "T";
   }
 }
 
@@ -651,6 +722,82 @@ function formatOrgNumber(
   return organizationNumber;
 }
 
+function assertISODate(
+  value: string,
+  label: string
+): void {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new Error(label + " måste anges som ÅÅÅÅ-MM-DD.");
+  }
+
+  const [yearText, monthText, dayText] = value.split("-");
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() + 1 !== month ||
+    parsed.getUTCDate() !== day
+  ) {
+    throw new Error(label + " är inte ett giltigt datum.");
+  }
+}
+
+function shiftISODateOneYearBack(
+  value: string
+): string {
+  const [yearText, monthText, dayText] = value.split("-");
+  const year = Number(yearText) - 1;
+  const month = Number(monthText);
+  const day = Number(dayText);
+
+  const lastDayOfMonth =
+    new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const clampedDay = Math.min(day, lastDayOfMonth);
+
+  return (
+    String(year).padStart(4, "0") +
+    "-" +
+    String(month).padStart(2, "0") +
+    "-" +
+    String(clampedDay).padStart(2, "0")
+  );
+}
+
+function addVoucherBalances(
+  target: Map<string, number>,
+  vouchers: Voucher[]
+): void {
+  vouchers.forEach((voucher) => {
+    voucher.lines.forEach((line) => {
+      const current = target.get(line.accountNumber) ?? 0;
+      target.set(
+        line.accountNumber,
+        roundToOre(
+          current +
+          line.debit -
+          line.credit
+        )
+      );
+    });
+  });
+}
+
+function mapValue(
+  values: Map<string, number>,
+  accountNumber: string
+): number {
+  return roundToOre(values.get(accountNumber) ?? 0);
+}
+
+function isNonZeroAmount(
+  value: number
+): boolean {
+  return Math.abs(roundToOre(value)) >= 0.005;
+}
+
 export function generateSIEFile(
   vouchers:
     Voucher[],
@@ -661,145 +808,259 @@ export function generateSIEFile(
   options:
     SIEExportOptions
 ): string {
-  const lines:
-    string[] =
-    [];
+  assertISODate(
+    options.fiscalYearStart,
+    "Räkenskapsårets startdatum"
+  );
+  assertISODate(
+    options.fiscalYearEnd,
+    "Räkenskapsårets slutdatum"
+  );
 
+  if (
+    options.fiscalYearStart >
+    options.fiscalYearEnd
+  ) {
+    throw new Error(
+      "Räkenskapsårets startdatum får inte ligga efter slutdatumet."
+    );
+  }
+
+  const lines: string[] = [];
   const today =
     new Date()
       .toISOString()
       .split("T")[0];
 
-  const fiscalStartMonth =
-    options
-      .fiscalYearStart
-      .substring(
-        5,
-        7
-      );
+  const fiscalYearStart =
+    options.fiscalYearStart;
+  const fiscalYearEnd =
+    options.fiscalYearEnd;
 
-  const fiscalStartDay =
-    options
-      .fiscalYearStart
-      .substring(
-        8,
-        10
-      );
-
-  const fiscalEndMonth =
-    options
-      .fiscalYearEnd
-      .substring(
-        5,
-        7
-      );
-
-  const fiscalEndDay =
-    options
-      .fiscalYearEnd
-      .substring(
-        8,
-        10
-      );
-
-  const currentYear =
-    new Date()
-      .getFullYear();
-
-  const previousYear =
-    currentYear -
-    1;
-
-  const currentYearStart =
-    String(
-      currentYear
-    ) +
-    fiscalStartMonth +
-    fiscalStartDay;
-
-  const currentYearEnd =
-    String(
-      currentYear
-    ) +
-    fiscalEndMonth +
-    fiscalEndDay;
-
-  const previousYearStart =
-    String(
-      previousYear
-    ) +
-    fiscalStartMonth +
-    fiscalStartDay;
-
-  const previousYearEnd =
-    String(
-      previousYear
-    ) +
-    fiscalEndMonth +
-    fiscalEndDay;
+  const previousFiscalYearStart =
+    shiftISODateOneYearBack(
+      fiscalYearStart
+    );
+  const previousFiscalYearEnd =
+    shiftISODateOneYearBack(
+      fiscalYearEnd
+    );
 
   const isSyntheticOpeningBalanceVoucher =
     (
       voucher:
         Voucher
     ) =>
-      voucher
-        .voucherNumber ===
-        0 &&
-      voucher
-        .description ===
+      voucher.voucherNumber === 0 &&
+      voucher.description ===
         "Ingående balans från SIE";
 
-  const openingBalanceVouchers =
+  const postedVouchers =
     vouchers.filter(
+      (voucher) =>
+        voucher.status !==
+        "DRAFT"
+    );
+
+  const openingBalanceVouchers =
+    postedVouchers.filter(
       isSyntheticOpeningBalanceVoucher
     );
 
   const normalVouchers =
-    vouchers.filter(
+    postedVouchers.filter(
       (voucher) =>
         !isSyntheticOpeningBalanceVoucher(
           voucher
         )
     );
 
-  const currentYearStartDate =
-    String(
-      currentYear
-    ) +
-    "-" +
-    fiscalStartMonth +
-    "-" +
-    fiscalStartDay;
+  const vouchersBeforeCurrentYear =
+    normalVouchers.filter(
+      (voucher) =>
+        voucher.date <
+        fiscalYearStart
+    );
 
   const currentYearVouchers =
     normalVouchers.filter(
       (voucher) =>
         voucher.date >=
-        currentYearStartDate
+          fiscalYearStart &&
+        voucher.date <=
+          fiscalYearEnd
     );
 
   const previousYearVouchers =
     normalVouchers.filter(
       (voucher) =>
-        voucher.date <
-        currentYearStartDate
+        voucher.date >=
+          previousFiscalYearStart &&
+        voucher.date <=
+          previousFiscalYearEnd
     );
+
+  const openingBalances =
+    new Map<
+      string,
+      number
+    >();
+
+  addVoucherBalances(
+    openingBalances,
+    openingBalanceVouchers
+  );
+  addVoucherBalances(
+    openingBalances,
+    vouchersBeforeCurrentYear
+  );
+
+  const currentChanges =
+    new Map<
+      string,
+      number
+    >();
+
+  addVoucherBalances(
+    currentChanges,
+    currentYearVouchers
+  );
+
+  const previousYearChanges =
+    new Map<
+      string,
+      number
+    >();
+
+  addVoucherBalances(
+    previousYearChanges,
+    previousYearVouchers
+  );
+
+  const accountNames =
+    new Map<
+      string,
+      string
+    >(
+      accounts.map(
+        (account) => [
+          account.number,
+          account.name,
+        ]
+      )
+    );
+
+  postedVouchers.forEach(
+    (voucher) => {
+      voucher.lines.forEach(
+        (line) => {
+          if (
+            !accountNames.has(
+              line.accountNumber
+            )
+          ) {
+            accountNames.set(
+              line.accountNumber,
+              line.accountName ||
+                "Konto " +
+                  line.accountNumber
+            );
+          }
+        }
+      );
+    }
+  );
+
+  const usedAccountNumbers =
+    new Set<string>();
+
+  openingBalances.forEach(
+    (value, accountNumber) => {
+      if (
+        isNonZeroAmount(
+          value
+        )
+      ) {
+        usedAccountNumbers.add(
+          accountNumber
+        );
+      }
+    }
+  );
+
+  currentChanges.forEach(
+    (
+      _value,
+      accountNumber
+    ) => {
+      usedAccountNumbers.add(
+        accountNumber
+      );
+    }
+  );
+
+  previousYearChanges.forEach(
+    (
+      value,
+      accountNumber
+    ) => {
+      if (
+        isNonZeroAmount(
+          value
+        )
+      ) {
+        usedAccountNumbers.add(
+          accountNumber
+        );
+      }
+    }
+  );
+
+  currentYearVouchers.forEach(
+    (voucher) => {
+      voucher.lines.forEach(
+        (line) =>
+          usedAccountNumbers.add(
+            line.accountNumber
+          )
+      );
+    }
+  );
+
+  const sortedAccountNumbers =
+    Array.from(
+      usedAccountNumbers
+    ).sort(
+      (a, b) =>
+        a.localeCompare(b)
+    );
+
+  const hasPreviousYearData =
+    Array.from(
+      openingBalances.values()
+    ).some(
+      isNonZeroAmount
+    ) ||
+    previousYearVouchers.length >
+      0;
 
   lines.push(
     "#FLAGGA 0"
   );
 
   lines.push(
+    "#PROGRAM " +
+    quoteSIEText(
+      "AccountPro"
+    ) +
+    " " +
+    quoteSIEText(
+      "1.0"
+    )
+  );
+
+  lines.push(
     "#FORMAT PC8"
-  );
-
-  lines.push(
-    "#SIETYP 4"
-  );
-
-  lines.push(
-    '#PROGRAM "AccountPro" 1.0'
   );
 
   lines.push(
@@ -810,11 +1071,14 @@ export function generateSIEFile(
   );
 
   lines.push(
-    '#FNAMN "' +
-    encodePC8(
+    "#SIETYP 4"
+  );
+
+  lines.push(
+    "#FNAMN " +
+    quoteSIEText(
       options.companyName
-    ) +
-    '"'
+    )
   );
 
   if (
@@ -828,42 +1092,60 @@ export function generateSIEFile(
     );
   }
 
-  const address =
+  if (
     options.address ||
-    "";
-
-  const postalCity =
-    options.postalCode &&
+    options.postalCode ||
     options.city
-      ? '"' +
-        options.postalCode +
-        " " +
-        options.city +
-        '"'
-      : '""';
+  ) {
+    const postalAddress =
+      [
+        options.postalCode,
+        options.city,
+      ]
+        .filter(Boolean)
+        .join(" ");
 
-  lines.push(
-    '#ADRESS "' +
-    encodePC8(
-      address
-    ) +
-    '" ' +
-    postalCity
-  );
+    lines.push(
+      "#ADRESS " +
+      quoteSIEText("") +
+      " " +
+      quoteSIEText(
+        options.address || ""
+      ) +
+      " " +
+      quoteSIEText(
+        postalAddress
+      ) +
+      " " +
+      quoteSIEText("")
+    );
+  }
 
   lines.push(
     "#RAR 0 " +
-    currentYearStart +
+    formatSIEDate(
+      fiscalYearStart
+    ) +
     " " +
-    currentYearEnd
+    formatSIEDate(
+      fiscalYearEnd
+    )
   );
 
-  lines.push(
-    "#RAR -1 " +
-    previousYearStart +
-    " " +
-    previousYearEnd
-  );
+  if (
+    hasPreviousYearData
+  ) {
+    lines.push(
+      "#RAR -1 " +
+      formatSIEDate(
+        previousFiscalYearStart
+      ) +
+      " " +
+      formatSIEDate(
+        previousFiscalYearEnd
+      )
+    );
+  }
 
   lines.push(
     "#VALUTA SEK"
@@ -873,254 +1155,215 @@ export function generateSIEFile(
     "#KPTYP EUBAS97"
   );
 
-  const usedAccountNumbers =
-    new Set<string>();
-
-  vouchers.forEach(
-    (voucher) => {
-      voucher.lines.forEach(
-        (line) => {
-          usedAccountNumbers.add(
-            line.accountNumber
-          );
-        }
-      );
-    }
-  );
-
-  const previousYearBalances:
-    Record<
-      string,
-      number
-    > = {};
-
-  openingBalanceVouchers.forEach(
-    (voucher) => {
-      voucher.lines.forEach(
-        (line) => {
-          if (
-            !previousYearBalances[
-              line.accountNumber
-            ]
-          ) {
-            previousYearBalances[
-              line.accountNumber
-            ] = 0;
-          }
-
-          previousYearBalances[
-            line.accountNumber
-          ] =
-            roundToOre(
-              previousYearBalances[
-                line.accountNumber
-              ] +
-              line.debit -
-              line.credit
-            );
-        }
-      );
-    }
-  );
-
-  previousYearVouchers.forEach(
-    (voucher) => {
-      voucher.lines.forEach(
-        (line) => {
-          if (
-            !previousYearBalances[
-              line.accountNumber
-            ]
-          ) {
-            previousYearBalances[
-              line.accountNumber
-            ] = 0;
-          }
-
-          previousYearBalances[
-            line.accountNumber
-          ] =
-            roundToOre(
-              previousYearBalances[
-                line.accountNumber
-              ] +
-              line.debit -
-              line.credit
-            );
-        }
-      );
-    }
-  );
-
-  const currentYearBalances:
-    Record<
-      string,
-      number
-    > = {};
-
-  currentYearVouchers.forEach(
-    (voucher) => {
-      voucher.lines.forEach(
-        (line) => {
-          if (
-            !currentYearBalances[
-              line.accountNumber
-            ]
-          ) {
-            currentYearBalances[
-              line.accountNumber
-            ] = 0;
-          }
-
-          currentYearBalances[
-            line.accountNumber
-          ] =
-            roundToOre(
-              currentYearBalances[
-                line.accountNumber
-              ] +
-              line.debit -
-              line.credit
-            );
-        }
-      );
-    }
-  );
-
-  const sortedAccounts =
-    accounts
-      .filter(
-        (account) =>
-          usedAccountNumbers.has(
-            account.number
-          )
-      )
-      .sort(
-        (a, b) =>
-          a.number.localeCompare(
-            b.number
-          )
-      );
-
-  sortedAccounts.forEach(
-    (account) => {
-      const accountType =
-        getAccountType(
-          account.number
-        );
-
-      const previousBalance =
-        previousYearBalances[
-          account.number
-        ] ||
-        0;
+  /*
+   * SIE kräver att kontoplansuppgifter kommer före saldo- och
+   * verifikationsposter. Därför deklareras samtliga använda konton först.
+   */
+  sortedAccountNumbers.forEach(
+    (
+      accountNumber
+    ) => {
+      const accountName =
+        accountNames.get(
+          accountNumber
+        ) ||
+        "Konto " +
+          accountNumber;
 
       lines.push(
         "#KONTO " +
-        account.number +
-        ' "' +
-        encodePC8(
-          account.name
-        ) +
-        '"'
+        accountNumber +
+        " " +
+        quoteSIEText(
+          accountName
+        )
       );
 
       lines.push(
         "#KTYP " +
-        account.number +
+        accountNumber +
         " " +
-        accountType
-      );
-
-      lines.push(
-        "#IB 0 " +
-        account.number +
-        " " +
-        roundToOre(
-          previousBalance
-        ).toFixed(2)
-      );
-
-      lines.push(
-        "#UB -1 " +
-        account.number +
-        " " +
-        roundToOre(
-          previousBalance
-        ).toFixed(2)
+        getAccountType(
+          accountNumber
+        )
       );
     }
   );
 
-  sortedAccounts.forEach(
-    (account) => {
+  /*
+   * #IB/#UB gäller endast balanskonton.
+   * SIE använder rå debet/kredit-skyltning: debet är positivt,
+   * kredit negativt.
+   */
+  sortedAccountNumbers.forEach(
+    (
+      accountNumber
+    ) => {
       const accountType =
         getAccountType(
-          account.number
-        );
-
-      const previousBalance =
-        previousYearBalances[
-          account.number
-        ] ||
-        0;
-
-      const currentChange =
-        currentYearBalances[
-          account.number
-        ] ||
-        0;
-
-      const totalBalance =
-        roundToOre(
-          previousBalance +
-          currentChange
+          accountNumber
         );
 
       if (
-        accountType ===
-          "T" ||
-        accountType ===
+        accountType !==
+          "T" &&
+        accountType !==
           "S"
       ) {
+        return;
+      }
+
+      const openingBalance =
+        mapValue(
+          openingBalances,
+          accountNumber
+        );
+
+      const currentClosingBalance =
+        roundToOre(
+          openingBalance +
+          mapValue(
+            currentChanges,
+            accountNumber
+          )
+        );
+
+      if (
+        isNonZeroAmount(
+          openingBalance
+        )
+      ) {
         lines.push(
-          "#UB 0 " +
-          account.number +
+          "#IB 0 " +
+          accountNumber +
           " " +
-          totalBalance.toFixed(
+          openingBalance.toFixed(
             2
           )
         );
-      } else {
+
+        if (
+          hasPreviousYearData
+        ) {
+          lines.push(
+            "#UB -1 " +
+            accountNumber +
+            " " +
+            openingBalance.toFixed(
+              2
+            )
+          );
+        }
+      }
+
+      if (
+        isNonZeroAmount(
+          currentClosingBalance
+        )
+      ) {
         lines.push(
-          "#RES 0 " +
-          account.number +
+          "#UB 0 " +
+          accountNumber +
           " " +
-          roundToOre(
-            currentChange
-          ).toFixed(2)
+          currentClosingBalance.toFixed(
+            2
+          )
         );
       }
     }
   );
 
+  /*
+   * #RES används för resultatkonton. Om föregående års transaktioner
+   * faktiskt finns i AccountPro kan även jämförelseårets resultat exporteras.
+   */
+  sortedAccountNumbers.forEach(
+    (
+      accountNumber
+    ) => {
+      const accountType =
+        getAccountType(
+          accountNumber
+        );
+
+      if (
+        accountType !==
+          "I" &&
+        accountType !==
+          "K"
+      ) {
+        return;
+      }
+
+      const currentResult =
+        mapValue(
+          currentChanges,
+          accountNumber
+        );
+
+      if (
+        isNonZeroAmount(
+          currentResult
+        )
+      ) {
+        lines.push(
+          "#RES 0 " +
+          accountNumber +
+          " " +
+          currentResult.toFixed(
+            2
+          )
+        );
+      }
+
+      if (
+        hasPreviousYearData
+      ) {
+        const previousResult =
+          mapValue(
+            previousYearChanges,
+            accountNumber
+          );
+
+        if (
+          isNonZeroAmount(
+            previousResult
+          )
+        ) {
+          lines.push(
+            "#RES -1 " +
+            accountNumber +
+            " " +
+            previousResult.toFixed(
+              2
+            )
+          );
+        }
+      }
+    }
+  );
+
   currentYearVouchers
+    .slice()
     .sort(
       (
         a,
         b
       ) =>
+        internalVoucherSeries(a)
+          .localeCompare(
+            internalVoucherSeries(b)
+          ) ||
+        a.voucherNumber -
+          b.voucherNumber ||
         a.date.localeCompare(
           b.date
-        ) ||
-        internalVoucherSeries(a).localeCompare(
-          internalVoucherSeries(b)
-        ) ||
-        a.voucherNumber -
-          b.voucherNumber
+        )
     )
     .forEach(
-      (voucher) => {
+      (
+        voucher
+      ) => {
         const validation =
           validateBookkeepingLines(
             voucher.lines
@@ -1129,7 +1372,22 @@ export function generateSIEFile(
         if (
           !validation.isValid
         ) {
-          return;
+          throw new Error(
+            "Verifikation " +
+            internalVoucherSeries(
+              voucher
+            ) +
+            String(
+              voucher.voucherNumber
+            ) +
+            " kan inte exporteras till SIE: " +
+            validation.errors
+              .map(
+                (error) =>
+                  error.message
+              )
+              .join("; ")
+          );
         }
 
         const series =
@@ -1142,28 +1400,21 @@ export function generateSIEFile(
             voucher.date
           );
 
-        const description =
-          encodePC8(
-            voucher
-              .description
-              .replace(
-                /"/g,
-                '\\"'
-              )
-          );
-
         lines.push(
           "#VER " +
-          series +
+          quoteSIEText(
+            series
+          ) +
           " " +
           String(
             voucher.voucherNumber
           ) +
           " " +
           dateString +
-          ' "' +
-          description +
-          '"'
+          " " +
+          quoteSIEText(
+            voucher.description
+          )
         );
 
         lines.push(
@@ -1171,17 +1422,19 @@ export function generateSIEFile(
         );
 
         voucher.lines.forEach(
-          (line) => {
+          (
+            line
+          ) => {
             const debitOre =
               toOre(
                 line.debit
-              ) ||
+              ) ??
               0;
 
             const creditOre =
               toOre(
                 line.credit
-              ) ||
+              ) ??
               0;
 
             if (
@@ -1222,7 +1475,7 @@ export function generateSIEFile(
     );
 
   return lines.join(
-    "\n"
+    "\r\n"
   );
 }
 
