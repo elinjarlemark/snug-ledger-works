@@ -1359,7 +1359,7 @@ export function VoucherForm({
       for (const attachment of pendingAttachments) {
         try {
           const extension = attachment.name.split(".").pop() || "jpg";
-          addReceipt({
+          await addReceipt({
             name: "voucher_" + voucherReference + "." + extension,
             type: attachment.type,
             dataUrl: attachment.dataUrl,
