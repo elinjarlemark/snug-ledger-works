@@ -44,6 +44,14 @@ interface ReceiptState {
   receipts: Receipt[];
 }
 
+interface StoredVoucherReference {
+  id: string;
+  companyId: string;
+  voucherNumber: number;
+  series?: string | null;
+  status?: string;
+}
+
 const ReceiptsContext = createContext<ReceiptsContextType | undefined>(undefined);
 
 const VOUCHER_SERIES_PATTERN = /^[A-Z][A-Z0-9]{0,9}$/;
@@ -57,6 +65,34 @@ function normalizeVoucherSeries(series?: string | null): string | null {
 
 function receiptKey(companyId: string): string {
   return "accountpro_receipts_" + companyId;
+}
+
+function readPostedVoucherFromStorage(
+  companyId: string,
+  voucherId: string
+): StoredVoucherReference | undefined {
+  const raw = appStorage.getItem("accountpro_vouchers_" + companyId);
+  if (!raw) return undefined;
+
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return undefined;
+
+    const candidate = parsed.find((item): item is StoredVoucherReference => {
+      if (!item || typeof item !== "object") return false;
+      const voucher = item as Record<string, unknown>;
+      return (
+        voucher.id === voucherId &&
+        voucher.companyId === companyId &&
+        typeof voucher.voucherNumber === "number"
+      );
+    });
+
+    if (!candidate || candidate.status === "DRAFT") return undefined;
+    return candidate;
+  } catch {
+    return undefined;
+  }
 }
 
 function isSupportedReceiptType(type: string): boolean {
@@ -210,7 +246,10 @@ export function ReceiptsProvider({ children }: { children: ReactNode }) {
       throw new Error("Verifikationsserien är ogiltig.");
     }
 
-    const linkedVoucher = data.voucherId ? getVoucherById(data.voucherId) : undefined;
+    const linkedVoucher = data.voucherId
+      ? getVoucherById(data.voucherId) ||
+        readPostedVoucherFromStorage(requestedCompanyId, data.voucherId)
+      : undefined;
 
     if (data.voucherId) {
       if (!linkedVoucher || linkedVoucher.status === "DRAFT") {
@@ -323,7 +362,9 @@ export function ReceiptsProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
-    const linkedVoucher = getVoucherById(voucherId);
+    const linkedVoucher =
+      getVoucherById(voucherId) ||
+      readPostedVoucherFromStorage(requestedCompanyId, voucherId);
     if (!linkedVoucher || linkedVoucher.status === "DRAFT") {
       toast.error("Verifikationen finns inte eller är inte bokförd.");
       return false;
