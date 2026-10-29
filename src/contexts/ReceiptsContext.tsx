@@ -1,8 +1,9 @@
-import { appStorage } from "@/lib/appStorage";
+import { appStorage, flushAppStorage } from "@/lib/appStorage";
 import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -24,15 +25,17 @@ export interface Receipt {
 
 interface ReceiptsContextType {
   receipts: Receipt[];
-  addReceipt: (receipt: Omit<Receipt, "id" | "companyId" | "createdAt">) => Receipt;
-  removeReceipt: (id: string) => boolean;
+  addReceipt: (
+    receipt: Omit<Receipt, "id" | "companyId" | "createdAt">
+  ) => Promise<Receipt>;
+  removeReceipt: (id: string) => Promise<boolean>;
   unlinkReceipt: (id: string) => boolean;
   linkReceipt: (
     receiptId: string,
     voucherId: string,
     voucherNumber: number,
     voucherSeries?: string | null
-  ) => boolean;
+  ) => Promise<boolean>;
   getReceiptsForVoucher: (voucherId: string) => Receipt[];
 }
 
@@ -44,6 +47,7 @@ interface ReceiptState {
 const ReceiptsContext = createContext<ReceiptsContextType | undefined>(undefined);
 
 const VOUCHER_SERIES_PATTERN = /^[A-Z][A-Z0-9]{0,9}$/;
+const SUPPORTED_RECEIPT_TYPES = new Set(["application/pdf"]);
 
 function normalizeVoucherSeries(series?: string | null): string | null {
   if (series === undefined || series === null || !series.trim()) return null;
@@ -53,6 +57,10 @@ function normalizeVoucherSeries(series?: string | null): string | null {
 
 function receiptKey(companyId: string): string {
   return "accountpro_receipts_" + companyId;
+}
+
+function isSupportedReceiptType(type: string): boolean {
+  return type.startsWith("image/") || SUPPORTED_RECEIPT_TYPES.has(type);
 }
 
 function readReceipts(companyId: string): Receipt[] {
@@ -67,7 +75,9 @@ function readReceipts(companyId: string): Receipt[] {
   } catch (error) {
     // Skriv inte över befintliga, oläsbara data med en tom lista.
     console.error("Det gick inte att läsa företagets kvitton:", error);
-    throw new Error("Företagets sparade kvitton kunde inte läsas. Kontrollera datan innan du fortsätter.");
+    throw new Error(
+      "Företagets sparade kvitton kunde inte läsas. Kontrollera datan innan du fortsätter."
+    );
   }
 }
 
@@ -83,62 +93,170 @@ export function ReceiptsProvider({ children }: { children: ReactNode }) {
     receipts: readReceipts(companyId),
   }));
 
-  useEffect(() => {
-    setState({
-      companyId,
-      receipts: readReceipts(companyId),
-    });
-  }, [companyId]);
+  const stateRef = useRef(state);
+  const activeCompanyIdRef = useRef(companyId);
+
+  const replaceState = (next: ReceiptState) => {
+    stateRef.current = next;
+    setState(next);
+  };
 
   useEffect(() => {
-    if (!companyId || state.companyId !== companyId) return;
-    appStorage.setItem(receiptKey(companyId), JSON.stringify(state.receipts));
-  }, [companyId, state]);
+    activeCompanyIdRef.current = companyId;
+    const next = {
+      companyId,
+      receipts: readReceipts(companyId),
+    };
+    stateRef.current = next;
+    setState(next);
+  }, [companyId]);
 
   const receipts = state.companyId === companyId ? state.receipts : [];
 
-  const addReceipt = (
+  /**
+   * Spara hela kvittolagret och vänta på PostgreSQL-kvittens innan operationen
+   * betraktas som lyckad. Om backend nekar skrivningen återställs den lokala
+   * bilden till det senast bekräftade läget.
+   */
+  const persistReceipts = async (
+    requestedCompanyId: string,
+    previousReceipts: Receipt[],
+    nextReceipts: Receipt[]
+  ): Promise<Receipt[]> => {
+    if (!requestedCompanyId || activeCompanyIdRef.current !== requestedCompanyId) {
+      throw new Error("Företaget byttes innan underlaget kunde sparas.");
+    }
+
+    const key = receiptKey(requestedCompanyId);
+    const optimisticState = {
+      companyId: requestedCompanyId,
+      receipts: nextReceipts,
+    };
+
+    appStorage.setItem(key, JSON.stringify(nextReceipts));
+    replaceState(optimisticState);
+
+    try {
+      await flushAppStorage();
+
+      if (activeCompanyIdRef.current !== requestedCompanyId) {
+        throw new Error("Företaget byttes medan underlaget sparades.");
+      }
+
+      const confirmedReceipts = readReceipts(requestedCompanyId);
+      replaceState({
+        companyId: requestedCompanyId,
+        receipts: confirmedReceipts,
+      });
+      return confirmedReceipts;
+    } catch (error) {
+      // Backend har inte accepterat nästa version. Lägg tillbaka den tidigare
+      // lokala bilden och försök även återställa appStorage till samma läge.
+      // Om nätverket är nere ligger den återställda versionen kvar i outboxen
+      // och kan synkas när anslutningen fungerar igen.
+      if (activeCompanyIdRef.current === requestedCompanyId) {
+        appStorage.setItem(key, JSON.stringify(previousReceipts));
+        replaceState({
+          companyId: requestedCompanyId,
+          receipts: previousReceipts,
+        });
+
+        try {
+          await flushAppStorage();
+        } catch {
+          // Behåll originalfelet. appStorage har redan den återställda versionen
+          // i sin lokala återställningsjournal.
+        }
+      }
+
+      throw error;
+    }
+  };
+
+  const addReceipt = async (
     data: Omit<Receipt, "id" | "companyId" | "createdAt">
-  ): Receipt => {
-    if (!companyId || state.companyId !== companyId) {
+  ): Promise<Receipt> => {
+    const requestedCompanyId = companyId;
+    if (
+      !requestedCompanyId ||
+      stateRef.current.companyId !== requestedCompanyId ||
+      activeCompanyIdRef.current !== requestedCompanyId
+    ) {
       throw new Error("Välj ett företag innan du lägger till ett underlag.");
     }
 
+    if (!data.name.trim()) {
+      throw new Error("Underlaget måste ha ett filnamn.");
+    }
+    if (!isSupportedReceiptType(data.type)) {
+      throw new Error("Endast bilder och PDF-filer stöds som underlag.");
+    }
+    if (!data.dataUrl.startsWith("data:")) {
+      throw new Error("Underlaget saknar giltigt filinnehåll.");
+    }
+
+    const previousReceipts = [...stateRef.current.receipts];
+
     // Om underlaget kopplas direkt till en verifikation hämtar kvittolagret
-    // serien från själva verifikationen. Då behöver varje anropare inte komma
-    // ihåg att skicka serien separat, och A1/B1 kan aldrig blandas ihop bara
-    // för att metadata saknas. Ett uttryckligt giltigt värde får företräde.
+    // nummer och serie från själva den bokförda verifikationen. Då kan klienten
+    // inte skapa en länk vars metadata skiljer sig från originalverifikationen.
     const explicitSeries = normalizeVoucherSeries(data.voucherSeries);
+    if (
+      data.voucherSeries !== undefined &&
+      data.voucherSeries !== null &&
+      data.voucherSeries.trim() &&
+      !explicitSeries
+    ) {
+      throw new Error("Verifikationsserien är ogiltig.");
+    }
+
     const linkedVoucher = data.voucherId ? getVoucherById(data.voucherId) : undefined;
+
+    if (data.voucherId) {
+      if (!linkedVoucher || linkedVoucher.status === "DRAFT") {
+        throw new Error("Underlaget måste kopplas till en befintlig bokförd verifikation.");
+      }
+      if (linkedVoucher.companyId !== requestedCompanyId) {
+        throw new Error("Underlaget och verifikationen måste tillhöra samma företag.");
+      }
+    } else if (data.voucherNumber !== null || explicitSeries !== null) {
+      throw new Error("Ett fristående underlag får inte ha verifikationsnummer eller serie.");
+    }
+
     const linkedSeries = linkedVoucher
       ? normalizeVoucherSeries(linkedVoucher.series) || "A"
       : null;
 
-    // Kompletteringar skapas alltid som NYA underlag med egna ID:n.
-    // Vi ändrar aldrig en redan sparad fils innehåll eller ID.
     const receipt: Receipt = {
       ...data,
-      voucherSeries: data.voucherId
-        ? explicitSeries ?? linkedSeries
-        : explicitSeries,
+      voucherNumber: linkedVoucher ? linkedVoucher.voucherNumber : null,
+      voucherSeries: linkedVoucher ? linkedSeries : null,
       id: crypto.randomUUID(),
-      companyId,
+      companyId: requestedCompanyId,
       createdAt: new Date().toISOString(),
     };
 
-    setState((previous) => {
-      if (previous.companyId !== companyId) return previous;
-      return {
-        companyId,
-        receipts: [...previous.receipts, receipt],
-      };
-    });
+    const nextReceipts = [...previousReceipts, receipt];
+    const confirmedReceipts = await persistReceipts(
+      requestedCompanyId,
+      previousReceipts,
+      nextReceipts
+    );
 
-    return receipt;
+    const confirmed = confirmedReceipts.find((item) => item.id === receipt.id);
+    if (!confirmed) {
+      throw new Error("Databasen bekräftade inte det nya underlaget.");
+    }
+
+    return confirmed;
   };
 
-  const removeReceipt = (id: string): boolean => {
-    const receipt = receipts.find((item) => item.id === id);
+  const removeReceipt = async (id: string): Promise<boolean> => {
+    const requestedCompanyId = companyId;
+    const currentReceipts = stateRef.current.companyId === requestedCompanyId
+      ? stateRef.current.receipts
+      : [];
+    const receipt = currentReceipts.find((item) => item.id === id);
     if (!receipt) return false;
 
     if (receipt.voucherId) {
@@ -146,22 +264,29 @@ export function ReceiptsProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
-    setState((previous) => {
-      if (previous.companyId !== companyId) return previous;
-      return {
-        companyId,
-        receipts: previous.receipts.filter((item) => item.id !== id),
-      };
-    });
-    return true;
+    const previousReceipts = [...currentReceipts];
+    const nextReceipts = currentReceipts.filter((item) => item.id !== id);
+
+    const confirmedReceipts = await persistReceipts(
+      requestedCompanyId,
+      previousReceipts,
+      nextReceipts
+    );
+
+    return !confirmedReceipts.some((item) => item.id === id);
   };
 
   const unlinkReceipt = (id: string): boolean => {
-    const receipt = receipts.find((item) => item.id === id);
+    const currentReceipts = stateRef.current.companyId === companyId
+      ? stateRef.current.receipts
+      : [];
+    const receipt = currentReceipts.find((item) => item.id === id);
     if (!receipt) return false;
 
     if (receipt.voucherId) {
-      toast.error("Ett underlag till en bokförd verifikation kan inte kopplas loss. Lägg i stället till en komplettering om det behövs.");
+      toast.error(
+        "Ett underlag till en bokförd verifikation kan inte kopplas loss. Lägg i stället till en komplettering om det behövs."
+      );
       return false;
     }
 
@@ -169,13 +294,17 @@ export function ReceiptsProvider({ children }: { children: ReactNode }) {
     return true;
   };
 
-  const linkReceipt = (
+  const linkReceipt = async (
     receiptId: string,
     voucherId: string,
     voucherNumber: number,
     voucherSeries?: string | null
-  ): boolean => {
-    const receipt = receipts.find((item) => item.id === receiptId);
+  ): Promise<boolean> => {
+    const requestedCompanyId = companyId;
+    const currentReceipts = stateRef.current.companyId === requestedCompanyId
+      ? stateRef.current.receipts
+      : [];
+    const receipt = currentReceipts.find((item) => item.id === receiptId);
     if (!receipt) return false;
 
     if (!voucherId || !Number.isInteger(voucherNumber) || voucherNumber < 1) {
@@ -184,21 +313,41 @@ export function ReceiptsProvider({ children }: { children: ReactNode }) {
     }
 
     const suppliedVoucherSeries = normalizeVoucherSeries(voucherSeries);
-    if (voucherSeries !== undefined && voucherSeries !== null && !suppliedVoucherSeries) {
+    if (
+      voucherSeries !== undefined &&
+      voucherSeries !== null &&
+      voucherSeries.trim() &&
+      !suppliedVoucherSeries
+    ) {
       toast.error("Verifikationsserien är ogiltig.");
       return false;
     }
 
     const linkedVoucher = getVoucherById(voucherId);
-    const normalizedVoucherSeries = suppliedVoucherSeries ??
-      (linkedVoucher ? normalizeVoucherSeries(linkedVoucher.series) || "A" : null);
+    if (!linkedVoucher || linkedVoucher.status === "DRAFT") {
+      toast.error("Verifikationen finns inte eller är inte bokförd.");
+      return false;
+    }
+    if (linkedVoucher.companyId !== requestedCompanyId) {
+      toast.error("Underlaget och verifikationen måste tillhöra samma företag.");
+      return false;
+    }
+    if (linkedVoucher.voucherNumber !== voucherNumber) {
+      toast.error("Verifikationsnumret stämmer inte med den valda verifikationen.");
+      return false;
+    }
+
+    const actualVoucherSeries = normalizeVoucherSeries(linkedVoucher.series) || "A";
+    if (suppliedVoucherSeries && suppliedVoucherSeries !== actualVoucherSeries) {
+      toast.error("Verifikationsserien stämmer inte med den valda verifikationen.");
+      return false;
+    }
 
     if (receipt.voucherId) {
       if (
         receipt.voucherId === voucherId &&
         receipt.voucherNumber === voucherNumber &&
-        (normalizedVoucherSeries === null ||
-          normalizeVoucherSeries(receipt.voucherSeries) === normalizedVoucherSeries)
+        normalizeVoucherSeries(receipt.voucherSeries) === actualVoucherSeries
       ) {
         return true;
       }
@@ -206,18 +355,31 @@ export function ReceiptsProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
-    setState((previous) => {
-      if (previous.companyId !== companyId) return previous;
-      return {
-        companyId,
-        receipts: previous.receipts.map((item) =>
-          item.id === receiptId
-            ? { ...item, voucherId, voucherNumber, voucherSeries: normalizedVoucherSeries }
-            : item
-        ),
-      };
-    });
-    return true;
+    const previousReceipts = [...currentReceipts];
+    const nextReceipts = currentReceipts.map((item) =>
+      item.id === receiptId
+        ? {
+            ...item,
+            voucherId,
+            voucherNumber: linkedVoucher.voucherNumber,
+            voucherSeries: actualVoucherSeries,
+          }
+        : item
+    );
+
+    const confirmedReceipts = await persistReceipts(
+      requestedCompanyId,
+      previousReceipts,
+      nextReceipts
+    );
+
+    const confirmed = confirmedReceipts.find((item) => item.id === receiptId);
+    return Boolean(
+      confirmed &&
+      confirmed.voucherId === voucherId &&
+      confirmed.voucherNumber === linkedVoucher.voucherNumber &&
+      normalizeVoucherSeries(confirmed.voucherSeries) === actualVoucherSeries
+    );
   };
 
   const getReceiptsForVoucher = (voucherId: string): Receipt[] =>
