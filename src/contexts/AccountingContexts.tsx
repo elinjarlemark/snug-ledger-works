@@ -498,7 +498,16 @@ interface AccountingContextType {
     totalAssets:
       number;
 
+    totalEquityLiabilitiesBeforeResult:
+      number;
+
+    unallocatedResult:
+      number;
+
     totalEquityLiabilities:
+      number;
+
+    balanceDifference:
       number;
 
     isBalanced:
@@ -2270,6 +2279,22 @@ export function AccountingProvider({
           "equity_liability"
       );
 
+    const revenues =
+      ledger.filter(
+        (entry) =>
+          getAccountClass(
+            entry.accountNumber
+          ) === "revenue"
+      );
+
+    const expenses =
+      ledger.filter(
+        (entry) =>
+          getAccountClass(
+            entry.accountNumber
+          ) === "expense"
+      );
+
     const totalAssets =
       roundToOre(
         assets.reduce(
@@ -2283,7 +2308,7 @@ export function AccountingProvider({
         )
       );
 
-    const totalEquityLiabilities =
+    const totalEquityLiabilitiesBeforeResult =
       roundToOre(
         equityLiabilities.reduce(
           (
@@ -2296,22 +2321,50 @@ export function AccountingProvider({
         )
       );
 
-    const assetOre =
-      toOre(
-        totalAssets
+    /*
+     * Result accounts are included here, including account 8999.
+     * That is intentional: this value represents only the part of
+     * the result that has not yet been transferred to equity.
+     * Once a closing entry debits/credits 8999 against an equity
+     * account, the remaining unallocated result becomes zero instead
+     * of being counted twice in the balance sheet.
+     */
+    const unallocatedResult =
+      roundToOre(
+        revenues.reduce(
+          (sum, entry) =>
+            sum +
+            entry.balance,
+          0
+        ) -
+          expenses.reduce(
+            (sum, entry) =>
+              sum +
+              entry.balance,
+            0
+          )
       );
 
-    const equityLiabilityOre =
+    const totalEquityLiabilities =
+      roundToOre(
+        totalEquityLiabilitiesBeforeResult +
+          unallocatedResult
+      );
+
+    const balanceDifference =
+      roundToOre(
+        totalAssets -
+          totalEquityLiabilities
+      );
+
+    const differenceOre =
       toOre(
-        totalEquityLiabilities
+        balanceDifference
       );
 
     const isBalanced =
-      assetOre !== null &&
-      equityLiabilityOre !==
-        null &&
-      assetOre ===
-        equityLiabilityOre;
+      differenceOre !== null &&
+      differenceOre === 0;
 
     return {
       assets,
@@ -2320,7 +2373,13 @@ export function AccountingProvider({
 
       totalAssets,
 
+      totalEquityLiabilitiesBeforeResult,
+
+      unallocatedResult,
+
       totalEquityLiabilities,
+
+      balanceDifference,
 
       isBalanced,
     };
