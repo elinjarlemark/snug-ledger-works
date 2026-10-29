@@ -30,6 +30,7 @@ import { Footer } from "@/components/layout/Footer";
 import { TakeoverPopup } from "@/components/company/TakeoverPopup";
 import { TakeoverListener } from "@/components/company/TakeoverListener";
 import { MomsSettingsCard } from "@/components/vat/MomsSettingsCard";
+import { decodeSIEFileBytes, encodeSIEFileBytes, parseSIEFile } from "@/lib/sie";
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8000";
 
@@ -211,8 +212,17 @@ export default function CompanyPage() {
       }
 
       // Registrera filens metadata först efter att bokföringen har sparats.
+      // Räkenskapsperioden hämtas från SIE-filens #RAR i stället för från dagens kalenderår.
       // Metadataregistreringen är separat och får inte rapporteras som bokföringsfel.
       if (authService.isDatabaseConnected() && user) {
+        const parsedImport = parseSIEFile(content);
+        const fiscalYearStart = parsedImport.metadata.fiscalYearStart;
+        const fiscalYearEnd = parsedImport.metadata.fiscalYearEnd;
+        const period =
+          fiscalYearStart && fiscalYearEnd
+            ? fiscalYearStart + "–" + fiscalYearEnd
+            : fiscalYearStart?.slice(0, 4) || fiscalYearEnd?.slice(0, 4) || null;
+
         fetch(API_BASE_URL + "/sie-files", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -220,7 +230,7 @@ export default function CompanyPage() {
             user_id: Number(user.id),
             filename,
             storage_path: "browser-upload:" + filename,
-            period: new Date().getFullYear().toString(),
+            period,
           }),
         }).catch((error) => {
           console.warn("SIE-importen sparades, men filens metadata kunde inte registreras:", error);
@@ -248,9 +258,11 @@ export default function CompanyPage() {
       if (!file) return;
 
       try {
-        const content = await file.text();
+        const bytes = await file.arrayBuffer();
+        const content = decodeSIEFileBytes(bytes);
         setPendingSIEImport({ content, filename: file.name });
-      } catch {
+      } catch (error) {
+        console.error("Failed to read SIE file:", error);
         toast.error("Failed to read SIE file");
       }
     };
@@ -267,17 +279,31 @@ export default function CompanyPage() {
       return;
     }
 
-    const sieContent = exportSIE();
-    const blob = new Blob([sieContent], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = (activeCompany.companyName || "company") + "_" + new Date().toISOString().split("T")[0] + ".se";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    toast.success("SIE file exported successfully");
+    try {
+      const sieContent = exportSIE();
+      const sieBytes = encodeSIEFileBytes(sieContent);
+      const blob = new Blob([sieBytes], { type: "application/octet-stream" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download =
+        (activeCompany.companyName || "company") +
+        "_" +
+        new Date().toISOString().split("T")[0] +
+        ".se";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success("SIE file exported successfully");
+    } catch (error) {
+      console.error("Failed to export SIE file:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "SIE file could not be exported"
+      );
+    }
   };
 
   const handleCancelNewCompany = () => {
