@@ -19,7 +19,10 @@ interface BalanceSheetData {
   assets: GeneralLedgerEntry[];
   equityLiabilities: GeneralLedgerEntry[];
   totalAssets: number;
+  totalEquityLiabilitiesBeforeResult: number;
+  unallocatedResult: number;
   totalEquityLiabilities: number;
+  balanceDifference: number;
   isBalanced: boolean;
 }
 
@@ -157,33 +160,33 @@ export function exportBalanceSheetPDF(
 ) {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
-  
+
   // Header
   doc.setFontSize(20);
   doc.setFont("helvetica", "bold");
   doc.text("Balance Sheet", pageWidth / 2, 20, { align: "center" });
   doc.text("Balansräkning", pageWidth / 2, 28, { align: "center" });
-  
+
   doc.setFontSize(12);
   doc.setFont("helvetica", "normal");
   doc.text(company.companyName, pageWidth / 2, 38, { align: "center" });
   doc.text(`Org.nr: ${company.organizationNumber}`, pageWidth / 2, 45, { align: "center" });
   doc.text(`As of: ${asOfDate}`, pageWidth / 2, 52, { align: "center" });
-  
+
   let yPos = 65;
-  
+
   // Assets Section
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
   doc.text("Assets (Tillgångar)", 14, yPos);
   yPos += 5;
-  
+
   if (data.assets.length > 0) {
     autoTable(doc, {
       startY: yPos,
       head: [["Account", "Name", "Balance"]],
       body: [
-        ...data.assets.map(entry => [
+        ...data.assets.map((entry) => [
           entry.accountNumber,
           entry.accountName,
           formatAmount(entry.balance),
@@ -205,25 +208,35 @@ export function exportBalanceSheetPDF(
     doc.text("No asset transactions", 14, yPos + 5);
     yPos += 20;
   }
-  
+
   // Equity & Liabilities Section
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
   doc.text("Equity & Liabilities (Eget kapital & Skulder)", 14, yPos);
   yPos += 5;
-  
-  if (data.equityLiabilities.length > 0) {
+
+  const showUnallocatedResult = Math.abs(data.unallocatedResult) >= 0.005;
+  const equityLiabilityRows = [
+    ...data.equityLiabilities.map((entry) => [
+      entry.accountNumber,
+      entry.accountName,
+      formatAmount(entry.balance),
+    ]),
+    ...(showUnallocatedResult
+      ? [["", "Beräknat resultat (ej omfört)", formatAmount(data.unallocatedResult)]]
+      : []),
+    [
+      "",
+      "Total Equity & Liabilities",
+      formatAmount(data.totalEquityLiabilities),
+    ],
+  ];
+
+  if (data.equityLiabilities.length > 0 || showUnallocatedResult) {
     autoTable(doc, {
       startY: yPos,
       head: [["Account", "Name", "Balance"]],
-      body: [
-        ...data.equityLiabilities.map(entry => [
-          entry.accountNumber,
-          entry.accountName,
-          formatAmount(entry.balance),
-        ]),
-        ["", "Total Equity & Liabilities", formatAmount(data.totalEquityLiabilities)],
-      ],
+      body: equityLiabilityRows,
       theme: "striped",
       headStyles: { fillColor: [139, 92, 246] },
       styles: { fontSize: 10 },
@@ -232,34 +245,55 @@ export function exportBalanceSheetPDF(
         2: { halign: "right", fontStyle: "bold" },
       },
     });
-    yPos = (doc as any).lastAutoTable.finalY + 15;
+    yPos = (doc as any).lastAutoTable.finalY + 10;
   } else {
     doc.setFontSize(10);
     doc.setFont("helvetica", "italic");
     doc.text("No equity/liability transactions", 14, yPos + 5);
     yPos += 20;
   }
-  
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.text(
+    `Book value before unallocated result: ${formatAmount(data.totalEquityLiabilitiesBeforeResult)} SEK`,
+    14,
+    yPos
+  );
+  yPos += 7;
+
   // Balance Check
   const balanceColor = data.isBalanced ? [34, 197, 94] : [239, 68, 68];
   doc.setFillColor(balanceColor[0], balanceColor[1], balanceColor[2]);
-  doc.roundedRect(14, yPos, pageWidth - 28, 20, 3, 3, "F");
-  
+  doc.roundedRect(14, yPos, pageWidth - 28, data.isBalanced ? 20 : 28, 3, 3, "F");
+
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  const balanceText = data.isBalanced ? "✓ Balance Sheet is Balanced" : "✗ Balance Sheet is NOT Balanced";
-  doc.text(balanceText, pageWidth / 2, yPos + 12, { align: "center" });
-  
+  const balanceText = data.isBalanced
+    ? "✓ Balance Sheet is Balanced"
+    : "✗ Balance Sheet is NOT Balanced";
+  doc.text(balanceText, pageWidth / 2, yPos + 10, { align: "center" });
+
+  if (!data.isBalanced) {
+    doc.setFontSize(10);
+    doc.text(
+      `Difference: ${formatAmount(data.balanceDifference)} SEK`,
+      pageWidth / 2,
+      yPos + 19,
+      { align: "center" }
+    );
+  }
+
   doc.setTextColor(0, 0, 0);
-  
+
   // Footer
   const footerY = doc.internal.pageSize.getHeight() - 15;
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.text(`Generated: ${new Date().toISOString().split("T")[0]}`, 14, footerY);
   doc.text("Page 1 of 1", pageWidth - 14, footerY, { align: "right" });
-  
+
   doc.save(`balance-sheet-${asOfDate}.pdf`);
 }
 
