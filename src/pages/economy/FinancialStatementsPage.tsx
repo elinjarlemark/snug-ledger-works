@@ -15,6 +15,7 @@ import {
   getAccountBalanceSide,
 } from "@/lib/bas-accounts";
 import { exportIncomeStatementPDF, exportBalanceSheetPDF } from "@/lib/pdf-export";
+import { roundToOre } from "@/lib/money";
 import { toast } from "sonner";
 import { DateInputPicker } from "@/components/ui/date-input-picker";
 import { YearSelector } from "@/components/ui/year-selector";
@@ -67,9 +68,12 @@ function ReportPanel({ compact }: ReportPanelProps) {
   const generalLedger = getGeneralLedger(startDateStr, endDateStr);
 
   const beforeStartDateStr = startDate ? format(new Date(startDate.getTime() - 24 * 60 * 60 * 1000), "yyyy-MM-dd") : undefined;
-  const openingLedger = getGeneralLedger(undefined, beforeStartDateStr);
+  const openingLedger = beforeStartDateStr ? getGeneralLedger(undefined, beforeStartDateStr) : [];
   const periodLedger = getGeneralLedger(startDateStr, endDateStr);
   const closingLedger = getGeneralLedger(undefined, endDateStr);
+  const openingUnallocatedResult = beforeStartDateStr
+    ? getBalanceSheet(beforeStartDateStr).unallocatedResult
+    : 0;
 
   const balanceRows = [
     ...new Set(
@@ -100,18 +104,56 @@ function ReportPanel({ compact }: ReportPanelProps) {
         change: changeBalance,
         closing: closingBalance,
         side: side === "debit" ? "Debet" : side === "credit" ? "Kredit" : "Noll",
+        isCalculatedResult: false,
       };
     });
 
-  const balanceDiff = (field: "opening" | "change" | "closing") => {
-    const assets = balanceRows
-      .filter((row) => row.accountClass === "asset")
-      .reduce((sum, row) => sum + row[field], 0);
-    const equityLiabilities = balanceRows
-      .filter((row) => row.accountClass === "equity_liability")
-      .reduce((sum, row) => sum + row[field], 0);
+  const unallocatedResultChange = roundToOre(
+    balanceSheet.unallocatedResult - openingUnallocatedResult
+  );
 
-    return assets - equityLiabilities;
+  const unallocatedResultSide =
+    balanceSheet.unallocatedResult > 0.004999
+      ? "Kredit"
+      : balanceSheet.unallocatedResult < -0.004999
+        ? "Debet"
+        : "Noll";
+
+  const showUnallocatedResultRow = [
+    openingUnallocatedResult,
+    unallocatedResultChange,
+    balanceSheet.unallocatedResult,
+  ].some((value) => Math.abs(value) >= 0.005);
+
+  const balanceDisplayRows = showUnallocatedResultRow
+    ? [
+        ...balanceRows,
+        {
+          accountNumber: "",
+          accountName: "Beräknat resultat (ej omfört)",
+          accountClass: "equity_liability" as const,
+          opening: openingUnallocatedResult,
+          change: unallocatedResultChange,
+          closing: balanceSheet.unallocatedResult,
+          side: unallocatedResultSide,
+          isCalculatedResult: true,
+        },
+      ]
+    : balanceRows;
+
+  const balanceDiff = (field: "opening" | "change" | "closing") => {
+    const assets = roundToOre(
+      balanceDisplayRows
+        .filter((row) => row.accountClass === "asset")
+        .reduce((sum, row) => sum + row[field], 0)
+    );
+    const equityLiabilities = roundToOre(
+      balanceDisplayRows
+        .filter((row) => row.accountClass === "equity_liability")
+        .reduce((sum, row) => sum + row[field], 0)
+    );
+
+    return roundToOre(assets - equityLiabilities);
   };
 
   const totalRevenue = incomeStatement.revenues.reduce((sum, e) => sum + e.balance, 0);
@@ -342,8 +384,8 @@ function ReportPanel({ compact }: ReportPanelProps) {
                     <h3 className={cn("font-semibold", compact ? "text-base" : "text-lg")}>Balance Check</h3>
                     <p className="text-sm text-muted-foreground">
                       {balanceSheet.isBalanced
-                        ? "The balance sheet is balanced (Assets = Equity + Liabilities)"
-                        : "WARNING: The balance sheet is NOT balanced!"}
+                        ? "The balance sheet is balanced, including any result not yet transferred to equity."
+                        : `WARNING: The balance sheet is NOT balanced. Difference: ${formatAmount(balanceSheet.balanceDifference)} SEK`}
                     </p>
                   </div>
                   <div className={cn("text-xl font-bold", balanceSheet.isBalanced ? "text-success" : "text-destructive")}>
@@ -364,11 +406,29 @@ function ReportPanel({ compact }: ReportPanelProps) {
                     </tr>
                   </thead>
                   <tbody>
-                    {balanceRows.length === 0 ? (
+                    {balanceDisplayRows.length === 0 ? (
                       <tr><td colSpan={5} className="py-6 px-3 text-center text-muted-foreground">Inga balanskonton i perioden</td></tr>
-                    ) : balanceRows.map((row) => (
-                      <tr key={row.accountNumber} className="border-b border-border/50">
-                        <td className="py-2 px-3"><span className="font-mono text-secondary">{row.accountNumber}</span><span className="ml-2 text-muted-foreground">{row.accountName}</span></td>
+                    ) : balanceDisplayRows.map((row) => (
+                      <tr
+                        key={row.isCalculatedResult ? "unallocated-result" : row.accountNumber}
+                        className={cn(
+                          "border-b border-border/50",
+                          row.isCalculatedResult && "bg-primary/5"
+                        )}
+                      >
+                        <td className="py-2 px-3">
+                          {row.isCalculatedResult ? (
+                            <>
+                              <span className="font-medium">Beräknat resultat</span>
+                              <span className="ml-2 text-muted-foreground">(ej omfört till eget kapital)</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="font-mono text-secondary">{row.accountNumber}</span>
+                              <span className="ml-2 text-muted-foreground">{row.accountName}</span>
+                            </>
+                          )}
+                        </td>
                         <td className="py-2 px-3 text-right font-mono">{formatAmount(row.opening)}</td>
                         <td className="py-2 px-3 text-right font-mono">{formatAmount(row.change)}</td>
                         <td className="py-2 px-3 text-right font-mono font-medium">{formatAmount(row.closing)}</td>
@@ -378,7 +438,7 @@ function ReportPanel({ compact }: ReportPanelProps) {
                   </tbody>
                   <tfoot>
                     <tr className="bg-primary/10">
-                      <td className="py-2 px-3 font-medium">Skillnad klass 1 och 2</td>
+                      <td className="py-2 px-3 font-medium">Balansdifferens inkl. beräknat resultat</td>
                       <td className="py-2 px-3 text-right font-mono font-bold">{formatAmount(balanceDiff("opening"))}</td>
                       <td className="py-2 px-3 text-right font-mono font-bold">{formatAmount(balanceDiff("change"))}</td>
                       <td className="py-2 px-3 text-right font-mono font-bold">{formatAmount(balanceDiff("closing"))}</td>
