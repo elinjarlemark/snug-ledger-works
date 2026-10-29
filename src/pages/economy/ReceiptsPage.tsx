@@ -62,6 +62,8 @@ export default function ReceiptsPage() {
   const [selectedVoucherId, setSelectedVoucherId] = useState("");
   const [voucherPickerOpen, setVoucherPickerOpen] = useState(false);
   const [previewReceipt, setPreviewReceipt] = useState<Receipt | null>(null);
+  const [deletingReceiptId, setDeletingReceiptId] = useState<string | null>(null);
+  const [linkingReceiptId, setLinkingReceiptId] = useState<string | null>(null);
 
   // Utkast ligger normalt separat från vouchers, men kontrollera även
   // status och nummer ifall en sådan post skulle förekomma i listan.
@@ -112,9 +114,9 @@ export default function ReceiptsPage() {
     setVoucherPickerOpen(false);
   };
 
-  const handleDelete = () => {
-    if (!deleteCandidate) {
-      setDeleteConfirm(null);
+  const handleDelete = async () => {
+    if (!deleteCandidate || deletingReceiptId) {
+      if (!deleteCandidate) setDeleteConfirm(null);
       return;
     }
 
@@ -124,17 +126,29 @@ export default function ReceiptsPage() {
       return;
     }
 
-    const removed = removeReceipt(deleteCandidate.id);
-    setDeleteConfirm(null);
+    setDeletingReceiptId(deleteCandidate.id);
 
-    if (removed) {
+    try {
+      const removed = await removeReceipt(deleteCandidate.id);
+      if (!removed) {
+        throw new Error("Databasen bekräftade inte att kvittot raderades.");
+      }
+
       toast.success("Kvittot har raderats.");
+      setDeleteConfirm(null);
+    } catch (error) {
+      toast.error(
+        error instanceof Error && error.message
+          ? error.message
+          : "Kvittot kunde inte raderas."
+      );
+    } finally {
+      setDeletingReceiptId(null);
     }
-    // ReceiptsContext visar själv ett felmeddelande om raderingen nekas.
   };
 
-  const handleLink = () => {
-    if (!receiptToLink || !selectedVoucher) return;
+  const handleLink = async () => {
+    if (!receiptToLink || !selectedVoucher || linkingReceiptId) return;
 
     if (receiptToLink.voucherId) {
       toast.error("Underlaget är redan kopplat och kan inte flyttas.");
@@ -142,20 +156,33 @@ export default function ReceiptsPage() {
       return;
     }
 
-    const linked = linkReceipt(
-      receiptToLink.id,
-      selectedVoucher.id,
-      selectedVoucher.voucherNumber,
-      selectedVoucher.series?.trim().toUpperCase() || "A"
-    );
+    setLinkingReceiptId(receiptToLink.id);
 
-    if (linked) {
+    try {
+      const linked = await linkReceipt(
+        receiptToLink.id,
+        selectedVoucher.id,
+        selectedVoucher.voucherNumber,
+        selectedVoucher.series?.trim().toUpperCase() || "A"
+      );
+
+      if (!linked) {
+        throw new Error("Databasen bekräftade inte kopplingen till verifikationen.");
+      }
+
       toast.success(
         "Underlaget har kopplats till verifikation " + voucherReference(selectedVoucher) + "."
       );
       closeLinkDialog();
+    } catch (error) {
+      toast.error(
+        error instanceof Error && error.message
+          ? error.message
+          : "Underlaget kunde inte kopplas till verifikationen."
+      );
+    } finally {
+      setLinkingReceiptId(null);
     }
-    // ReceiptsContext visar själv ett felmeddelande om kopplingen nekas.
   };
 
   const handlePreview = (receipt: Receipt) => {
@@ -276,6 +303,7 @@ export default function ReceiptsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          disabled={Boolean(linkingReceiptId || deletingReceiptId)}
                           onClick={() => {
                             setRelinkDialog(receipt.id);
                             setSelectedVoucherId("");
@@ -290,6 +318,7 @@ export default function ReceiptsPage() {
                           size="sm"
                           className="text-destructive"
                           aria-label={"Radera " + receipt.name}
+                          disabled={Boolean(linkingReceiptId || deletingReceiptId)}
                           onClick={() => setDeleteConfirm(receipt.id)}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -307,7 +336,7 @@ export default function ReceiptsPage() {
       <AlertDialog
         open={Boolean(deleteCandidate)}
         onOpenChange={(open) => {
-          if (!open) setDeleteConfirm(null);
+          if (!open && !deletingReceiptId) setDeleteConfirm(null);
         }}
       >
         <AlertDialogContent>
@@ -319,12 +348,19 @@ export default function ReceiptsPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+            <AlertDialogCancel disabled={Boolean(deletingReceiptId)}>Avbryt</AlertDialogCancel>
             <AlertDialogAction
-              disabled={!deleteCandidate || Boolean(deleteCandidate.voucherId)}
-              onClick={handleDelete}
+              disabled={
+                !deleteCandidate ||
+                Boolean(deleteCandidate.voucherId) ||
+                Boolean(deletingReceiptId)
+              }
+              onClick={(event) => {
+                event.preventDefault();
+                void handleDelete();
+              }}
             >
-              Radera kvitto
+              {deletingReceiptId ? "Raderar…" : "Radera kvitto"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -333,7 +369,7 @@ export default function ReceiptsPage() {
       <Dialog
         open={Boolean(relinkDialog)}
         onOpenChange={(open) => {
-          if (!open) closeLinkDialog();
+          if (!open && !linkingReceiptId) closeLinkDialog();
         }}
       >
         <DialogContent>
@@ -351,6 +387,7 @@ export default function ReceiptsPage() {
                   variant="outline"
                   role="combobox"
                   aria-expanded={voucherPickerOpen}
+                  disabled={Boolean(linkingReceiptId)}
                   className="w-full justify-between"
                 >
                   {selectedVoucher
@@ -395,12 +432,23 @@ export default function ReceiptsPage() {
               </PopoverContent>
             </Popover>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={closeLinkDialog}>Avbryt</Button>
               <Button
-                disabled={!selectedVoucher || !receiptToLink || Boolean(receiptToLink.voucherId)}
-                onClick={handleLink}
+                variant="outline"
+                disabled={Boolean(linkingReceiptId)}
+                onClick={closeLinkDialog}
               >
-                Koppla permanent
+                Avbryt
+              </Button>
+              <Button
+                disabled={
+                  !selectedVoucher ||
+                  !receiptToLink ||
+                  Boolean(receiptToLink.voucherId) ||
+                  Boolean(linkingReceiptId)
+                }
+                onClick={() => void handleLink()}
+              >
+                {linkingReceiptId ? "Kopplar…" : "Koppla permanent"}
               </Button>
             </div>
           </div>
