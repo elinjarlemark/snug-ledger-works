@@ -503,22 +503,111 @@ def check_workspace_vouchers(
     return assignments
 
 
+def _validate_receipt_file(receipt: dict, company_id: int) -> None:
+    if str(receipt.get("companyId")) != str(company_id):
+        raise HTTPException(status_code=409, detail="Underlaget tillhör ett annat företag")
+
+    name = receipt.get("name")
+    mime_type = receipt.get("type")
+    data_url = receipt.get("dataUrl")
+    created_at = receipt.get("createdAt")
+
+    if not isinstance(name, str) or not name.strip():
+        raise HTTPException(status_code=422, detail="Underlaget saknar filnamn")
+    if not isinstance(mime_type, str) or not (
+        mime_type.startswith("image/") or mime_type == "application/pdf"
+    ):
+        raise HTTPException(status_code=422, detail="Underlaget måste vara en bild eller PDF")
+    if not isinstance(data_url, str) or not data_url.startswith(
+        f"data:{mime_type};base64,"
+    ):
+        raise HTTPException(status_code=422, detail="Underlagets filinnehåll matchar inte filtypen")
+    if not isinstance(created_at, str) or not created_at.strip():
+        raise HTTPException(status_code=422, detail="Underlaget saknar skapandetid")
+
+
 def check_workspace_receipts(company_id: int, old: dict, new: dict) -> None:
     key = f"accountpro_receipts_{company_id}"
     if key not in old and key not in new:
         return
+
     previous = parse_array(old, key)
     current = parse_array(new, key)
+    previous_by_id = {
+        receipt.get("id"): receipt
+        for receipt in previous
+        if isinstance(receipt.get("id"), str) and receipt.get("id")
+    }
+
+    voucher_key = f"accountpro_vouchers_{company_id}"
+    posted_vouchers = {
+        voucher.get("id"): voucher
+        for voucher in parse_array(new, voucher_key)
+        if isinstance(voucher.get("id"), str)
+        and voucher.get("id")
+        and voucher.get("status") == "POSTED"
+        and isinstance(voucher.get("voucherNumber"), int)
+        and not isinstance(voucher.get("voucherNumber"), bool)
+        and voucher.get("voucherNumber") > 0
+    }
+
     current_by_id: dict[str, dict] = {}
     for receipt in current:
         ident = receipt.get("id")
         if not isinstance(ident, str) or not ident or ident in current_by_id:
             raise HTTPException(status_code=409, detail="Ogiltiga eller dubblerade kvitto-ID")
+
+        _validate_receipt_file(receipt, company_id)
+
+        voucher_id = receipt.get("voucherId")
+        if voucher_id is None:
+            if receipt.get("voucherNumber") is not None or receipt.get("voucherSeries") not in (None, ""):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Ett fristående underlag får inte ha verifikationsnummer eller serie",
+                )
+        else:
+            if not isinstance(voucher_id, str) or not voucher_id:
+                raise HTTPException(status_code=409, detail="Underlagets verifikations-ID är ogiltigt")
+
+            voucher = posted_vouchers.get(voucher_id)
+            if voucher is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Underlaget måste kopplas till en befintlig bokförd verifikation",
+                )
+
+            voucher_number = voucher.get("voucherNumber")
+            voucher_series = normalize_series(voucher.get("series"), "A")
+            receipt_series = normalize_series(receipt.get("voucherSeries"), "A")
+
+            if receipt.get("voucherNumber") != voucher_number:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Underlagets verifikationsnummer stämmer inte med den bokförda verifikationen",
+                )
+            if receipt_series != voucher_series:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Underlagets verifikationsserie stämmer inte med den bokförda verifikationen",
+                )
+
+            # Ett fristående original får kopplas, men filen får inte bytas ut i
+            # samma skrivning som kopplingen skapas. Endast länkmetadata får ändras.
+            original = previous_by_id.get(ident)
+            if original is not None and not original.get("voucherId"):
+                if any(original.get(field) != receipt.get(field) for field in RECEIPT_FIELDS):
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Ett befintligt underlag får inte ändras samtidigt som det kopplas till en verifikation",
+                    )
+
         current_by_id[ident] = receipt
 
     for original in previous:
         if not original.get("voucherId"):
-            continue  # Unlinked receipts are handled in the regular receipt flow.
+            continue  # Fristående kvitton får fortfarande raderas innan de blir bokföringsunderlag.
+
         updated = current_by_id.get(original.get("id"))
         if updated is None:
             raise HTTPException(status_code=409, detail="Underlag till bokförd verifikation får inte raderas")
@@ -527,7 +616,8 @@ def check_workspace_receipts(company_id: int, old: dict, new: dict) -> None:
         if (
             original.get("voucherId") != updated.get("voucherId")
             or original.get("voucherNumber") != updated.get("voucherNumber")
-            or original.get("voucherSeries") != updated.get("voucherSeries")
+            or normalize_series(original.get("voucherSeries"), "A")
+            != normalize_series(updated.get("voucherSeries"), "A")
         ):
             raise HTTPException(
                 status_code=409,
