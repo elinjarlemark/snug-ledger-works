@@ -92,6 +92,7 @@ export function VoucherDetails({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showReceiptsDialog, setShowReceiptsDialog] = useState(false);
   const [commentText, setCommentText] = useState("");
+  const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
 
   // En rättelse görs i en öppen period. Originalets år kan redan vara låst.
   const correctionDate = localDate();
@@ -168,38 +169,58 @@ export function VoucherDetails({
     onClose();
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files) return;
-
-    Array.from(files).forEach((file) => {
-      if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
-        toast.error("Endast bilder och PDF-filer stöds: " + file.name);
-        return;
-      }
-      const reader = new FileReader();
-      reader.onerror = () => toast.error("Det gick inte att läsa " + file.name);
-      reader.onload = () => {
-        if (typeof reader.result !== "string") {
-          toast.error("Det gick inte att läsa " + file.name);
-          return;
-        }
-        const newReceipt = addReceipt({
-          name: file.name,
-          type: file.type,
-          dataUrl: reader.result,
-          voucherId: voucher.id,
-          voucherNumber: voucher.voucherNumber,
-        });
-        addEntry(
-          "Kompletterade verifikation " + voucherRef +
-          " med underlaget " + file.name + " (ID: " + newReceipt.id + ")"
-        );
-        toast.success("Kompletterande underlag tillagt.");
-      };
-      reader.readAsDataURL(file);
-    });
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
     if (fileInputRef.current) fileInputRef.current.value = "";
+    if (files.length === 0) return;
+
+    setIsUploadingReceipt(true);
+
+    try {
+      for (const file of files) {
+        if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
+          toast.error("Endast bilder och PDF-filer stöds: " + file.name);
+          continue;
+        }
+
+        try {
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = () => reject(new Error("Det gick inte att läsa " + file.name));
+            reader.onload = () => {
+              if (typeof reader.result !== "string") {
+                reject(new Error("Det gick inte att läsa " + file.name));
+                return;
+              }
+              resolve(reader.result);
+            };
+            reader.readAsDataURL(file);
+          });
+
+          const newReceipt = await addReceipt({
+            name: file.name,
+            type: file.type,
+            dataUrl,
+            voucherId: voucher.id,
+            voucherNumber: voucher.voucherNumber,
+            voucherSeries: voucherSeries(voucher.series),
+          });
+
+          addEntry(
+            "Kompletterade verifikation " + voucherRef +
+            " med underlaget " + file.name + " (ID: " + newReceipt.id + ")"
+          );
+          toast.success("Kompletterande underlag tillagt: " + file.name);
+        } catch (error) {
+          const message = error instanceof Error
+            ? error.message
+            : "Det gick inte att spara underlaget.";
+          toast.error(message);
+        }
+      }
+    } finally {
+      setIsUploadingReceipt(false);
+    }
   };
 
   const handleAddComment = () => {
@@ -313,8 +334,14 @@ export function VoucherDetails({
                 <Eye className="mr-2 h-4 w-4" /> Visa
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-              <Upload className="mr-2 h-4 w-4" /> Komplettera
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploadingReceipt}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              {isUploadingReceipt ? "Sparar..." : "Komplettera"}
             </Button>
           </div>
         </div>
