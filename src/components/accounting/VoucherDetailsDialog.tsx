@@ -83,6 +83,26 @@ function openAttachment(dataUrl: string, type: string): void {
   preview.document.body.appendChild(element);
 }
 
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onerror = () => {
+      reject(new Error("Det gick inte att läsa " + file.name));
+    };
+
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        reject(new Error("Det gick inte att läsa " + file.name));
+        return;
+      }
+      resolve(reader.result);
+    };
+
+    reader.readAsDataURL(file);
+  });
+}
+
 export function VoucherDetailsDialog({
   open,
   onOpenChange,
@@ -96,6 +116,7 @@ export function VoucherDetailsDialog({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [reversalDraft, setReversalDraft] = useState<Voucher | null>(null);
   const [commentText, setCommentText] = useState("");
+  const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
 
   useEffect(() => {
     setReversalDraft(null);
@@ -185,38 +206,48 @@ export function VoucherDetailsDialog({
     toast.info("Kontrollera vändningen innan du bokför den.");
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files) return;
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
 
-    Array.from(files).forEach((file) => {
-      if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
-        toast.error("Endast bilder och PDF-filer stöds: " + file.name);
-        return;
-      }
-      const reader = new FileReader();
-      reader.onerror = () => toast.error("Det gick inte att läsa " + file.name);
-      reader.onload = () => {
-        if (typeof reader.result !== "string") {
-          toast.error("Det gick inte att läsa " + file.name);
-          return;
+    if (files.length === 0 || isUploadingAttachments) return;
+
+    setIsUploadingAttachments(true);
+
+    try {
+      for (const file of files) {
+        if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
+          toast.error("Endast bilder och PDF-filer stöds: " + file.name);
+          continue;
         }
-        const receipt = addReceipt({
-          name: file.name,
-          type: file.type,
-          dataUrl: reader.result,
-          voucherId: currentVoucher.id,
-          voucherNumber: currentVoucher.voucherNumber,
-        });
-        addEntry(
-          "Kompletterade verifikation " + voucherRef +
-          " med underlaget " + file.name + " (ID: " + receipt.id + ")"
-        );
-        toast.success("Kompletterande underlag tillagt.");
-      };
-      reader.readAsDataURL(file);
-    });
-    if (fileInputRef.current) fileInputRef.current.value = "";
+
+        try {
+          const dataUrl = await readFileAsDataUrl(file);
+          const receipt = await addReceipt({
+            name: file.name,
+            type: file.type,
+            dataUrl,
+            voucherId: currentVoucher.id,
+            voucherNumber: currentVoucher.voucherNumber,
+            voucherSeries: currentVoucher.series || "A",
+          });
+
+          addEntry(
+            "Kompletterade verifikation " + voucherRef +
+            " med underlaget " + file.name + " (ID: " + receipt.id + ")"
+          );
+          toast.success("Kompletterande underlag tillagt.");
+        } catch (error) {
+          const message =
+            error instanceof Error && error.message
+              ? error.message
+              : "Det gick inte att spara " + file.name + ".";
+          toast.error(message);
+        }
+      }
+    } finally {
+      setIsUploadingAttachments(false);
+    }
   };
 
   const handleAddComment = () => {
@@ -298,8 +329,14 @@ export function VoucherDetailsDialog({
             <div className="space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="font-medium">Underlag ({originalAttachments.length + linkedReceipts.length})</h3>
-                <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()}>
-                  <Upload className="mr-2 h-4 w-4" /> Lägg till komplettering
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={isUploadingAttachments}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  {isUploadingAttachments ? "Sparar..." : "Lägg till komplettering"}
                 </Button>
                 <input
                   ref={fileInputRef}
@@ -307,6 +344,7 @@ export function VoucherDetailsDialog({
                   accept="image/*,.pdf"
                   multiple
                   className="hidden"
+                  disabled={isUploadingAttachments}
                   onChange={handleFileChange}
                 />
               </div>
