@@ -745,6 +745,118 @@ function assertISODate(
   }
 }
 
+function assertMonthDay(
+  value: string,
+  label: string
+): void {
+  if (!/^\d{2}-\d{2}$/.test(value)) {
+    throw new Error(label + " måste anges som MM-DD eller ÅÅÅÅ-MM-DD.");
+  }
+
+  const [monthText, dayText] = value.split("-");
+  const month = Number(monthText);
+  const day = Number(dayText);
+  // År 2000 används eftersom det är skottår och därför även validerar 02-29.
+  const parsed = new Date(Date.UTC(2000, month - 1, day));
+
+  if (
+    parsed.getUTCMonth() + 1 !== month ||
+    parsed.getUTCDate() !== day
+  ) {
+    throw new Error(label + " är inte ett giltigt månad-dag-värde.");
+  }
+}
+
+function fiscalYearStartForDate(
+  date: string,
+  configuredStart: string
+): string {
+  assertISODate(date, "Verifikationsdatum");
+  assertMonthDay(configuredStart, "Räkenskapsårets start");
+
+  const year = Number(date.slice(0, 4));
+  const candidate = String(year) + "-" + configuredStart;
+
+  return date >= candidate
+    ? candidate
+    : String(year - 1) + "-" + configuredStart;
+}
+
+function fiscalYearEndForStart(
+  fiscalYearStart: string,
+  configuredEnd: string
+): string {
+  assertISODate(fiscalYearStart, "Räkenskapsårets startdatum");
+  assertMonthDay(configuredEnd, "Räkenskapsårets slut");
+
+  const startYear = Number(fiscalYearStart.slice(0, 4));
+  const startMonthDay = fiscalYearStart.slice(5);
+  const endYear = configuredEnd >= startMonthDay
+    ? startYear
+    : startYear + 1;
+  const endDate = String(endYear) + "-" + configuredEnd;
+
+  assertISODate(endDate, "Räkenskapsårets slutdatum");
+  return endDate;
+}
+
+function resolveExportFiscalPeriod(
+  vouchers: Voucher[],
+  options: SIEExportOptions
+): { start: string; end: string } {
+  const startIsISO = /^\d{4}-\d{2}-\d{2}$/.test(options.fiscalYearStart);
+  const endIsISO = /^\d{4}-\d{2}-\d{2}$/.test(options.fiscalYearEnd);
+  const startIsMonthDay = /^\d{2}-\d{2}$/.test(options.fiscalYearStart);
+  const endIsMonthDay = /^\d{2}-\d{2}$/.test(options.fiscalYearEnd);
+
+  if (startIsISO && endIsISO) {
+    assertISODate(options.fiscalYearStart, "Räkenskapsårets startdatum");
+    assertISODate(options.fiscalYearEnd, "Räkenskapsårets slutdatum");
+
+    if (options.fiscalYearStart > options.fiscalYearEnd) {
+      throw new Error("Räkenskapsårets startdatum får inte ligga efter slutdatumet.");
+    }
+
+    return {
+      start: options.fiscalYearStart,
+      end: options.fiscalYearEnd,
+    };
+  }
+
+  if (!startIsMonthDay || !endIsMonthDay) {
+    throw new Error(
+      "Räkenskapsåret måste anges antingen som MM-DD/MM-DD eller som fullständiga datum ÅÅÅÅ-MM-DD."
+    );
+  }
+
+  assertMonthDay(options.fiscalYearStart, "Räkenskapsårets start");
+  assertMonthDay(options.fiscalYearEnd, "Räkenskapsårets slut");
+
+  const postedDates = vouchers
+    .filter((voucher) => voucher.status !== "DRAFT")
+    .map((voucher) => voucher.date)
+    .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date))
+    .sort();
+
+  // Företagsprofilen lagrar normalt bara MM-DD. Då väljer vi det
+  // räkenskapsår som innehåller den senaste bokförda verifikationen.
+  // Det är stabilare än att använda datorns nuvarande kalenderår.
+  const anchorDate =
+    postedDates[postedDates.length - 1] ??
+    new Date().toISOString().slice(0, 10);
+
+  const start = fiscalYearStartForDate(
+    anchorDate,
+    options.fiscalYearStart
+  );
+  const end = fiscalYearEndForStart(
+    start,
+    options.fiscalYearEnd
+  );
+
+  return { start, end };
+}
+
 function shiftISODateOneYearBack(
   value: string
 ): string {
@@ -808,34 +920,22 @@ export function generateSIEFile(
   options:
     SIEExportOptions
 ): string {
-  assertISODate(
-    options.fiscalYearStart,
-    "Räkenskapsårets startdatum"
-  );
-  assertISODate(
-    options.fiscalYearEnd,
-    "Räkenskapsårets slutdatum"
-  );
-
-  if (
-    options.fiscalYearStart >
-    options.fiscalYearEnd
-  ) {
-    throw new Error(
-      "Räkenskapsårets startdatum får inte ligga efter slutdatumet."
-    );
-  }
-
   const lines: string[] = [];
   const today =
     new Date()
       .toISOString()
       .split("T")[0];
 
+  const fiscalPeriod =
+    resolveExportFiscalPeriod(
+      vouchers,
+      options
+    );
+
   const fiscalYearStart =
-    options.fiscalYearStart;
+    fiscalPeriod.start;
   const fiscalYearEnd =
-    options.fiscalYearEnd;
+    fiscalPeriod.end;
 
   const previousFiscalYearStart =
     shiftISODateOneYearBack(
